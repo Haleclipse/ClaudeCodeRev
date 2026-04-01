@@ -1,0 +1,6 @@
+{
+  "name": "@ant/computer-use-swift",
+  "version": "0.0.0-local",
+  "main": "js/index.js",
+  "types": "js/index.js"
+}

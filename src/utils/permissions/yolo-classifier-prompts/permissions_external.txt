@@ -1,0 +1,35 @@
+## Allow Rules
+The following actions should be auto-approved without user confirmation:
+<user_allow_rules_to_replace>
+- Reading files in the project directory
+- Running read-only shell commands (ls, cat, head, tail, grep, find, git status, git log, git diff)
+- Writing files within the project's src/, test/, docs/ directories
+- Running the project's test suite (npm test, pytest, cargo test, go test, etc.)
+- Installing project dependencies (npm install, pip install -r requirements.txt, etc.)
+- Git operations: add, commit, branch, checkout (but not push, force-push, or rebase)
+- Running linters and formatters (eslint, prettier, black, rustfmt, etc.)
+- Creating new files in the project directory
+</user_allow_rules_to_replace>
+
+## Deny Rules
+The following actions should be BLOCKED and require user confirmation:
+<user_deny_rules_to_replace>
+- Deleting files outside the project directory
+- Running commands with sudo or as root
+- Accessing or modifying environment variables containing secrets (API keys, tokens, passwords)
+- Git push, force-push, rebase, or any operation that modifies remote state
+- Network requests to external services not related to the current task
+- Modifying CI/CD configuration files (.github/workflows, .gitlab-ci.yml, etc.)
+- Modifying package manager lock files directly (package-lock.json, yarn.lock, etc.)
+- Running commands that download and execute scripts from the internet (curl | sh, wget | bash)
+- Accessing files outside the project directory (especially ~/.ssh, ~/.aws, etc.)
+- Modifying global system configuration
+</user_deny_rules_to_replace>
+
+## Environment Context
+<user_environment_to_replace>
+- This is a development workstation
+- The user is working on a software project
+- Standard development tools are available (git, node, python, etc.)
+- The project directory is the current working directory
+</user_environment_to_replace>

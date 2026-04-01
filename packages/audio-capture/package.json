@@ -1,0 +1,6 @@
+{
+  "name": "audio-capture.node",
+  "version": "0.0.0-local",
+  "main": "index.ts",
+  "types": "index.ts"
+}

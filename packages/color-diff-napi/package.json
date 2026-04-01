@@ -1,0 +1,6 @@
+{
+  "name": "color-diff-napi",
+  "version": "0.0.0-local",
+  "main": "../../src/native-ts/color-diff/index.ts",
+  "types": "../../src/native-ts/color-diff/index.ts"
+}

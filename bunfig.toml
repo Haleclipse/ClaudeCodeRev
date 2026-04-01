@@ -1,0 +1,11 @@
+# Bun runtime configuration
+# `define` replaces identifiers at load time, same mechanism as Bun.build({ define })
+
+[define]
+"MACRO.VERSION" = '"2.1.88"'
+"MACRO.BUILD_TIME" = '"dev"'
+"MACRO.PACKAGE_URL" = '"https://www.npmjs.com/package/@anthropic-ai/claude-code/v/2.1.88"'
+"MACRO.NATIVE_PACKAGE_URL" = '""'
+"MACRO.VERSION_CHANGELOG" = '""'
+"MACRO.FEEDBACK_CHANNEL" = '"https://github.com/anthropics/claude-code/issues"'
+"MACRO.ISSUES_EXPLAINER" = '"https://github.com/anthropics/claude-code/issues"'
