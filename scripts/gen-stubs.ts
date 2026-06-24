@@ -114,6 +114,25 @@ for (const file of allFiles) {
     missingTargets.set(key, existing)
   }
 
+  // Handle bare side-effect imports: import './foo.d.ts', import '../bar.js'
+  const bareRe = /^import\s+['"](\.[^'"]+)['"]/gm
+  while ((m = bareRe.exec(content)) !== null) {
+    const specifier = m[1]
+    const resolved = normalize(join(dir, specifier))
+    // For .d.ts files, check as-is; for .js, check .ts/.tsx
+    if (specifier.endsWith('.d.ts')) {
+      if (!existsSync(resolved)) {
+        if (!missingTargets.has(resolved)) missingTargets.set(resolved, [])
+      }
+    } else if (specifier.endsWith('.js')) {
+      const tsPath = resolved.replace(/\.js$/, '.ts')
+      const tsxPath = resolved.replace(/\.js$/, '.tsx')
+      if (!existsSync(tsPath) && !existsSync(tsxPath)) {
+        if (!missingTargets.has(tsPath)) missingTargets.set(tsPath, [])
+      }
+    }
+  }
+
   // Also handle dynamic imports: import('...')
   const dynRe = /import\(\s*['"]([^'"]+\.js)['"]\s*\)/g
   while ((m = dynRe.exec(content)) !== null) {
@@ -639,6 +658,43 @@ export type FeedbackSurveyResponse = { type: FeedbackSurveyType; rating?: number
 known('query/transitions.ts', `
 export type Terminal = { type: 'terminal'; reason: string }
 export type Continue = { type: 'continue' }
+`)
+
+// --- ink/global.d.ts ---
+// JSX IntrinsicElements for custom Ink renderer (imported as '../global.d.ts')
+known('ink/global.d.ts', `
+type InkElementProps = {
+  ref?: any; key?: string | number; children?: any
+  tabIndex?: number; autoFocus?: boolean
+  style?: Record<string, unknown>
+  textStyles?: Record<string, unknown>
+  onClick?: (event: any) => void
+  onFocus?: (event: any) => void
+  onFocusCapture?: (event: any) => void
+  onBlur?: (event: any) => void
+  onBlurCapture?: (event: any) => void
+  onMouseEnter?: () => void
+  onMouseLeave?: () => void
+  onKeyDown?: (event: any) => void
+  onKeyDownCapture?: (event: any) => void
+  [key: string]: any
+}
+
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      'ink-root': InkElementProps
+      'ink-box': InkElementProps
+      'ink-text': InkElementProps
+      'ink-virtual-text': InkElementProps
+      'ink-link': InkElementProps & { href?: string }
+      'ink-progress': InkElementProps
+      'ink-raw-ansi': InkElementProps & { rawText?: string; rawWidth?: number; rawHeight?: number }
+    }
+  }
+}
+
+export {}
 `)
 
 // --- ink/cursor.ts ---
