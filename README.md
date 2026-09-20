@@ -1,3 +1,5 @@
+
+
 # Claude Code 2.1.88 Rebuild
 
 Recovered source tree of `@anthropic-ai/claude-code@2.1.88`, rebuilt from the published npm package's sourcemap.
@@ -27,7 +29,7 @@ bun run build        # production build → dist/cli.js
 | Command | Description |
 |---------|-------------|
 | `bun run dev` | Run source directly with Bun |
-| `bun run build` | Production build (minified, feature flags off) |
+| `bun run build` | Production build (minified, internal/experimental features off) |
 | `bun run build:dev` | Dev build (all features on, no minify) |
 | `bun run build:sourcemap` | Build with sourcemap |
 | `bun run start` | Run built `dist/cli.js` with Node |
