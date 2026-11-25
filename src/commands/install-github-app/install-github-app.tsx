@@ -1,4 +1,3 @@
-import { execa } from 'execa'
 import React, { useCallback, useState } from 'react'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -14,6 +13,7 @@ import { getAnthropicApiKey, isAnthropicAuthEnabled } from '../../utils/auth.js'
 import { openBrowser } from '../../utils/browser.js'
 import { execFileNoThrow } from '../../utils/execFileNoThrow.js'
 import { getGithubRepo } from '../../utils/git.js'
+import { execaShell } from '../../utils/safeExeca.js'
 import { plural } from '../../utils/stringUtils.js'
 import { ApiKeyStep } from './ApiKeyStep.js'
 import { CheckExistingSecretStep } from './CheckExistingSecretStep.js'
@@ -70,8 +70,7 @@ function InstallGitHubApp(props: {
     const warnings: Warning[] = []
 
     // Check if gh is installed
-    const ghVersionResult = await execa('gh --version', {
-      shell: true,
+    const ghVersionResult = await execaShell('gh --version', {
       reject: false,
     })
     if (ghVersionResult.exitCode !== 0) {
@@ -89,8 +88,7 @@ function InstallGitHubApp(props: {
     }
 
     // Check auth status
-    const authResult = await execa('gh auth status -a', {
-      shell: true,
+    const authResult = await execaShell('gh auth status -a', {
       reject: false,
     })
     if (authResult.exitCode !== 0) {

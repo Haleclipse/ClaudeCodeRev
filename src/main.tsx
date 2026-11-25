@@ -8,6 +8,13 @@
 //    (~65ms on every macOS startup)
 import { profileCheckpoint, profileReport } from './utils/startupProfiler.js'
 
+// SECURITY: Prevent Windows from executing commands from current directory
+// This must be set before ANY command execution to prevent PATH hijacking attacks
+// — including the MDM / keychain subprocesses started just below.
+// See: https://docs.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-searchpathw
+// eslint-disable-next-line custom-rules/no-top-level-side-effects
+process.env.NoDefaultCurrentDirectoryInExePath = '1'
+
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
 profileCheckpoint('main_tsx_entry')
 
@@ -872,11 +879,6 @@ const _pendingSSH: PendingSSH | undefined = feature('SSH_REMOTE')
 
 export async function main() {
   profileCheckpoint('main_function_start')
-
-  // SECURITY: Prevent Windows from executing commands from current directory
-  // This must be set before ANY command execution to prevent PATH hijacking attacks
-  // See: https://docs.microsoft.com/en-us/windows/win32/api/processenv/nf-processenv-searchpathw
-  process.env.NoDefaultCurrentDirectoryInExePath = '1'
 
   // Initialize warning handler early to catch warnings
   initializeWarningHandler()

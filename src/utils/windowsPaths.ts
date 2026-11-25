@@ -1,11 +1,10 @@
 import memoize from 'lodash-es/memoize.js'
-import * as path from 'path'
 import * as pathWin32 from 'path/win32'
-import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
 import { execSync_DEPRECATED } from './execSyncWrapper.js'
 import { memoizeWithLRU } from './memoize.js'
 import { getPlatform } from './platform.js'
+import { findWindowsExecutable } from './windowsExecutable.js'
 
 /**
  * Check if a file or directory exists on Windows using the dir command
@@ -18,64 +17,6 @@ function checkPathExists(path: string): boolean {
     return true
   } catch {
     return false
-  }
-}
-
-/**
- * Find an executable using where.exe on Windows
- * @param executable - The name of the executable to find
- * @returns The path to the executable or null if not found
- */
-function findExecutable(executable: string): string | null {
-  // For git, check common installation locations first
-  if (executable === 'git') {
-    const defaultLocations = [
-      // check 64 bit before 32 bit
-      'C:\\Program Files\\Git\\cmd\\git.exe',
-      'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
-      // intentionally don't look for C:\Program Files\Git\mingw64\bin\git.exe
-      // because that directory is the "raw" tools with no environment setup
-    ]
-
-    for (const location of defaultLocations) {
-      if (checkPathExists(location)) {
-        return location
-      }
-    }
-  }
-
-  // Fall back to where.exe
-  try {
-    const result = execSync_DEPRECATED(`where.exe ${executable}`, {
-      stdio: 'pipe',
-      encoding: 'utf8',
-    }).trim()
-
-    // SECURITY: Filter out any results from the current directory
-    // to prevent executing malicious git.bat/cmd/exe files
-    const paths = result.split('\r\n').filter(Boolean)
-    const cwd = getCwd().toLowerCase()
-
-    for (const candidatePath of paths) {
-      // Normalize and compare paths to ensure we're not in current directory
-      const normalizedPath = path.resolve(candidatePath).toLowerCase()
-      const pathDir = path.dirname(normalizedPath).toLowerCase()
-
-      // Skip if the executable is in the current working directory
-      if (pathDir === cwd || normalizedPath.startsWith(cwd + path.sep)) {
-        logForDebugging(
-          `Skipping potentially malicious executable in current directory: ${candidatePath}`,
-        )
-        continue
-      }
-
-      // Return the first valid path that's not in the current directory
-      return candidatePath
-    }
-
-    return null
-  } catch {
-    return null
   }
 }
 
@@ -108,7 +49,24 @@ export const findGitBashPath = memoize((): string => {
     process.exit(1)
   }
 
-  const gitPath = findExecutable('git')
+  // Check common git installation locations first (64 bit before 32 bit).
+  // Intentionally don't look for C:\Program Files\Git\mingw64\bin\git.exe
+  // because that directory is the "raw" tools with no environment setup.
+  const defaultGitLocations = [
+    'C:\\Program Files\\Git\\cmd\\git.exe',
+    'C:\\Program Files (x86)\\Git\\cmd\\git.exe',
+  ]
+  for (const location of defaultGitLocations) {
+    if (checkPathExists(location)) {
+      const bashPath = pathWin32.join(location, '..', '..', 'bin', 'bash.exe')
+      if (checkPathExists(bashPath)) {
+        return bashPath
+      }
+    }
+  }
+
+  // Fall back to where.exe (skips results in the current directory)
+  const gitPath = findWindowsExecutable('git')
   if (gitPath) {
     const bashPath = pathWin32.join(gitPath, '..', '..', 'bin', 'bash.exe')
     if (checkPathExists(bashPath)) {

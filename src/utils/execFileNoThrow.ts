@@ -5,6 +5,7 @@
 import { type ExecaError, execa } from 'execa'
 import { getCwd } from '../utils/cwd.js'
 import { logError } from './log.js'
+import { resolveWindowsExecutable } from './windowsExecutable.js'
 
 export { execSyncWithDefaults_DEPRECATED } from './execFileNoThrowPortable.js'
 
@@ -105,9 +106,24 @@ export function execFileNoThrowWithCwd(
     maxBuffer: 1_000_000,
   },
 ): Promise<{ stdout: string; stderr: string; code: number; error?: string }> {
+  // SECURITY: never run an executable from the current directory on Windows.
+  // With `shell`, the command line goes to the shell as-is.
+  let resolvedFile = file
+  if (process.platform === 'win32' && !shell) {
+    const resolved = resolveWindowsExecutable(file)
+    if (resolved === null) {
+      return Promise.resolve({
+        stdout: '',
+        stderr: `Command '${file}' not found or is in an unsafe location (current directory)`,
+        code: 127,
+        error: `Command '${file}' not found or is in an unsafe location (current directory)`,
+      })
+    }
+    resolvedFile = resolved
+  }
   return new Promise(resolve => {
     // Use execa for cross-platform .bat/.cmd compatibility on Windows
-    execa(file, args, {
+    execa(resolvedFile, args, {
       maxBuffer,
       signal: abortSignal,
       timeout: finalTimeout,

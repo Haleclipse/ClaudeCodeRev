@@ -1,4 +1,3 @@
-import { execa } from 'execa'
 import { readFile, realpath } from 'fs/promises'
 import { homedir } from 'os'
 import { delimiter, join, posix, win32 } from 'path'
@@ -32,6 +31,7 @@ import {
 } from './nativeInstaller/packageManagers.js'
 import { getPlatform } from './platform.js'
 import { getRipgrepStatus } from './ripgrep.js'
+import { execaShell } from './safeExeca.js'
 import { SandboxManager } from './sandbox/sandbox-adapter.js'
 import { getManagedFilePath } from './settings/managedPath.js'
 import { CUSTOMIZATION_SURFACES } from './settings/types.js'
@@ -132,8 +132,7 @@ export async function getCurrentInstallationType(): Promise<InstallationType> {
     return 'npm-global'
   }
 
-  const npmConfigResult = await execa('npm config get prefix', {
-    shell: true,
+  const npmConfigResult = await execaShell('npm config get prefix', {
     reject: false,
   })
   const globalPrefix =

@@ -4,9 +4,8 @@ import { join } from 'path'
 import { fileSuffixForOauthConfig } from '../constants/oauth.js'
 import { isRunningWithBun } from './bundledMode.js'
 import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
-import { findExecutable } from './findExecutable.js'
 import { getFsImplementation } from './fsOperations.js'
-import { which } from './which.js'
+import { which, whichSync } from './which.js'
 
 type Platform = 'win32' | 'darwin' | 'linux'
 
@@ -94,7 +93,10 @@ const isNpmFromWindowsPath = memoize((): boolean => {
     }
 
     // Find the actual npm executable path
-    const { cmd } = findExecutable('npm', [])
+    const cmd = whichSync('npm')
+    if (cmd === null) {
+      return false
+    }
 
     // If npm is in Windows path, it will start with /mnt/c/
     return cmd.startsWith('/mnt/c/')

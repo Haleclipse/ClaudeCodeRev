@@ -1,7 +1,7 @@
-import { execaSync } from 'execa'
 import { logForDebugging } from '../debug.js'
 import { execFileNoThrow } from '../execFileNoThrow.js'
 import { execSyncWithDefaults_DEPRECATED } from '../execFileNoThrowPortable.js'
+import { execaSyncSafe } from '../safeExeca.js'
 import { jsonParse, jsonStringify } from '../slowOperations.js'
 import {
   CREDENTIALS_SERVICE_SUFFIX,
@@ -119,7 +119,7 @@ export const macOsKeychainStorage = {
 
       let result
       if (command.length <= SECURITY_STDIN_LINE_LIMIT) {
-        result = execaSync('security', ['-i'], {
+        result = execaSyncSafe('security', ['-i'], {
           input: command,
           stdio: ['pipe', 'pipe', 'pipe'],
           reject: false,
@@ -129,7 +129,7 @@ export const macOsKeychainStorage = {
           `Keychain payload (${jsonString.length}B JSON) exceeds security -i stdin limit; using argv`,
           { level: 'warn' },
         )
-        result = execaSync(
+        result = execaSyncSafe(
           'security',
           [
             'add-generic-password',
@@ -217,7 +217,7 @@ export function isMacOsKeychainLocked(): boolean {
   }
 
   try {
-    const result = execaSync('security', ['show-keychain-info'], {
+    const result = execaSyncSafe('security', ['show-keychain-info'], {
       reject: false,
       stdio: ['ignore', 'pipe', 'pipe'],
     })

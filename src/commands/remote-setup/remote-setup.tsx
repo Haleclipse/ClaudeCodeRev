@@ -1,4 +1,3 @@
-import { execa } from 'execa'
 import * as React from 'react'
 import { useEffect, useState } from 'react'
 import { Select } from '../../components/CustomSelect/index.js'
@@ -12,6 +11,7 @@ import {
 import type { LocalJSXCommandOnDone } from '../../types/command.js'
 import { openBrowser } from '../../utils/browser.js'
 import { getGhAuthStatus } from '../../utils/github/ghAuthStatus.js'
+import { execaSafe } from '../../utils/safeExeca.js'
 import {
   createDefaultEnvironment,
   getCodeWebUrl,
@@ -42,7 +42,7 @@ async function checkLoginState(): Promise<CheckResult> {
 
   // ghStatus === 'authenticated'. getGhAuthStatus spawns with stdout:'ignore'
   // (telemetry-safe); spawn once more with stdout:'pipe' to read the token.
-  const { stdout } = await execa('gh', ['auth', 'token'], {
+  const { stdout } = await execaSafe('gh', ['auth', 'token'], {
     stdout: 'pipe',
     stderr: 'ignore',
     timeout: 5000,

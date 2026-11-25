@@ -1,4 +1,3 @@
-import { execa } from 'execa'
 import { readFile } from 'fs/promises'
 import { join } from 'path'
 import * as React from 'react'
@@ -27,6 +26,7 @@ import {
 import { OFFICIAL_MARKETPLACE_NAME } from '../../utils/plugins/officialMarketplace.js'
 import { loadAllPlugins } from '../../utils/plugins/pluginLoader.js'
 import { installSelectedPlugins } from '../../utils/plugins/pluginStartupCheck.js'
+import { execaSafe } from '../../utils/safeExeca.js'
 
 // Marketplace and plugin identifiers - varies by user type
 const INTERNAL_MARKETPLACE_NAME = 'claude-code-marketplace'
@@ -129,7 +129,7 @@ export async function playAnimation(skillDir: string): Promise<{
 
   inkInstance.enterAlternateScreen()
   try {
-    await execa('node', [playerPath], {
+    await execaSafe('node', [playerPath], {
       stdio: 'inherit',
       cwd: skillDir,
       reject: false,

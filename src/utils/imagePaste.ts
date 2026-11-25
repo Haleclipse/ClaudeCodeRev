@@ -1,6 +1,5 @@
 import { feature } from 'bun:bundle'
 import { randomBytes } from 'crypto'
-import { execa } from 'execa'
 import { basename, extname, isAbsolute, join } from 'path'
 import {
   IMAGE_MAX_HEIGHT,
@@ -18,6 +17,7 @@ import {
   maybeResizeAndDownsampleImageBuffer,
 } from './imageResizer.js'
 import { logError } from './log.js'
+import { execaShell } from './safeExeca.js'
 
 // Native NSPasteboard reader. GrowthBook gate tengu_collage_kaleidoscope is
 // a kill switch (default on). Falls through to osascript when off.
@@ -186,8 +186,7 @@ export async function getImageFromClipboard(): Promise<ImageWithDimensions | nul
   const { commands, screenshotPath } = getClipboardCommands()
   try {
     // Check if clipboard has image
-    const checkResult = await execa(commands.checkImage, {
-      shell: true,
+    const checkResult = await execaShell(commands.checkImage, {
       reject: false,
     })
     if (checkResult.exitCode !== 0) {
@@ -195,8 +194,7 @@ export async function getImageFromClipboard(): Promise<ImageWithDimensions | nul
     }
 
     // Save the image
-    const saveResult = await execa(commands.saveImage, {
-      shell: true,
+    const saveResult = await execaShell(commands.saveImage, {
       reject: false,
     })
     if (saveResult.exitCode !== 0) {
@@ -229,7 +227,7 @@ export async function getImageFromClipboard(): Promise<ImageWithDimensions | nul
     const mediaType = detectImageFormatFromBase64(base64Image)
 
     // Cleanup (fire-and-forget, don't await)
-    void execa(commands.deleteFile, { shell: true, reject: false })
+    void execaShell(commands.deleteFile, { reject: false })
 
     return {
       base64: base64Image,
@@ -246,8 +244,7 @@ export async function getImagePathFromClipboard(): Promise<string | null> {
 
   try {
     // Try to get text from clipboard
-    const result = await execa(commands.getPath, {
-      shell: true,
+    const result = await execaShell(commands.getPath, {
       reject: false,
     })
     if (result.exitCode !== 0 || !result.stdout) {

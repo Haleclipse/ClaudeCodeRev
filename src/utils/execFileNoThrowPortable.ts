@@ -1,5 +1,6 @@
-import { type Options as ExecaOptions, execaSync } from 'execa'
+import type { Options as ExecaOptions } from 'execa'
 import { getCwd } from '../utils/cwd.js'
+import { execaShellSync } from './safeExeca.js'
 import { slowLogging } from './slowOperations.js'
 
 const MS_IN_SECOND = 1000
@@ -69,13 +70,13 @@ export function execSyncWithDefaults_DEPRECATED(
   abortSignal?.throwIfAborted()
   using _ = slowLogging`exec: ${command.slice(0, 200)}`
   try {
-    const result = execaSync(command, {
+    // execSync typically runs shell commands
+    const result = execaShellSync(command, {
       env: process.env,
       maxBuffer: 1_000_000,
       timeout: finalTimeout,
       cwd: getCwd(),
       stdio,
-      shell: true, // execSync typically runs shell commands
       reject: false, // Don't throw on non-zero exit codes
       input,
     })
