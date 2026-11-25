@@ -25,7 +25,7 @@ import { join } from 'path'
 import { registerCleanup } from '../utils/cleanupRegistry.js'
 import { logForDebugging } from '../utils/debug.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
-import { isENOENT } from '../utils/errors.js'
+import { getErrnoCode, isENOENT } from '../utils/errors.js'
 import { startUpstreamProxyRelay } from './relay.js'
 
 export const SESSION_TOKEN_PATH = '/run/ccr/session_token'
@@ -81,6 +81,7 @@ export async function initUpstreamProxy(opts?: {
   systemCaPath?: string
   caBundlePath?: string
   ccrBaseUrl?: string
+  awsConfigPath?: string
 }): Promise<UpstreamProxyState> {
   if (!isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
     return state
@@ -129,6 +130,10 @@ export async function initUpstreamProxy(opts?: {
   )
   if (!caOk) return state
 
+  await ensureAwsConfigForProxy(
+    opts?.awsConfigPath ?? join(homedir(), '.aws', 'config'),
+  )
+
   try {
     const wsUrl = baseUrl.replace(/^http/, 'ws') + '/v1/code/upstreamproxy/ws'
     const relay = await startUpstreamProxyRelay({ wsUrl, sessionId, token })
@@ -175,6 +180,8 @@ export function getUpstreamProxyEnv(): Record<string, string> {
         'NODE_EXTRA_CA_CERTS',
         'REQUESTS_CA_BUNDLE',
         'CURL_CA_BUNDLE',
+        'AWS_ACCESS_KEY_ID',
+        'AWS_SECRET_ACCESS_KEY',
       ]) {
         if (process.env[key]) inherited[key] = process.env[key]
       }
@@ -195,6 +202,10 @@ export function getUpstreamProxyEnv(): Record<string, string> {
     NODE_EXTRA_CA_CERTS: state.caBundlePath,
     REQUESTS_CA_BUNDLE: state.caBundlePath,
     CURL_CA_BUNDLE: state.caBundlePath,
+    // Placeholder credentials so AWS SDKs/CLIs sign and send requests at
+    // all; the upstream proxy swaps in the real credentials.
+    AWS_ACCESS_KEY_ID: 'proxy-injected',
+    AWS_SECRET_ACCESS_KEY: 'proxy-injected',
   }
 }
 
@@ -281,5 +292,27 @@ async function downloadCaBundle(
       { level: 'warn' },
     )
     return false
+  }
+}
+
+/**
+ * Write a minimal ~/.aws/config on first use. The proxy re-signs S3
+ * requests, so the payload must not be signed with the placeholder key
+ * (payload_signing_enabled = false). Never overwrites an existing config.
+ */
+async function ensureAwsConfigForProxy(configPath: string): Promise<void> {
+  try {
+    await mkdir(join(configPath, '..'), { recursive: true, mode: 0o700 })
+    await writeFile(
+      configPath,
+      '[default]\ns3 =\n  payload_signing_enabled = false\n',
+      { flag: 'wx', mode: 0o600 },
+    )
+  } catch (err) {
+    if (getErrnoCode(err) === 'EEXIST') return
+    logForDebugging(
+      `[upstreamproxy] aws config write failed: ${err instanceof Error ? err.message : String(err)}`,
+      { level: 'warn' },
+    )
   }
 }
