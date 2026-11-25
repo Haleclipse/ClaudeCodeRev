@@ -392,24 +392,24 @@ export function BackgroundTasksDialog({
     }
   }
 
-  async function killShellTask(taskId: string): Promise<void> {
-    await LocalShellTask.kill(taskId, setAppState)
+  function killShellTask(taskId: string): Promise<void> {
+    return LocalShellTask.kill(taskId, setAppState)
   }
 
-  async function killAgentTask(taskId: string): Promise<void> {
-    await LocalAgentTask.kill(taskId, setAppState)
+  function killAgentTask(taskId: string): Promise<void> {
+    return LocalAgentTask.kill(taskId, setAppState)
   }
 
-  async function killTeammateTask(taskId: string): Promise<void> {
-    await InProcessTeammateTask.kill(taskId, setAppState)
+  function killTeammateTask(taskId: string): Promise<void> {
+    return InProcessTeammateTask.kill(taskId, setAppState)
   }
 
-  async function killDreamTask(taskId: string): Promise<void> {
-    await DreamTask.kill(taskId, setAppState)
+  function killDreamTask(taskId: string): Promise<void> {
+    return DreamTask.kill(taskId, setAppState)
   }
 
-  async function killRemoteAgentTask(taskId: string): Promise<void> {
-    await RemoteAgentTask.kill(taskId, setAppState)
+  function killRemoteAgentTask(taskId: string): Promise<void> {
+    return RemoteAgentTask.kill(taskId, setAppState)
   }
 
   // Wrap onDone in useEffectEvent to get a stable reference that always calls

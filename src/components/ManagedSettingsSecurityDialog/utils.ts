@@ -36,8 +36,21 @@ export function extractDangerousSettings(
   const shellSettings: Partial<Record<DangerousShellSetting, string>> = {}
   for (const key of DANGEROUS_SHELL_SETTINGS) {
     const value = settings[key]
-    if (typeof value === 'string' && value.length > 0) {
-      shellSettings[key] = value
+    // Plain command strings, or `{ type: 'command', command }` objects
+    // (statusLine, fileSuggestion)
+    let command: string | undefined
+    if (typeof value === 'string') {
+      command = value
+    } else if (
+      value !== null &&
+      typeof value === 'object' &&
+      'command' in value &&
+      typeof value.command === 'string'
+    ) {
+      command = value.command
+    }
+    if (command !== undefined && command.length > 0) {
+      shellSettings[key] = command
     }
   }
 

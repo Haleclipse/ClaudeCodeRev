@@ -21,6 +21,7 @@ import {
 } from '../../bootstrap/state.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { isOfficialMcpUrl } from '../mcp/officialRegistry.js'
+import { COMPUTER_USE_MCP_SERVER_NAME } from '../../utils/computerUse/common.js'
 import { isClaudeAISubscriber, getSubscriptionType } from '../../utils/auth.js'
 import { getRepoRemoteHash } from '../../utils/git.js'
 import {
@@ -125,17 +126,9 @@ export function isAnalyticsToolDetailsLoggingEnabled(
  * reservation (main.tsx, config.ts addMcpServer) is itself feature-gated, so
  * a user-configured 'computer-use' is possible in builds without the feature.
  */
-/* eslint-disable @typescript-eslint/no-require-imports */
 const BUILTIN_MCP_SERVER_NAMES: ReadonlySet<string> = new Set(
-  feature('CHICAGO_MCP')
-    ? [
-        (
-          require('../../utils/computerUse/common.js') as typeof import('../../utils/computerUse/common.js')
-        ).COMPUTER_USE_MCP_SERVER_NAME,
-      ]
-    : [],
+  feature('CHICAGO_MCP') ? [COMPUTER_USE_MCP_SERVER_NAME] : [],
 )
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * Spreadable helper for logEvent payloads — returns {mcpServerName, mcpToolName}
@@ -544,10 +537,10 @@ function getAgentIdentification(): {
       : undefined
   if (agentId || agentType || parentSessionId || teamName) {
     return {
-      ...(agentId ? { agentId } : {}),
-      ...(agentType ? { agentType } : {}),
-      ...(parentSessionId ? { parentSessionId } : {}),
-      ...(teamName ? { teamName } : {}),
+      ...(agentId && { agentId }),
+      ...(agentType && { agentType }),
+      ...(parentSessionId && { parentSessionId }),
+      ...(teamName && { teamName }),
     }
   }
 
@@ -633,7 +626,7 @@ const buildEnvContext = memoize(async (): Promise<EnvContext> => {
     }),
     ...(getWslVersion() && { wslVersion: getWslVersion() }),
     ...(linuxDistroInfo ?? {}),
-    ...(vcs.length > 0 ? { vcs: vcs.join(',') } : {}),
+    ...(vcs.length > 0 && { vcs: vcs.join(',') }),
   }
 })
 
@@ -708,7 +701,7 @@ export async function getEventMetadata(
     model,
     sessionId: getSessionId(),
     userType: process.env.USER_TYPE || '',
-    ...(betas.length > 0 ? { betas: betas } : {}),
+    ...(betas.length > 0 && { betas: betas }),
     envContext,
     ...(process.env.CLAUDE_CODE_ENTRYPOINT && {
       entrypoint: process.env.CLAUDE_CODE_ENTRYPOINT,

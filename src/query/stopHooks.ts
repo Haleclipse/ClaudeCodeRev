@@ -179,7 +179,9 @@ export async function* handleStopHooks(
       stopHookActive ?? false,
       toolUseContext.agentId,
       toolUseContext,
-      toolUseContext.messages,
+      // History plus this turn's assistant messages, so hooks see the
+      // reply they're stopping on
+      stopHookContext.messages,
       toolUseContext.agentType,
     )
 

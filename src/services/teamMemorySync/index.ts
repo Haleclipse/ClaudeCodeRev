@@ -45,7 +45,7 @@ import {
   getClaudeAIOAuthTokens,
 } from '../../utils/auth.js'
 import { logForDebugging } from '../../utils/debug.js'
-import { classifyAxiosError } from '../../utils/errors.js'
+import { classifyAxiosError, getErrnoCode } from '../../utils/errors.js'
 import { getGithubRepo } from '../../utils/git.js'
 import {
   getAPIProvider,
@@ -133,14 +133,6 @@ export function createSyncState(): SyncState {
  */
 export function hashContent(content: string): string {
   return 'sha256:' + createHash('sha256').update(content, 'utf8').digest('hex')
-}
-
-/**
- * Type guard narrowing an unknown error to a Node.js errno-style exception.
- * Uses `in` narrowing so no `as` cast is needed at call sites.
- */
-function isErrnoException(e: unknown): e is NodeJS.ErrnoException {
-  return e instanceof Error && 'code' in e && typeof e.code === 'string'
 }
 
 // ─── Auth & endpoint ─────────────────────────────────────────
@@ -622,11 +614,8 @@ async function readLocalTeamMemory(maxEntries: number | null): Promise<{
         }),
       )
     } catch (e) {
-      if (isErrnoException(e)) {
-        if (e.code !== 'ENOENT' && e.code !== 'EACCES' && e.code !== 'EPERM') {
-          throw e
-        }
-      } else {
+      const code = getErrnoCode(e)
+      if (code !== 'ENOENT' && code !== 'EACCES' && code !== 'EPERM') {
         throw e
       }
     }
@@ -720,13 +709,10 @@ async function writeRemoteEntriesToLocal(
           return false
         }
       } catch (e) {
-        if (
-          isErrnoException(e) &&
-          e.code !== 'ENOENT' &&
-          e.code !== 'ENOTDIR'
-        ) {
+        const code = getErrnoCode(e)
+        if (code !== undefined && code !== 'ENOENT' && code !== 'ENOTDIR') {
           logForDebugging(
-            `team-memory-sync: unexpected read error for "${relPath}": ${e.code}`,
+            `team-memory-sync: unexpected read error for "${relPath}": ${code}`,
             { level: 'debug' },
           )
         }

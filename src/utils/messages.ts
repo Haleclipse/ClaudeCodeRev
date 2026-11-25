@@ -5094,11 +5094,18 @@ export function filterOrphanedThinkingOnlyMessages(
  * from all assistant messages. Their signatures are bound to the API key that
  * generated them; after a credential change (e.g. /login) they're invalid and
  * the API rejects them with a 400.
+ *
+ * `shouldStrip` limits stripping to selected assistant messages (default:
+ * all of them).
  */
-export function stripSignatureBlocks(messages: Message[]): Message[] {
+export function stripSignatureBlocks(
+  messages: Message[],
+  shouldStrip: (msg: AssistantMessage) => boolean = () => true,
+): Message[] {
   let changed = false
   const result = messages.map(msg => {
     if (msg.type !== 'assistant') return msg
+    if (!shouldStrip(msg)) return msg
 
     const content = msg.message.content
     if (!Array.isArray(content)) return msg

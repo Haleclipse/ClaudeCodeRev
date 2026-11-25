@@ -219,13 +219,10 @@ export async function saveStatsCache(
   const tempPath = `${cachePath}.${randomBytes(8).toString('hex')}.tmp`
 
   try {
-    // Ensure the directory exists
+    // Ensure the directory exists (fs.mkdir is recursive and tolerates
+    // EEXIST; anything else is a real failure for the write below)
     const configDir = getClaudeConfigHomeDir()
-    try {
-      await fs.mkdir(configDir)
-    } catch {
-      // Directory already exists or other error - proceed
-    }
+    await fs.mkdir(configDir)
 
     // Write to temp file with fsync for atomic write safety
     const content = jsonStringify(cache, null, 2)

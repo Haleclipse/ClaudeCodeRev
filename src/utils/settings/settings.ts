@@ -155,12 +155,7 @@ export function getManagedFileSettingsPresence(): {
  * @param path The file path that caused the error
  */
 function handleFileSystemError(error: unknown, path: string): void {
-  if (
-    typeof error === 'object' &&
-    error &&
-    'code' in error &&
-    error.code === 'ENOENT'
-  ) {
+  if (isENOENT(error)) {
     logForDebugging(
       `Broken symlink or missing file encountered for settings.json at path: ${path}`,
     )

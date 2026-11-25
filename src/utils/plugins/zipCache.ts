@@ -289,18 +289,9 @@ async function collectFilesForZip(
       continue
     }
 
-    // Skip symlinked directories (follow symlinked files)
+    // Skip symlinks entirely (symlinked files are no longer followed either)
     if (fileStat.isSymbolicLink()) {
-      try {
-        const targetStat = await stat(fullPath)
-        if (targetStat.isDirectory()) {
-          continue
-        }
-        // Symlinked file — read its contents below
-        fileStat = targetStat
-      } catch {
-        continue // broken symlink
-      }
+      continue
     }
 
     if (fileStat.isDirectory()) {

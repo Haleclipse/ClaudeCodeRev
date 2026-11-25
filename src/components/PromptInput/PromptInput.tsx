@@ -311,6 +311,8 @@ type Props = {
 // Bottom slot has maxHeight="50%"; reserve lines for footer, border, status.
 const PROMPT_FOOTER_LINES = 5
 const MIN_INPUT_VIEWPORT_LINES = 3
+// Columns taken by the mode indicator in front of the text input
+const PROMPT_PREFIX_WIDTH = 3
 
 function PromptInput({
   debug,
@@ -2552,8 +2554,10 @@ function PromptInput({
       useAppState(s => s.companionReaction !== undefined)
     : false
   const { columns, rows } = useTerminalSize()
-  const textInputColumns =
-    columns - 3 - companionReservedColumns(columns, companionSpeaking)
+  const companionColumns = companionReservedColumns(columns, companionSpeaking)
+  const textInputColumns = columns - PROMPT_PREFIX_WIDTH - companionColumns
+  // Full-width rules (swarm banner) stop short of the companion sprite too
+  const ruleColumns = columns - companionColumns
 
   // POC: click-to-position-cursor. Mouse tracking is only enabled inside
   // <AlternateScreen>, so this is dormant in the normal main-screen REPL.
@@ -2990,7 +2994,7 @@ function PromptInput({
             {swarmBanner.text ? (
               <>
                 {'─'.repeat(
-                  Math.max(0, columns - stringWidth(swarmBanner.text) - 4),
+                  Math.max(0, ruleColumns - stringWidth(swarmBanner.text) - 4),
                 )}
                 <Text backgroundColor={swarmBanner.bgColor} color="inverseText">
                   {' '}
@@ -2999,7 +3003,7 @@ function PromptInput({
                 {'──'}
               </>
             ) : (
-              '─'.repeat(columns)
+              '─'.repeat(ruleColumns)
             )}
           </Text>
           <Box flexDirection="row" width="100%">
@@ -3013,7 +3017,7 @@ function PromptInput({
               {textInputElement}
             </Box>
           </Box>
-          <Text color={swarmBanner.bgColor}>{'─'.repeat(columns)}</Text>
+          <Text color={swarmBanner.bgColor}>{'─'.repeat(ruleColumns)}</Text>
         </>
       ) : (
         <Box

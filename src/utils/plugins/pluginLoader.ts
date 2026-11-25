@@ -62,6 +62,7 @@ import { logForDebugging } from '../debug.js'
 import { isEnvTruthy } from '../envUtils.js'
 import {
   errorMessage,
+  getErrnoCode,
   getErrnoPath,
   isENOENT,
   isFsInaccessible,
@@ -304,7 +305,20 @@ export async function copyDir(src: string, dest: string): Promise<void> {
     } else if (entry.isFile()) {
       await copyFile(srcPath, destPath)
     } else if (entry.isSymbolicLink()) {
-      const linkTarget = await readlink(srcPath)
+      // Unreadable link: skip it. EINVAL (not a symlink) is expected noise;
+      // anything else is logged.
+      let linkTarget: string
+      try {
+        linkTarget = await readlink(srcPath)
+      } catch (e) {
+        if (getErrnoCode(e) !== 'EINVAL') {
+          logForDebugging(
+            `copyDir: readlink failed for ${srcPath}: ${errorMessage(e)}`,
+            { level: 'warn' },
+          )
+        }
+        continue
+      }
 
       // Resolve the symlink to get the actual target path
       // This prevents circular symlinks when src and dest overlap (e.g., via symlink chains)

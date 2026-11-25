@@ -986,11 +986,8 @@ async function loadCachedSessionMeta(
 }
 
 async function saveSessionMeta(meta: SessionMeta): Promise<void> {
-  try {
-    await mkdir(getSessionMetaDir(), { recursive: true })
-  } catch {
-    // Directory may already exist
-  }
+  // recursive mkdir already tolerates an existing directory
+  await mkdir(getSessionMetaDir(), { recursive: true })
   const metaPath = join(getSessionMetaDir(), `${meta.session_id}.json`)
   await writeFile(metaPath, jsonStringify(meta, null, 2), {
     encoding: 'utf-8',

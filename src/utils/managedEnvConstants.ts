@@ -76,6 +76,7 @@ export const DANGEROUS_SHELL_SETTINGS = [
   'apiKeyHelper',
   'awsAuthRefresh',
   'awsCredentialExport',
+  'fileSuggestion',
   'gcpAuthRefresh',
   'otelHeadersHelper',
   'statusLine',

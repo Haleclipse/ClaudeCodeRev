@@ -17,6 +17,10 @@ import type {
   StdioServerInfo,
 } from '../../components/mcp/types.js'
 import { SearchBox } from '../../components/SearchBox.js'
+import {
+  useIsInsideModal,
+  useModalOrTerminalSize,
+} from '../../context/modalContext.js'
 import { useSearchInput } from '../../hooks/useSearchInput.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- useInput needed for raw search mode text input
@@ -538,7 +542,10 @@ export function ManagePlugins({
     [onSearchModeChange],
   )
   const isTerminalFocused = useTerminalFocus()
-  const { columns: terminalWidth } = useTerminalSize()
+  const isInsideModal = useIsInsideModal()
+  const terminalSize = useTerminalSize()
+  const { columns: terminalWidth } = terminalSize
+  const { rows: availableRows } = useModalOrTerminalSize(terminalSize)
 
   // View state
   const [viewState, setViewState] = useState<ViewState>('plugin-list')
@@ -968,11 +975,13 @@ export function ManagePlugins({
   // Selection state
   const [selectedIndex, setSelectedIndex] = useState(0)
 
-  // Pagination for unified list (continuous scrolling)
+  // Pagination for unified list (continuous scrolling). Inside a modal the
+  // list can use the modal's height (minus chrome).
+  const maxVisible = isInsideModal ? Math.max(8, availableRows - 10) : 8
   const pagination = usePagination<UnifiedInstalledItem>({
     totalItems: filteredItems.length,
     selectedIndex,
-    maxVisible: 8,
+    maxVisible,
   })
 
   // Details view state

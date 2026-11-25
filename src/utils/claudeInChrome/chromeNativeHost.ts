@@ -12,7 +12,6 @@ import {
   mkdir,
   readdir,
   rmdir,
-  stat,
   unlink,
 } from 'fs/promises'
 import { createServer, type Server, type Socket } from 'net'
@@ -117,15 +116,9 @@ class ChromeNativeHost {
     if (platform() !== 'win32') {
       const socketDir = getSocketDir()
 
-      // Migrate legacy socket: if socket dir path exists as a file/socket, remove it
-      try {
-        const dirStats = await stat(socketDir)
-        if (!dirStats.isDirectory()) {
-          await unlink(socketDir)
-        }
-      } catch {
-        // Doesn't exist, that's fine
-      }
+      // Migrate legacy socket: if socket dir path exists as a file/socket, remove it.
+      // unlink fails on a directory (and on a missing path) — both fine.
+      await unlink(socketDir).catch(() => {})
 
       // Create socket directory with secure permissions
       await mkdir(socketDir, { recursive: true, mode: 0o700 })

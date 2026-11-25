@@ -320,7 +320,7 @@ async function processUserInputBase(
     queryCheckpoint('query_image_processing_end')
     // Extract the input string from the last content block if it is text,
     // and keep track of the preceding content blocks
-    const lastBlock = processedBlocks[processedBlocks.length - 1]
+    const lastBlock = processedBlocks.at(-1)
     if (lastBlock?.type === 'text') {
       inputString = lastBlock.text
       precedingInputBlocks = processedBlocks.slice(0, -1)
@@ -478,10 +478,10 @@ async function processUserInputBase(
   }
 
   // For slash commands, attachments will be extracted within getMessagesForSlashCommand
+  // (also for block-only input with no trailing text, e.g. a pasted image)
   const shouldExtractAttachments =
     !skipAttachments &&
-    inputString !== null &&
-    (mode !== 'prompt' || effectiveSkipSlash || !inputString.startsWith('/'))
+    (mode !== 'prompt' || effectiveSkipSlash || !inputString?.startsWith('/'))
 
   queryCheckpoint('query_attachment_loading_start')
   const attachmentMessages = shouldExtractAttachments

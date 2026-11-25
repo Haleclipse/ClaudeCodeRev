@@ -30,6 +30,9 @@ type UseSearchInputOptions = {
    *  less/vim "delete past the /" convention. Dialogs that want Esc-only
    *  cancel set this false so a held backspace doesn't eject the user. */
   backspaceExitsOnEmpty?: boolean
+  /** Allow multi-line queries: a trailing `\` before Enter, or Shift/Meta+Enter,
+   *  inserts a newline instead of submitting. */
+  multiline?: boolean
 }
 
 type UseSearchInputReturn = {
@@ -90,6 +93,7 @@ export function useSearchInput({
   passthroughCtrlKeys = [],
   initialQuery = '',
   backspaceExitsOnEmpty = true,
+  multiline = false,
 }: UseSearchInputOptions): UseSearchInputReturn {
   const { columns: terminalColumns } = useTerminalSize()
   const effectiveColumns = columns ?? terminalColumns
@@ -122,7 +126,29 @@ export function useSearchInput({
     }
 
     // Exit conditions
-    if (e.key === 'return' || e.key === 'down') {
+    if (e.key === 'return') {
+      e.preventDefault()
+      if (multiline) {
+        // `\` + Enter: replace the backslash with a newline (same length,
+        // so the cursor stays put)
+        if (cursorOffset > 0 && query[cursorOffset - 1] === '\\') {
+          setQueryState(
+            query.slice(0, cursorOffset - 1) + '\n' + query.slice(cursorOffset),
+          )
+          return
+        }
+        if (e.shift || e.meta) {
+          setQueryState(
+            query.slice(0, cursorOffset) + '\n' + query.slice(cursorOffset),
+          )
+          setCursorOffset(cursorOffset + 1)
+          return
+        }
+      }
+      onExit()
+      return
+    }
+    if (e.key === 'down') {
       e.preventDefault()
       onExit()
       return

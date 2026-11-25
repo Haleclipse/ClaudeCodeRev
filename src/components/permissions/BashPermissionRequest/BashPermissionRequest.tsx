@@ -338,6 +338,8 @@ function BashPermissionRequestInner({
       noInputMode,
       editablePrefix,
       onEditablePrefixChange,
+      setAcceptFeedback,
+      setRejectFeedback,
     ],
   )
 

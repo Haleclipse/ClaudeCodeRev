@@ -20,6 +20,7 @@ import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
 import { logForDebugging } from '../utils/debug.js'
 import { hasEmbeddedSearchTools } from '../utils/embeddedTools.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
+import { getErrnoCode } from '../utils/errors.js'
 import { formatFileSize } from '../utils/format.js'
 import { getProjectDir } from '../utils/sessionStorage.js'
 import { getInitialSettings } from '../utils/settings/settings.js'
@@ -135,10 +136,7 @@ export async function ensureMemoryDirExists(memoryDir: string): Promise<void> {
     // a real problem (EACCES/EPERM/EROFS) — log so --debug shows why. Prompt
     // building continues either way; the model's Write will surface the
     // real perm error (and FileWriteTool does its own mkdir of the parent).
-    const code =
-      e instanceof Error && 'code' in e && typeof e.code === 'string'
-        ? e.code
-        : undefined
+    const code = getErrnoCode(e)
     logForDebugging(
       `ensureMemoryDirExists failed for ${memoryDir}: ${code ?? String(e)}`,
       { level: 'debug' },
