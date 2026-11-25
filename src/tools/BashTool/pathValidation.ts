@@ -5,9 +5,9 @@ import type { ToolPermissionContext } from '../../Tool.js'
 import type { Redirect, SimpleCommand } from '../../utils/bash/ast.js'
 import {
   extractOutputRedirections,
+  parseCommandArgv,
   splitCommand_DEPRECATED,
 } from '../../utils/bash/commands.js'
-import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
 import { getDirectoryForPath } from '../../utils/path.js'
 import { allWorkingDirectories } from '../../utils/permissions/filesystem.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
@@ -784,36 +784,11 @@ export function createPathChecker(
 }
 
 /**
- * Parses command arguments using shell-quote, converting glob objects to strings.
- * This is necessary because shell-quote parses patterns like *.txt as glob objects,
- * but we need them as strings for path validation.
+ * Parses command arguments via the bash AST (quotes resolved). Glob patterns
+ * like *.txt stay plain strings, which is what path validation needs.
  */
 function parseCommandArguments(cmd: string): string[] {
-  const parseResult = tryParseShellCommand(cmd, env => `$${env}`)
-  if (!parseResult.success) {
-    // Malformed shell syntax, return empty array
-    return []
-  }
-  const parsed = parseResult.tokens
-  const extractedArgs: string[] = []
-
-  for (const arg of parsed) {
-    if (typeof arg === 'string') {
-      // Include empty strings - they're valid arguments (e.g., grep "" /tmp/t)
-      extractedArgs.push(arg)
-    } else if (
-      typeof arg === 'object' &&
-      arg !== null &&
-      'op' in arg &&
-      arg.op === 'glob' &&
-      'pattern' in arg
-    ) {
-      // shell-quote parses glob patterns as objects, but we need them as strings for validation
-      extractedArgs.push(String(arg.pattern))
-    }
-  }
-
-  return extractedArgs
+  return parseCommandArgv(cmd)
 }
 
 /**

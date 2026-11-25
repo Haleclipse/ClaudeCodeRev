@@ -6,6 +6,7 @@ import {
   truncate as fsTruncate,
   link,
 } from 'fs/promises'
+import { relative } from 'path'
 import * as React from 'react'
 import type { CanUseToolFn } from 'src/hooks/useCanUseTool.js'
 import type { AppState } from 'src/state/AppState.js'
@@ -34,18 +35,17 @@ import {
 import type { AgentId } from '../../types/ids.js'
 import type { AssistantMessage } from '../../types/message.js'
 import { parseForSecurity } from '../../utils/bash/ast.js'
-import {
-  splitCommand_DEPRECATED,
-  splitCommandWithOperators,
-} from '../../utils/bash/commands.js'
+import { splitCommand_DEPRECATED } from '../../utils/bash/commands.js'
 import { extractClaudeCodeHints } from '../../utils/claudeCodeHints.js'
 import { detectCodeIndexingFromCommand } from '../../utils/codeIndexing.js'
+import { getCwd } from '../../utils/cwd.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { isENOENT, ShellError } from '../../utils/errors.js'
 import {
   detectFileEncoding,
   detectLineEndings,
   getFileModificationTime,
+  getFileModificationTimeAsync,
   writeTextContent,
 } from '../../utils/file.js'
 import {
@@ -63,7 +63,7 @@ import type { ExecResult } from '../../utils/ShellCommand.js'
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
 import { semanticBoolean } from '../../utils/semanticBoolean.js'
 import { semanticNumber } from '../../utils/semanticNumber.js'
-import { EndTruncatingAccumulator } from '../../utils/stringUtils.js'
+import { EndTruncatingAccumulator, plural } from '../../utils/stringUtils.js'
 import { getTaskOutputPath } from '../../utils/task/diskOutput.js'
 import { TaskOutput } from '../../utils/task/TaskOutput.js'
 import { isOutputLineTruncated } from '../../utils/terminal.js'
@@ -83,6 +83,7 @@ import {
   permissionRuleExtractPrefix,
 } from './bashPermissions.js'
 import { interpretCommandResult } from './commandSemantics.js'
+import { recordFileViewsFromCommand } from './fileViewTracking.js'
 import {
   getDefaultTimeoutMs,
   getMaxTimeoutMs,
@@ -200,16 +201,11 @@ export function isSearchOrReadBashCommand(command: string): {
   isRead: boolean
   isList: boolean
 } {
-  let partsWithOperators: string[]
-  try {
-    partsWithOperators = splitCommandWithOperators(command)
-  } catch {
-    // If we can't parse the command due to malformed syntax,
-    // it's not a search/read command
-    return { isSearch: false, isRead: false, isList: false }
-  }
+  // splitCommand_DEPRECATED walks the bash AST: operators and redirections
+  // are already stripped, so every part is a command.
+  const parts = splitCommand_DEPRECATED(command)
 
-  if (partsWithOperators.length === 0) {
+  if (parts.length === 0) {
     return { isSearch: false, isRead: false, isList: false }
   }
 
@@ -217,29 +213,10 @@ export function isSearchOrReadBashCommand(command: string): {
   let hasRead = false
   let hasList = false
   let hasNonNeutralCommand = false
-  let skipNextAsRedirectTarget = false
 
-  for (const part of partsWithOperators) {
-    if (skipNextAsRedirectTarget) {
-      skipNextAsRedirectTarget = false
-      continue
-    }
-
-    if (part === '>' || part === '>>' || part === '>&') {
-      skipNextAsRedirectTarget = true
-      continue
-    }
-
-    if (part === '||' || part === '&&' || part === '|' || part === ';') {
-      continue
-    }
-
+  for (const part of parts) {
     const baseCommand = part.trim().split(/\s+/)[0]
-    if (!baseCommand) {
-      continue
-    }
-
-    if (BASH_SEMANTIC_NEUTRAL_COMMANDS.has(baseCommand)) {
+    if (!baseCommand || BASH_SEMANTIC_NEUTRAL_COMMANDS.has(baseCommand)) {
       continue
     }
 
@@ -271,46 +248,17 @@ export function isSearchOrReadBashCommand(command: string): {
  * Used to show "Done" instead of "(No output)" in the UI.
  */
 function isSilentBashCommand(command: string): boolean {
-  let partsWithOperators: string[]
-  try {
-    partsWithOperators = splitCommandWithOperators(command)
-  } catch {
-    return false
-  }
+  const parts = splitCommand_DEPRECATED(command)
 
-  if (partsWithOperators.length === 0) {
+  if (parts.length === 0) {
     return false
   }
 
   let hasNonFallbackCommand = false
-  let lastOperator: string | null = null
-  let skipNextAsRedirectTarget = false
 
-  for (const part of partsWithOperators) {
-    if (skipNextAsRedirectTarget) {
-      skipNextAsRedirectTarget = false
-      continue
-    }
-
-    if (part === '>' || part === '>>' || part === '>&') {
-      skipNextAsRedirectTarget = true
-      continue
-    }
-
-    if (part === '||' || part === '&&' || part === '|' || part === ';') {
-      lastOperator = part
-      continue
-    }
-
+  for (const part of parts) {
     const baseCommand = part.trim().split(/\s+/)[0]
     if (!baseCommand) {
-      continue
-    }
-
-    if (
-      lastOperator === '||' &&
-      BASH_SEMANTIC_NEUTRAL_COMMANDS.has(baseCommand)
-    ) {
       continue
     }
 
@@ -499,6 +447,12 @@ const outputSchema = lazySchema(() =>
       .describe(
         'Total size of the output in bytes (set when output is too large for inline)',
       ),
+    staleReadFileStateHint: z
+      .string()
+      .optional()
+      .describe(
+        'Model-facing note listing readFileState entries whose mtime bumped during this command (set when WRITE_COMMAND_MARKERS matches)',
+      ),
   }),
 )
 
@@ -635,6 +589,59 @@ async function applySedEdit(
       interrupted: false,
     },
   }
+}
+
+// Formatter/linter invocations that rewrite files in place. When one of these
+// runs, files the model previously read may change underneath it, and a later
+// Edit would fail on a stale readFileState entry.
+const WRITE_COMMAND_MARKERS = new RegExp(
+  [
+    '--write',
+    '--fix',
+    '--in-place',
+    '--auto-correct',
+    '\\brun\\s+format\\b',
+    '\\brun\\s+fix\\b',
+    '\\b(yarn|pnpm)\\s+format\\b',
+    '\\blint:file\\b',
+    '\\blint:fix\\b',
+    '\\bblack\\b',
+    '\\bisort\\b',
+    '\\bruff\\s+format\\b',
+    '\\bcargo\\s+(fmt|fix)\\b',
+    '\\brustfmt\\b',
+    '\\bgo\\s+fmt\\b',
+    '\\bterraform\\s+fmt\\b',
+    '\\bdprint\\s+fmt\\b',
+    '\\bswiftformat\\b',
+    '\\bphpcbf\\b',
+  ].join('|'),
+)
+
+/**
+ * Returns readFileState entries whose mtime moved past both the command start
+ * and the recorded read timestamp. Only checked for commands matching
+ * WRITE_COMMAND_MARKERS, so ordinary commands don't stat every read file.
+ */
+async function findStaleReadFileStateEntries(
+  command: string,
+  readFileState: ToolUseContext['readFileState'],
+  commandStartMs: number,
+): Promise<string[]> {
+  if (!WRITE_COMMAND_MARKERS.test(command)) return []
+  const stale: string[] = []
+  await Promise.all(
+    Array.from(readFileState.entries(), ([path, state]) =>
+      getFileModificationTimeAsync(path)
+        .then(mtimeMs => {
+          if (mtimeMs > commandStartMs && mtimeMs > state.timestamp) {
+            stale.push(path)
+          }
+        })
+        .catch(() => {}),
+    ),
+  )
+  return stale
 }
 
 export const BashTool = buildTool({
@@ -777,6 +784,7 @@ export const BashTool = buildTool({
       structuredContent,
       persistedOutputPath,
       persistedOutputSize,
+      staleReadFileStateHint,
     },
     toolUseID,
   ): ToolResultBlockParam {
@@ -837,7 +845,12 @@ export const BashTool = buildTool({
     return {
       tool_use_id: toolUseID,
       type: 'tool_result',
-      content: [processedStdout, errorMessage, backgroundInfo]
+      content: [
+        processedStdout,
+        errorMessage,
+        backgroundInfo,
+        staleReadFileStateHint,
+      ]
         .filter(Boolean)
         .join('\n'),
       is_error: interrupted,
@@ -859,6 +872,11 @@ export const BashTool = buildTool({
         parentMessage,
       )
     }
+
+    // Floored to whole seconds: some filesystems report mtimes at 1s
+    // granularity, so a file rewritten in the same second the command started
+    // must still compare as modified.
+    const commandStartMs = Math.floor(Date.now() / 1000) * 1000
 
     const { abortController, getAppState, setAppState, setToolJSX } =
       toolUseContext
@@ -1070,6 +1088,40 @@ export const BashTool = buildTool({
       }
     }
 
+    // Formatter/linter commands can rewrite files the model already read;
+    // tell it which ones so it re-reads before editing.
+    let staleReadFileStateHint: string | undefined
+    if (!wasInterrupted && !isImage && !result.backgroundTaskId) {
+      const stale = await findStaleReadFileStateEntries(
+        input.command,
+        toolUseContext.readFileState,
+        commandStartMs,
+      )
+      if (stale.length > 0) {
+        const cwd = getCwd()
+        const MAX_LISTED = 5
+        const listed = stale
+          .slice(0, MAX_LISTED)
+          .map(p => relative(cwd, p) || p)
+          .join(', ')
+        const more =
+          stale.length > MAX_LISTED
+            ? ` and ${stale.length - MAX_LISTED} more`
+            : ''
+        staleReadFileStateHint = `[This command modified ${stale.length} ${plural(stale.length, 'file')} you've previously read: ${listed}${more}. Call Read before editing.]`
+      }
+    }
+
+    // `cat file` / `sed -n 'X,Yp' file` show file content just like Read:
+    // record it so a follow-up Edit doesn't require a separate Read call.
+    if (!wasInterrupted && !isImage && !result.backgroundTaskId) {
+      await recordFileViewsFromCommand(
+        input.command,
+        toolUseContext.readFileState,
+        abortController.signal,
+      )
+    }
+
     const data: Out = {
       stdout: compressedStdout,
       stderr: stderrForShellReset,
@@ -1086,6 +1138,7 @@ export const BashTool = buildTool({
           : undefined,
       persistedOutputPath,
       persistedOutputSize,
+      staleReadFileStateHint,
     }
 
     return {

@@ -1,8 +1,5 @@
 import type { z } from 'zod/v4'
-import {
-  isUnsafeCompoundCommand_DEPRECATED,
-  splitCommand_DEPRECATED,
-} from '../../utils/bash/commands.js'
+import { splitCommand_DEPRECATED } from '../../utils/bash/commands.js'
 import {
   buildParsedCommandFromRoot,
   type IParsedCommand,
@@ -13,7 +10,6 @@ import type { PermissionResult } from '../../utils/permissions/PermissionResult.
 import type { PermissionUpdate } from '../../utils/permissions/PermissionUpdateSchema.js'
 import { createPermissionRequestMessage } from '../../utils/permissions/permissions.js'
 import { BashTool } from './BashTool.js'
-import { bashCommandIsSafeAsync_DEPRECATED } from './bashSecurity.js'
 
 export type CommandIdentityCheckers = {
   isNormalizedCdCommand: (command: string) => boolean
@@ -218,18 +214,13 @@ async function bashToolCheckCommandOperatorPermissions(
   const isUnsafeCompound = tsAnalysis
     ? tsAnalysis.compoundStructure.hasSubshell ||
       tsAnalysis.compoundStructure.hasCommandGroup
-    : isUnsafeCompoundCommand_DEPRECATED(input.command)
+    : splitCommand_DEPRECATED(input.command).length > 1
   if (isUnsafeCompound) {
     // This command contains an operator like `>` that we don't support as a subcommand separator
-    // Check if bashCommandIsSafe_DEPRECATED has a more specific message
-    const safetyResult = await bashCommandIsSafeAsync_DEPRECATED(input.command)
-
     const decisionReason = {
       type: 'other' as const,
       reason:
-        safetyResult.behavior === 'ask' && safetyResult.message
-          ? safetyResult.message
-          : 'This command uses shell operators that require approval for safety',
+        'This command uses shell operators that require approval for safety',
     }
     return {
       behavior: 'ask',

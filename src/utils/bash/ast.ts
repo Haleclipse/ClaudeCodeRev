@@ -42,7 +42,6 @@ export type SimpleCommand = {
 export type ParseForSecurityResult =
   | { kind: 'simple'; commands: SimpleCommand[] }
   | { kind: 'too-complex'; reason: string; nodeType?: string }
-  | { kind: 'parse-unavailable' }
 
 /**
  * Structural node types that represent composition of commands. We recurse
@@ -273,10 +272,12 @@ const UNICODE_WHITESPACE_RE =
  * Also matches `\` before newline (line continuation) when adjacent to a
  * non-whitespace char. `tr\<NL>aceroute` — bash joins to `traceroute`, but
  * tree-sitter splits into two words (differential). When `\<NL>` is preceded
- * by whitespace (e.g. `foo && \<NL>bar`), there's no word to join — both
- * parsers agree, so we allow it.
+ * by a space or tab (e.g. `foo && \<NL>bar`), there's no word to join — both
+ * parsers agree, so we allow it. A `\<NL>` alone on its own line (preceded
+ * by a newline) is rejected too: it joins the next line onto the empty line
+ * in bash, and the parsers disagree on what follows.
  */
-const BACKSLASH_WHITESPACE_RE = /\\[ \t]|[^ \t\n\\]\\\n/
+const BACKSLASH_WHITESPACE_RE = /\\[ \t]|[^ \t\\]\\\n/
 
 /**
  * Zsh dynamic named directory expansion: ~[name]. In zsh this invokes the
@@ -375,8 +376,7 @@ const DOLLAR = String.fromCharCode(0x24)
 /**
  * Parse a bash command string and extract a flat list of simple commands.
  * Returns 'too-complex' if the command uses any shell feature we can't
- * statically analyze. Returns 'parse-unavailable' if tree-sitter WASM isn't
- * loaded — caller should fall back to conservative behavior.
+ * statically analyze.
  */
 export async function parseForSecurity(
   cmd: string,
@@ -387,7 +387,7 @@ export async function parseForSecurity(
   if (cmd === '') return { kind: 'simple', commands: [] }
   const root = await parseCommandRaw(cmd)
   return root === null
-    ? { kind: 'parse-unavailable' }
+    ? { kind: 'simple', commands: [] }
     : parseForSecurityFromAst(cmd, root)
 }
 
@@ -442,16 +442,15 @@ export function parseForSecurityFromAst(
   }
 
   if (root === PARSE_ABORTED) {
-    // SECURITY: module loaded but parse aborted (timeout / node budget /
-    // panic). Adversarially triggerable — `(( a[0][0]... ))` with ~2800
+    // SECURITY: parse aborted (timeout / node budget / panic / over-length).
+    // Adversarially triggerable — `(( a[0][0]... ))` with ~2800
     // subscripts hits PARSE_TIMEOUT_MICROS under the 10K length limit.
     // Previously indistinguishable from module-not-loaded → routed to
     // legacy (parse-unavailable), which lacks EVAL_LIKE_BUILTINS — `trap`,
     // `enable`, `hash` leaked with Bash(*). Fail closed: too-complex → ask.
     return {
       kind: 'too-complex',
-      reason:
-        'Parser aborted (timeout or resource limit) — possible adversarial input',
+      reason: 'Parser aborted (timeout, resource limit, or over-length)',
       nodeType: 'PARSE_ABORT',
     }
   }
@@ -542,6 +541,11 @@ function collectCommands(
     // nothing mutates caller's scope. For `list`/`program`, the `&&`/`;`
     // chain mutates caller's scope (sequential); fork only on `||`/`&`.
     let scope = isPipeline ? new Map(varScope) : varScope
+    // SECURITY: vars known when an `||` is crossed. The `||` RHS may or may
+    // not run, and a command there (`unset`, `read`, a function) may change
+    // them — so once the chain continues past it with `&&`/`;`, their values
+    // are unknown. `A=x; true || unset A; cmd $A` must not see A=x.
+    let orTainted: Set<string> | null = null
     for (const child of node.children) {
       if (!child) continue
       if (SEPARATOR_TYPES.has(child.type)) {
@@ -551,15 +555,26 @@ function collectCommands(
           child.type === '|&' ||
           child.type === '&'
         ) {
+          if (child.type === '||') {
+            orTainted ??= new Set()
+            for (const name of varScope.keys()) orTainted.add(name)
+          }
           // For pipeline: varScope is untouched (we started with a copy).
           // For list/program: snapshot is non-null (pre-scan set it).
           // `|`/`|&` only appear under `pipeline` nodes; `||`/`&` under list.
           scope = new Map(snapshot ?? varScope)
+        } else if (orTainted !== null) {
+          for (const name of orTainted) varScope.set(name, VAR_PLACEHOLDER)
+          orTainted = null
+          scope = varScope
         }
         continue
       }
       const err = collectCommands(child, commands, scope)
       if (err) return err
+    }
+    if (orTainted !== null) {
+      for (const name of orTainted) varScope.set(name, VAR_PLACEHOLDER)
     }
     return null
   }
@@ -652,6 +667,28 @@ function collectCommands(
               nodeType: 'declaration_command',
             }
           }
+          // SECURITY: `export "FOO=bar"` / `declare 'FOO=bar'` assign just
+          // like a variable_assignment child but arrive as a word/string.
+          // Track them too — otherwise a FOO tracked earlier keeps its old
+          // literal while bash now holds the new value.
+          if (arg[0] !== '-') {
+            const eq = arg.indexOf('=')
+            if (eq > 0) {
+              const lhs = arg.slice(0, eq)
+              if (/^[A-Za-z_][A-Za-z0-9_]*\+?$/.test(lhs)) {
+                const isAppend = lhs.endsWith('+')
+                applyVarToScope(
+                  varScope,
+                  {
+                    name: isAppend ? lhs.slice(0, -1) : lhs,
+                    value: arg.slice(eq + 1),
+                    isAppend,
+                  },
+                  commands.length > 0,
+                )
+              }
+            }
+          }
           argv.push(arg)
           break
         }
@@ -659,7 +696,7 @@ function collectCommands(
           const ev = walkVariableAssignment(child, commands, varScope)
           if ('kind' in ev) return ev
           // export/declare assignments populate the scope so later $VAR refs resolve.
-          applyVarToScope(varScope, ev)
+          applyVarToScope(varScope, ev, commands.length > 0)
           argv.push(`${ev.name}=${ev.value}`)
           break
         }
@@ -686,7 +723,7 @@ function collectCommands(
     const ev = walkVariableAssignment(node, commands, varScope)
     if ('kind' in ev) return ev
     // Populate scope so later `$VAR` references resolve.
-    applyVarToScope(varScope, ev)
+    applyVarToScope(varScope, ev, commands.length > 0)
     return null
   }
 
@@ -758,6 +795,9 @@ function collectCommands(
       const err = collectCommands(c, commands, bodyScope)
       if (err) return err
     }
+    // The body may run zero or more times: vars it changed or unset are
+    // unknown after `done`.
+    mergeBranchScope(varScope, bodyScope)
     return null
   }
 
@@ -807,6 +847,7 @@ function collectCommands(
           const err = collectCommands(c, commands, bodyScope)
           if (err) return err
         }
+        mergeBranchScope(varScope, bodyScope)
         continue
       }
       if (child.type === 'elif_clause' || child.type === 'else_clause') {
@@ -826,13 +867,16 @@ function collectCommands(
           const err = collectCommands(c, commands, branchScope)
           if (err) return err
         }
+        mergeBranchScope(varScope, branchScope)
         continue
       }
-      // Condition (seenThen=false) or then-body (seenThen=true).
-      // Condition uses REAL varScope (always runs). Then-body uses a COPY.
-      // Special-case `while read VAR`: after condition `read VAR` is
-      // collected, track VAR in the REAL scope so the body COPY inherits it.
-      const targetScope = seenThen ? new Map(varScope) : varScope
+      // Condition (seenThen=false) or then-body (seenThen=true). Both are
+      // walked on a COPY. The condition always runs, so its assignments are
+      // copied back below; the then-body may not, so it is merged like the
+      // other branches. Special-case `while read VAR`: after condition
+      // `read VAR` is collected, track VAR in the REAL scope so the body COPY
+      // inherits it.
+      const targetScope = new Map(varScope)
       const before = commands.length
       const err = collectCommands(child, commands, targetScope)
       if (err) return err
@@ -874,6 +918,30 @@ function collectCommands(
             }
           }
         }
+        // Copy the condition's scope back. SECURITY: a tracked literal that
+        // the condition turned unknown means part of the condition may not
+        // have run (`||`, pipeline stage, `unset`) — we can't tell which
+        // value holds afterwards, so fail closed rather than pick one.
+        for (const [name, value] of targetScope) {
+          const existing = varScope.get(name)
+          if (
+            existing !== undefined &&
+            !containsAnyPlaceholder(existing) &&
+            containsAnyPlaceholder(value)
+          ) {
+            return {
+              kind: 'too-complex',
+              reason: `'${name}' was tracked as literal '${existing}' but condition may modify it (||/pipeline/unset) — cannot prove downstream value`,
+              nodeType: node.type,
+            }
+          }
+          varScope.set(name, value)
+        }
+        for (const name of varScope.keys()) {
+          if (!targetScope.has(name)) varScope.set(name, VAR_PLACEHOLDER)
+        }
+      } else {
+        mergeBranchScope(varScope, targetScope)
       }
     }
     return null
@@ -941,6 +1009,8 @@ function collectCommands(
           const arg = walkArgument(child, commands, varScope)
           if (typeof arg !== 'string') return arg
           argv.push(arg)
+          // `unset "VAR"` / `unset 'VAR'` resolve to a plain name too.
+          if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(arg)) varScope.delete(arg)
           break
         }
         default:
@@ -1058,7 +1128,7 @@ function walkRedirectedStatement(
   const err = collectCommands(innerCommand, commands, varScope)
   if (err) return err
   if (commands.length > before && redirects.length > 0) {
-    const last = commands[commands.length - 1]
+    const last = commands.at(-1)
     if (last) last.redirects.push(...redirects)
   }
   return null
@@ -1083,6 +1153,15 @@ function walkFileRedirect(
       fd = Number(child.text)
     } else if (child.type in REDIRECT_OPS) {
       op = REDIRECT_OPS[child.type] ?? null
+    } else if (target !== null) {
+      // SECURITY: `cat > out /etc/passwd` — tree-sitter attaches the words
+      // after the target to the redirect, but bash passes them to the
+      // command as arguments. They'd never be checked as args.
+      return {
+        kind: 'too-complex',
+        reason: 'Redirect has multiple targets — post-redirect args swallowed',
+        nodeType: node.type,
+      }
     } else if (child.type === 'word' || child.type === 'number') {
       // SECURITY: `number` nodes can contain expansion children via the
       // `NN#<expansion>` arithmetic-base grammar quirk — same issue as
@@ -1094,6 +1173,7 @@ function walkFileRedirect(
       // `concatenation` node for brace targets (caught by the default
       // branch below), but check `word` text too for defense-in-depth.
       if (BRACE_EXPANSION_RE.test(child.text)) return tooComplex(child)
+      if (/(?:^|[^\\])(?:\\\\)*[`$]/.test(child.text)) return tooComplex(child)
       // Unescape backslash sequences — same as walkArgument. Bash quote
       // removal turns `\X` → `X`. Without this, `cat < /proc/self/\environ`
       // stores target `/proc/self/\environ` which evades PROC_ENVIRON_RE,
@@ -1121,6 +1201,29 @@ function walkFileRedirect(
     return {
       kind: 'too-complex',
       reason: 'Unrecognized redirect shape',
+      nodeType: node.type,
+    }
+  }
+  // SECURITY: the redirect target is a path checked by path validation —
+  // it must be fully known statically.
+  if (containsAnyPlaceholder(target)) {
+    return {
+      kind: 'too-complex',
+      reason: 'Redirect target contains $(cmd) output — path is runtime-determined',
+      nodeType: node.type,
+    }
+  }
+  if (target.includes('\n')) {
+    return {
+      kind: 'too-complex',
+      reason: 'Redirect target contains newline — potential path traversal',
+      nodeType: node.type,
+    }
+  }
+  if (target.startsWith('!')) {
+    return {
+      kind: 'too-complex',
+      reason: 'Redirect target starts with ! — zsh clobber or history expansion',
       nodeType: node.type,
     }
   }
@@ -1177,6 +1280,21 @@ function walkHeredocRedirect(node: Node): ParseForSecurityResult | null {
     return {
       kind: 'too-complex',
       reason: 'Heredoc with unquoted delimiter undergoes shell expansion',
+      nodeType: 'heredoc_redirect',
+    }
+  }
+
+  // SECURITY: `<<'E\OF'` — bash and tree-sitter disagree on what the
+  // delimiter is once a backslash appears inside the quotes, so they disagree
+  // on where the body ends (and what runs after it).
+  if (
+    startText !== null &&
+    (startText.startsWith("'") || startText.startsWith('"')) &&
+    startText.slice(1, -1).includes('\\')
+  ) {
+    return {
+      kind: 'too-complex',
+      reason: 'Quoted heredoc delimiter contains backslash',
       nodeType: 'heredoc_redirect',
     }
   }
@@ -1422,6 +1540,15 @@ function walkArgument(
           nodeType: 'word',
         }
       }
+      // SECURITY: an unescaped ` or $ in a plain word means the parser didn't
+      // recognize an expansion bash will perform. Fail closed.
+      if (/(?:^|[^\\])(?:\\\\)*[`$]/.test(node.text)) {
+        return {
+          kind: 'too-complex',
+          reason: 'Word contains unescaped ` or $ — parser missed expansion',
+          nodeType: 'word',
+        }
+      }
       return node.text.replace(/\\(.)/g, '$1')
     }
 
@@ -1552,12 +1679,25 @@ function walkString(
         result += child.text.replace(/\\([$`"\\])/g, '$1')
         sawLiteralContent = true
         break
-      case DOLLAR:
+      case DOLLAR: {
+        // SECURITY: `"$[...]"` is legacy arithmetic in bash — its subscripts
+        // are evaluated recursively (and can run $(cmd)). tree-sitter sees a
+        // literal `$` followed by string content starting with `[`.
+        const next = node.children[node.children.indexOf(child) + 1]
+        if (next?.type === 'string_content' && next.text.startsWith('[')) {
+          return {
+            kind: 'too-complex',
+            reason:
+              'Legacy $[...] arithmetic inside double-quotes — recursive subscript eval',
+            nodeType: 'string',
+          }
+        }
         // A bare dollar sign before closing quote or a non-name char is
         // literal in bash. tree-sitter emits it as a standalone node.
         result += DOLLAR
         sawLiteralContent = true
         break
+      }
       case 'command_substitution': {
         // Carve-out: `$(cat <<'EOF' ... EOF)` is safe. The quoted-delimiter
         // heredoc body is literal (no expansion), and `cat` just prints it.
@@ -1583,6 +1723,8 @@ function walkString(
           // downstream path validation sees the real target.
           const trimmed = heredocBody.replace(/\n+$/, '')
           if (trimmed.includes('\n')) {
+            // Keep a newline in the value so it can never pass as a path.
+            result += '\n'
             sawLiteralContent = true
             break
           }
@@ -1645,8 +1787,9 @@ function walkString(
   // source span is longer than bare `""`. Genuine `""` has text.length==2.
   // `"$V"` with V="" doesn't hit this — the simple_expansion child sets
   // sawLiteralContent via the `else` branch even when v is empty.
+  // Whitespace-only content is the string's own text between the quotes.
   if (!sawLiteralContent && !sawDynamicPlaceholder && node.text.length > 2) {
-    return tooComplex(node)
+    return node.text.slice(1, -1)
   }
   return result
 }
@@ -1751,6 +1894,9 @@ function extractSafeCatHeredoc(subNode: Node): string | 'DANGEROUS' | null {
       // walkHeredocRedirect returns null on success, non-null on rejection.
       if (walkHeredocRedirect(child) !== null) return null
       for (const hc of child.children) {
+        // `<<-` strips leading tabs from the body at runtime — the text we
+        // see is not the value bash produces.
+        if (hc?.type === '<<-') return null
         if (hc?.type === 'heredoc_body') body = hc.text
       }
     } else {
@@ -2008,18 +2154,57 @@ function resolveSimpleExpansion(
 }
 
 /**
+ * Merge a branch scope (a body/branch that may or may not have run) back into
+ * the enclosing scope. Any var the branch changed or unset now has an
+ * unknown value. Vars first set inside the branch don't leak out.
+ */
+function mergeBranchScope(
+  varScope: Map<string, string>,
+  branchScope: Map<string, string>,
+): void {
+  for (const [name, value] of branchScope) {
+    const existing = varScope.get(name)
+    if (existing !== undefined && existing !== value) {
+      varScope.set(name, VAR_PLACEHOLDER)
+    }
+  }
+  for (const name of varScope.keys()) {
+    if (!branchScope.has(name)) varScope.set(name, VAR_PLACEHOLDER)
+  }
+}
+
+/**
  * Apply a variable assignment to the scope, handling `+=` append semantics.
  * SECURITY: If EITHER side (existing value or appended value) contains a
  * placeholder, the result is non-literal — store VAR_PLACEHOLDER so later
  * $VAR correctly rejects as bare arg.
  * `VAR=/etc && VAR+=$(cmd)` must not leave VAR looking static.
+ *
+ * The value is also treated as unknown when:
+ * - `afterCommand`: an earlier command already ran (`readonly VAR`,
+ *   `declare -r VAR`) and may make this assignment fail, leaving the old value;
+ * - `VAR+=x` appends to a var we never saw (inherited from the environment);
+ * - VAR was already tracked with a different literal (same readonly hazard).
  */
 function applyVarToScope(
   varScope: Map<string, string>,
   ev: { name: string; value: string; isAppend: boolean },
+  afterCommand = false,
 ): void {
-  const existing = varScope.get(ev.name) ?? ''
-  const combined = ev.isAppend ? existing + ev.value : ev.value
+  if (afterCommand) {
+    varScope.set(ev.name, VAR_PLACEHOLDER)
+    return
+  }
+  if (ev.isAppend && !varScope.has(ev.name)) {
+    varScope.set(ev.name, VAR_PLACEHOLDER)
+    return
+  }
+  const existing = varScope.get(ev.name)
+  if (existing !== undefined && existing !== ev.value && !ev.isAppend) {
+    varScope.set(ev.name, VAR_PLACEHOLDER)
+    return
+  }
+  const combined = ev.isAppend ? (existing ?? '') + ev.value : ev.value
   varScope.set(
     ev.name,
     containsAnyPlaceholder(combined) ? VAR_PLACEHOLDER : combined,

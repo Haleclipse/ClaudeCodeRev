@@ -1,6 +1,8 @@
 import type { ToolPermissionContext } from '../../Tool.js'
-import { splitCommand_DEPRECATED } from '../../utils/bash/commands.js'
-import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
+import {
+  parseCommandArgv,
+  splitCommand_DEPRECATED,
+} from '../../utils/bash/commands.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
 
 /**
@@ -45,21 +47,11 @@ export function isLinePrintingCommand(
   command: string,
   expressions: string[],
 ): boolean {
-  const sedMatch = command.match(/^\s*sed\s+/)
-  if (!sedMatch) return false
-
-  const withoutSed = command.slice(sedMatch[0].length)
-  const parseResult = tryParseShellCommand(withoutSed)
-  if (!parseResult.success) return false
-  const parsed = parseResult.tokens
+  const argv = parseCommandArgv(command)
+  if (argv[0] !== 'sed') return false
 
   // Extract all flags
-  const flags: string[] = []
-  for (const arg of parsed) {
-    if (typeof arg === 'string' && arg.startsWith('-') && arg !== '--') {
-      flags.push(arg)
-    }
-  }
+  const flags = argv.slice(1).filter(arg => arg.startsWith('-') && arg !== '--')
 
   // Validate flags - only allow -n, -E, -r, -z and their long forms
   const allowedFlags = [
@@ -152,21 +144,11 @@ function isSubstitutionCommand(
     return false
   }
 
-  const sedMatch = command.match(/^\s*sed\s+/)
-  if (!sedMatch) return false
-
-  const withoutSed = command.slice(sedMatch[0].length)
-  const parseResult = tryParseShellCommand(withoutSed)
-  if (!parseResult.success) return false
-  const parsed = parseResult.tokens
+  const argv = parseCommandArgv(command)
+  if (argv[0] !== 'sed') return false
 
   // Extract all flags
-  const flags: string[] = []
-  for (const arg of parsed) {
-    if (typeof arg === 'string' && arg.startsWith('-') && arg !== '--') {
-      flags.push(arg)
-    }
-  }
+  const flags = argv.slice(1).filter(arg => arg.startsWith('-') && arg !== '--')
 
   // Validate flags based on mode
   // Base allowed flags for both modes
@@ -305,77 +287,53 @@ export function sedCommandIsAllowedByAllowlist(
  * @internal Exported for testing
  */
 export function hasFileArgs(command: string): boolean {
-  const sedMatch = command.match(/^\s*sed\s+/)
-  if (!sedMatch) return false
+  const argv = parseCommandArgv(command)
+  if (argv[0] !== 'sed') return false
 
-  const withoutSed = command.slice(sedMatch[0].length)
-  const parseResult = tryParseShellCommand(withoutSed)
-  if (!parseResult.success) return true
-  const parsed = parseResult.tokens
+  const parsed = argv.slice(1)
+  let argCount = 0
+  let hasEFlag = false
 
-  try {
-    let argCount = 0
-    let hasEFlag = false
+  for (let i = 0; i < parsed.length; i++) {
+    const arg = parsed[i]!
 
-    for (let i = 0; i < parsed.length; i++) {
-      const arg = parsed[i]
-
-      // Handle both string arguments and glob patterns (like *.log)
-      if (typeof arg !== 'string' && typeof arg !== 'object') continue
-
-      // If it's a glob pattern, it counts as a file argument
-      if (
-        typeof arg === 'object' &&
-        arg !== null &&
-        'op' in arg &&
-        arg.op === 'glob'
-      ) {
-        return true
-      }
-
-      // Skip non-string arguments that aren't glob patterns
-      if (typeof arg !== 'string') continue
-
-      // Handle -e flag followed by expression
-      if ((arg === '-e' || arg === '--expression') && i + 1 < parsed.length) {
-        hasEFlag = true
-        i++ // Skip the next argument since it's the expression
-        continue
-      }
-
-      // Handle --expression=value format
-      if (arg.startsWith('--expression=')) {
-        hasEFlag = true
-        continue
-      }
-
-      // Handle -e=value format (non-standard but defense in depth)
-      if (arg.startsWith('-e=')) {
-        hasEFlag = true
-        continue
-      }
-
-      // Skip other flags
-      if (arg.startsWith('-')) continue
-
-      argCount++
-
-      // If we used -e flags, ALL non-flag arguments are file arguments
-      if (hasEFlag) {
-        return true
-      }
-
-      // If we didn't use -e flags, the first non-flag argument is the sed expression,
-      // so we need more than 1 non-flag argument to have file arguments
-      if (argCount > 1) {
-        return true
-      }
+    // Handle -e flag followed by expression
+    if ((arg === '-e' || arg === '--expression') && i + 1 < parsed.length) {
+      hasEFlag = true
+      i++ // Skip the next argument since it's the expression
+      continue
     }
 
-    return false
-  } catch (_error) {
-    return true // Assume dangerous if parsing fails
+    // Handle --expression=value format
+    if (arg.startsWith('--expression=')) {
+      hasEFlag = true
+      continue
+    }
+
+    // Handle -e=value format (non-standard but defense in depth)
+    if (arg.startsWith('-e=')) {
+      hasEFlag = true
+      continue
+    }
+
+    // Skip other flags
+    if (arg.startsWith('-')) continue
+
+    argCount++
+
+    // If we used -e flags, ALL non-flag arguments are file arguments
+    if (hasEFlag) {
+      return true
+    }
+
+    // If we didn't use -e flags, the first non-flag argument is the sed expression,
+    // so we need more than 1 non-flag argument to have file arguments
+    if (argCount > 1) {
+      return true
+    }
   }
+
+  return false
 }
 
 /**
@@ -388,24 +346,20 @@ export function hasFileArgs(command: string): boolean {
 export function extractSedExpressions(command: string): string[] {
   const expressions: string[] = []
 
-  // Calculate withoutSed by trimming off the first N characters (removing 'sed ')
-  const sedMatch = command.match(/^\s*sed\s+/)
-  if (!sedMatch) return expressions
+  const argv = parseCommandArgv(command)
+  if (argv[0] !== 'sed') return expressions
 
-  const withoutSed = command.slice(sedMatch[0].length)
+  const parsed = argv.slice(1)
 
   // Reject dangerous flag combinations like -ew, -eW, -ee, -we (combined -e/-w with dangerous commands)
-  if (/-e[wWe]/.test(withoutSed) || /-w[eE]/.test(withoutSed)) {
+  if (parsed.some(arg => /^-e[wWe]/.test(arg) || /^-w[eE]/.test(arg))) {
     throw new Error('Dangerous flag combination detected')
   }
 
-  // Use shell-quote to parse the arguments properly
-  const parseResult = tryParseShellCommand(withoutSed)
-  if (!parseResult.success) {
-    // Malformed shell syntax - throw error to be caught by caller
-    throw new Error(`Malformed shell syntax: ${parseResult.error}`)
+  // No arguments after `sed` (or an unparseable command) — nothing to vet
+  if (parsed.length === 0) {
+    throw new Error('No sed arguments')
   }
-  const parsed = parseResult.tokens
   try {
     let foundEFlag = false
     let foundExpression = false

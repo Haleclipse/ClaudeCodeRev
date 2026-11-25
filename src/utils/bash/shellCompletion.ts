@@ -1,9 +1,4 @@
 import type { SuggestionItem } from 'src/components/PromptInput/PromptInputFooterSuggestions.js'
-import {
-  type ParseEntry,
-  quote,
-  tryParseShellCommand,
-} from '../bash/shellQuote.js'
 import { logForDebugging } from '../debug.js'
 import { getShellType } from '../localInstaller.js'
 import * as Shell from '../Shell.js'
@@ -11,7 +6,6 @@ import * as Shell from '../Shell.js'
 // Constants
 const MAX_SHELL_COMPLETIONS = 15
 const SHELL_COMPLETION_TIMEOUT_MS = 1000
-const COMMAND_OPERATORS = ['|', '||', '&&', ';'] as const
 
 export type ShellCompletionType = 'command' | 'variable' | 'file'
 
@@ -21,15 +15,11 @@ type InputContext = {
 }
 
 /**
- * Check if a parsed token is a command operator (|, ||, &&, ;)
+ * Single-quote the completion prefix for compgen. Always quoting (even
+ * plain words) keeps the generated command a fixed shape.
  */
-function isCommandOperator(token: ParseEntry): boolean {
-  return (
-    typeof token === 'object' &&
-    token !== null &&
-    'op' in token &&
-    (COMMAND_OPERATORS as readonly string[]).includes(token.op as string)
-  )
+function quote(args: [string]): string {
+  return "'" + args[0].replaceAll("'", `'"'"'`) + "'"
 }
 
 /**
@@ -50,90 +40,30 @@ function getCompletionTypeFromPrefix(prefix: string): ShellCompletionType {
 }
 
 /**
- * Find the last string token and its index in parsed tokens
- */
-function findLastStringToken(
-  tokens: ParseEntry[],
-): { token: string; index: number } | null {
-  const i = tokens.findLastIndex(t => typeof t === 'string')
-  return i !== -1 ? { token: tokens[i] as string, index: i } : null
-}
-
-/**
- * Check if we're in a context that expects a new command
- * (at start of input or after a command operator)
- */
-function isNewCommandContext(
-  tokens: ParseEntry[],
-  currentTokenIndex: number,
-): boolean {
-  if (currentTokenIndex === 0) {
-    return true
-  }
-  const prevToken = tokens[currentTokenIndex - 1]
-  return prevToken !== undefined && isCommandOperator(prevToken)
-}
-
-/**
  * Parse input to extract completion context
  */
 function parseInputContext(input: string, cursorOffset: number): InputContext {
   const beforeCursor = input.slice(0, cursorOffset)
 
-  // Check if it's a variable prefix, before expanding with shell-quote
+  // Check if it's a variable prefix
   const varMatch = beforeCursor.match(/\$[a-zA-Z_][a-zA-Z0-9_]*$/)
   if (varMatch) {
     return { prefix: varMatch[0], completionType: 'variable' }
   }
 
-  // Parse with shell-quote
-  const parseResult = tryParseShellCommand(beforeCursor)
-  if (!parseResult.success) {
-    // Fallback to simple parsing
-    const tokens = beforeCursor.split(/\s+/)
-    const prefix = tokens[tokens.length - 1] || ''
-    const isFirstToken = tokens.length === 1 && !beforeCursor.includes(' ')
-    const completionType = isFirstToken
-      ? 'command'
-      : getCompletionTypeFromPrefix(prefix)
-    return { prefix, completionType }
+  // Simple whitespace split: the last word is the prefix being completed
+  const tokens = beforeCursor.split(/\s+/)
+  const prefix = tokens.at(-1) || ''
+  const isFirstToken = tokens.length === 1 && !beforeCursor.includes(' ')
+  const baseType = getCompletionTypeFromPrefix(prefix)
+
+  // A clear file/variable prefix wins; otherwise the first word is a
+  // command and later words are file arguments.
+  return {
+    prefix,
+    completionType:
+      baseType !== 'command' ? baseType : isFirstToken ? 'command' : 'file',
   }
-
-  // Extract current token
-  const lastToken = findLastStringToken(parseResult.tokens)
-  if (!lastToken) {
-    // No string token found - check if after operator
-    const lastParsedToken = parseResult.tokens[parseResult.tokens.length - 1]
-    const completionType =
-      lastParsedToken && isCommandOperator(lastParsedToken)
-        ? 'command'
-        : 'command' // Default to command at start
-    return { prefix: '', completionType }
-  }
-
-  // If there's a trailing space, the user is starting a new argument
-  if (beforeCursor.endsWith(' ')) {
-    // After first token (command) with space = file argument expected
-    return { prefix: '', completionType: 'file' }
-  }
-
-  // Determine completion type from context
-  const baseType = getCompletionTypeFromPrefix(lastToken.token)
-
-  // If it's clearly a file or variable based on prefix, use that type
-  if (baseType === 'variable' || baseType === 'file') {
-    return { prefix: lastToken.token, completionType: baseType }
-  }
-
-  // For command-like tokens, check context: are we starting a new command?
-  const completionType = isNewCommandContext(
-    parseResult.tokens,
-    lastToken.index,
-  )
-    ? 'command'
-    : 'file' // Not after operator = file argument
-
-  return { prefix: lastToken.token, completionType }
 }
 
 /**

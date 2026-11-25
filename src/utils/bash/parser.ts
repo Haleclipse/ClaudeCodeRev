@@ -1,11 +1,5 @@
-import { feature } from 'bun:bundle'
 import { logEvent } from '../../services/analytics/index.js'
-import { logForDebugging } from '../debug.js'
-import {
-  ensureParserInitialized,
-  getParserModule,
-  type TsNode,
-} from './bashParser.js'
+import { getParserModule, type TsNode } from './bashParser.js'
 
 export type Node = TsNode
 
@@ -33,54 +27,24 @@ const SUBSTITUTION_TYPES = new Set([
 ])
 const COMMAND_TYPES = new Set(['command', 'declaration_command'])
 
-let logged = false
-function logLoadOnce(success: boolean): void {
-  if (logged) return
-  logged = true
-  logForDebugging(
-    success ? 'tree-sitter: native module loaded' : 'tree-sitter: unavailable',
-  )
-  logEvent('tengu_tree_sitter_load', { success })
-}
-
-/**
- * Awaits WASM init (Parser.init + Language.load). Must be called before
- * parseCommand/parseCommandRaw for the parser to be available. Idempotent.
- */
-export async function ensureInitialized(): Promise<void> {
-  if (feature('TREE_SITTER_BASH') || feature('TREE_SITTER_BASH_SHADOW')) {
-    await ensureParserInitialized()
-  }
-}
-
 export async function parseCommand(
   command: string,
 ): Promise<ParsedCommandData | null> {
   if (!command || command.length > MAX_COMMAND_LENGTH) return null
 
-  // Gate: ant-only until pentest. External builds fall back to legacy
-  // regex/shell-quote path. Guarding the whole body inside the positive
-  // branch lets Bun DCE the NAPI import AND keeps telemetry honest — we
-  // only fire tengu_tree_sitter_load when a load was genuinely attempted.
-  if (feature('TREE_SITTER_BASH')) {
-    await ensureParserInitialized()
-    const mod = getParserModule()
-    logLoadOnce(mod !== null)
-    if (!mod) return null
+  // The pure-TS parser is always available — no load step, no legacy
+  // regex/shell-quote fallback.
+  try {
+    const rootNode = getParserModule().parse(command)
+    if (!rootNode) return null
 
-    try {
-      const rootNode = mod.parse(command)
-      if (!rootNode) return null
+    const commandNode = findCommandNode(rootNode, null)
+    const envVars = extractEnvVars(commandNode)
 
-      const commandNode = findCommandNode(rootNode, null)
-      const envVars = extractEnvVars(commandNode)
-
-      return { rootNode, envVars, commandNode, originalCommand: command }
-    } catch {
-      return null
-    }
+    return { rootNode, envVars, commandNode, originalCommand: command }
+  } catch {
+    return null
   }
-  return null
 }
 
 /**
@@ -98,44 +62,49 @@ export const PARSE_ABORTED = Symbol('parse-aborted')
  *
  * Returns:
  *   - Node: parse succeeded
- *   - null: module not loaded / feature off / empty / over-length
- *   - PARSE_ABORTED: module loaded but parse failed (timeout/panic)
+ *   - null: empty command
+ *   - PARSE_ABORTED: over-length, or parse failed (timeout/panic)
  */
 export async function parseCommandRaw(
   command: string,
 ): Promise<Node | null | typeof PARSE_ABORTED> {
-  if (!command || command.length > MAX_COMMAND_LENGTH) return null
-  if (feature('TREE_SITTER_BASH') || feature('TREE_SITTER_BASH_SHADOW')) {
-    await ensureParserInitialized()
-    const mod = getParserModule()
-    logLoadOnce(mod !== null)
-    if (!mod) return null
-    try {
-      const result = mod.parse(command)
-      // SECURITY: Module loaded; null here = timeout/node-budget abort in
-      // bashParser.ts (PARSE_TIMEOUT_MS=50, MAX_NODES=50_000).
-      // Previously collapsed into `return null` → parse-unavailable → legacy
-      // path, which lacks EVAL_LIKE_BUILTINS — `trap`, `enable`, `hash` leaked.
-      if (result === null) {
-        logEvent('tengu_tree_sitter_parse_abort', {
-          cmdLength: command.length,
-          panic: false,
-        })
-        return PARSE_ABORTED
-      }
-      return result
-    } catch {
+  if (!command) return null
+  // SECURITY: Over-length is fail-closed too. There is no legacy path left to
+  // route to, so `null` here would read as "nothing to check".
+  if (command.length > MAX_COMMAND_LENGTH) {
+    logEvent('tengu_tree_sitter_parse_abort', {
+      cmdLength: command.length,
+      panic: false,
+    })
+    return PARSE_ABORTED
+  }
+  try {
+    const result = getParserModule().parse(command)
+    // SECURITY: null here = timeout/node-budget abort in
+    // bashParser.ts (PARSE_TIMEOUT_MS=50, MAX_NODES=50_000).
+    // Previously collapsed into `return null` → parse-unavailable → legacy
+    // path, which lacks EVAL_LIKE_BUILTINS — `trap`, `enable`, `hash` leaked.
+    if (result === null) {
       logEvent('tengu_tree_sitter_parse_abort', {
         cmdLength: command.length,
-        panic: true,
+        panic: false,
       })
       return PARSE_ABORTED
     }
+    return result
+  } catch {
+    logEvent('tengu_tree_sitter_parse_abort', {
+      cmdLength: command.length,
+      panic: true,
+    })
+    return PARSE_ABORTED
   }
-  return null
 }
 
-function findCommandNode(node: Node, parent: Node | null): Node | null {
+export function findCommandNode(
+  node: Node,
+  parent: Node | null,
+): Node | null {
   const { type, children } = node
 
   if (COMMAND_TYPES.has(type)) return node
@@ -207,13 +176,21 @@ export function extractCommandArguments(commandNode: Node): string[] {
       (!foundCommandName && child.type === 'word')
     ) {
       foundCommandName = true
-      args.push(child.text)
+      // command_name wraps the actual word/string node; unwrap so a quoted
+      // name ("git") compares equal to the bare one.
+      const nameNode = child.children[0] ?? child
+      args.push(stripQuotes(nameNode.text))
       continue
     }
 
     // Arguments
     if (ARGUMENT_TYPES.has(child.type)) {
       args.push(stripQuotes(child.text))
+    } else if (child.type === 'concatenation') {
+      // `--flag="x"` / `a'b'c`: join the unquoted pieces, unless a piece is
+      // a substitution whose value can't be known statically.
+      if (child.children.some(c => SUBSTITUTION_TYPES.has(c.type))) break
+      args.push(child.children.map(c => stripQuotes(c.text)).join(''))
     } else if (SUBSTITUTION_TYPES.has(child.type)) {
       break
     }

@@ -7,14 +7,14 @@
  * - $0, $1, etc. - shorthand for $ARGUMENTS[0], $ARGUMENTS[1]
  * - Named arguments (e.g., $foo, $bar) - when argument names are defined in frontmatter
  *
- * Arguments are parsed using shell-quote for proper shell argument handling.
+ * Arguments are parsed with the bash parser for proper shell argument handling.
  */
 
-import { tryParseShellCommand } from './bash/shellQuote.js'
+import { parseCommandArgv } from './bash/commands.js'
 
 /**
  * Parse an arguments string into an array of individual arguments.
- * Uses shell-quote for proper shell argument parsing including quoted strings.
+ * Uses the bash parser for proper shell argument parsing including quoted strings.
  *
  * Examples:
  * - "foo bar baz" => ["foo", "bar", "baz"]
@@ -26,17 +26,9 @@ export function parseArguments(args: string): string[] {
     return []
   }
 
-  // Return $KEY to preserve variable syntax literally (don't expand variables)
-  const result = tryParseShellCommand(args, key => `$${key}`)
-  if (!result.success) {
-    // Fall back to simple whitespace split if parsing fails
-    return args.split(/\s+/).filter(Boolean)
-  }
-
-  // Filter to only string tokens (ignore shell operators, etc.)
-  return result.tokens.filter(
-    (token): token is string => typeof token === 'string',
-  )
+  const parsed = parseCommandArgv(args)
+  // Fall back to simple whitespace split if parsing fails
+  return parsed.length > 0 ? parsed : args.split(/\s+/).filter(Boolean)
 }
 
 /**

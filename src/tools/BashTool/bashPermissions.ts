@@ -1,7 +1,6 @@
 import { feature } from 'bun:bundle'
 import { APIUserAbortError } from '@anthropic-ai/sdk'
 import type { z } from 'zod/v4'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -14,20 +13,17 @@ import {
   nodeTypeId,
   type ParseForSecurityResult,
   parseForSecurityFromAst,
-  type Redirect,
   type SimpleCommand,
 } from '../../utils/bash/ast.js'
 import {
   type CommandPrefixResult,
   extractOutputRedirections,
   getCommandSubcommandPrefix,
+  parseCommandArgv,
   splitCommand_DEPRECATED,
 } from '../../utils/bash/commands.js'
 import { parseCommandRaw } from '../../utils/bash/parser.js'
-import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
 import { getCwd } from '../../utils/cwd.js'
-import { logForDebugging } from '../../utils/debug.js'
-import { isEnvTruthy } from '../../utils/envUtils.js'
 import { AbortError } from '../../utils/errors.js'
 import type {
   ClassifierBehavior,
@@ -66,41 +62,18 @@ import {
 import { getPlatform } from '../../utils/platform.js'
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
+import { firstLineOf } from '../../utils/stringUtils.js'
 import { windowsPathToPosixPath } from '../../utils/windowsPaths.js'
 import { BashTool } from './BashTool.js'
 import { checkCommandOperatorPermissions } from './bashCommandHelpers.js'
-import {
-  bashCommandIsSafeAsync_DEPRECATED,
-  stripSafeHeredocSubstitutions,
-} from './bashSecurity.js'
 import { checkPermissionMode } from './modeValidation.js'
 import { checkPathConstraints } from './pathValidation.js'
 import { checkSedConstraints } from './sedValidation.js'
 import { shouldUseSandbox } from './shouldUseSandbox.js'
 
-// DCE cliff: Bun's feature() evaluator has a per-function complexity budget.
-// bashToolHasPermission is right at the limit. `import { X as Y }` aliases
-// inside the import block count toward this budget; when they push it over
-// the threshold Bun can no longer prove feature('BASH_CLASSIFIER') is a
-// constant and silently evaluates the ternaries to `false`, dropping every
-// pendingClassifierCheck spread. Keep aliases as top-level const rebindings
-// instead. (See also the comment on checkSemanticsDeny below.)
-const bashCommandIsSafeAsync = bashCommandIsSafeAsync_DEPRECATED
-const splitCommand = splitCommand_DEPRECATED
-
 // Env-var assignment prefix (VAR=value). Shared across three while-loops that
 // skip safe env vars before extracting the command name.
 const ENV_VAR_ASSIGN_RE = /^[A-Za-z_]\w*=/
-
-// CC-643: On complex compound commands, splitCommand_DEPRECATED can produce a
-// very large subcommands array (possible exponential growth; #21405's ReDoS fix
-// may have been incomplete). Each subcommand then runs tree-sitter parse +
-// ~20 validators + logEvent (bashSecurity.ts), and with memoized metadata the
-// resulting microtask chain starves the event loop — REPL freeze at 100% CPU,
-// strace showed /proc/self/stat reads at ~127Hz with no epoll_wait. Fifty is
-// generous: legitimate user commands don't split that wide. Above the cap we
-// fall back to 'ask' (safe default — we can't prove safety, so we prompt).
-export const MAX_SUBCOMMANDS_FOR_SECURITY_CHECK = 50
 
 // GH#11380: Cap the number of per-subcommand rules suggested for compound
 // commands. Beyond this, the "Yes, and don't ask again for X, Y, Z…" label
@@ -277,7 +250,7 @@ function suggestionForExactCommand(command: string): PermissionUpdate[] {
   // the middle, which fails permission validation and corrupts the settings
   // file. Use the first line as a prefix rule instead.
   if (command.includes('\n')) {
-    const firstLine = command.split('\n')[0]!.trim()
+    const firstLine = firstLineOf(command).trim()
     if (firstLine) {
       return sharedSuggestionForPrefix(BashTool.name, firstLine)
     }
@@ -862,7 +835,7 @@ function filterRulesByContentsMatchingInput(
   if (matchMode === 'prefix' && !skipCompoundCheck) {
     for (const cmd of commandsToTry) {
       if (!isCompoundCommand.has(cmd)) {
-        isCompoundCommand.set(cmd, splitCommand(cmd).length > 1)
+        isCompoundCommand.set(cmd, splitCommand_DEPRECATED(cmd).length > 1)
       }
     }
   }
@@ -1185,7 +1158,6 @@ export async function checkCommandAndSuggestRules(
   toolPermissionContext: ToolPermissionContext,
   commandPrefixResult: CommandPrefixResult | null | undefined,
   compoundCommandHasCd?: boolean,
-  astParseSucceeded?: boolean,
 ): Promise<PermissionResult> {
   // 1. Check exact match first
   const exactMatchResult = bashToolCheckExactMatchPermission(
@@ -1210,40 +1182,12 @@ export async function checkCommandAndSuggestRules(
     return permissionResult
   }
 
-  // 3. Ask for permission if command injection is detected. Skip when the
-  // AST parse already succeeded — tree-sitter has verified there are no
-  // hidden substitutions or structural tricks, so the legacy regex-based
-  // validators (backslash-escaped operators, etc.) would only add FPs.
-  if (
-    !astParseSucceeded &&
-    !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK)
-  ) {
-    const safetyResult = await bashCommandIsSafeAsync(input.command)
-
-    if (safetyResult.behavior !== 'passthrough') {
-      const decisionReason: PermissionDecisionReason = {
-        type: 'other' as const,
-        reason:
-          safetyResult.behavior === 'ask' && safetyResult.message
-            ? safetyResult.message
-            : 'This command contains patterns that could pose security risks and requires approval',
-      }
-
-      return {
-        behavior: 'ask',
-        message: createPermissionRequestMessage(BashTool.name, decisionReason),
-        decisionReason,
-        suggestions: [], // Don't suggest saving a potentially dangerous command
-      }
-    }
-  }
-
-  // 4. Allow if command was allowed
+  // 3. Allow if command was allowed
   if (permissionResult.behavior === 'allow') {
     return permissionResult
   }
 
-  // 5. Suggest prefix if available, otherwise exact command
+  // 4. Suggest prefix if available, otherwise exact command
   const suggestedUpdates = commandPrefixResult?.commandPrefix
     ? suggestionForPrefix(commandPrefixResult.commandPrefix)
     : suggestionForExactCommand(input.command)
@@ -1300,7 +1244,7 @@ function checkSandboxAutoAllow(
   // Otherwise a wildcard ask rule matching the full command (e.g., Bash(*echo*))
   // would return 'ask' before a prefix deny rule on a subcommand (e.g., Bash(rm:*))
   // gets checked, downgrading a deny to an ask.
-  const subcommands = splitCommand(command)
+  const subcommands = splitCommand_DEPRECATED(command)
   if (subcommands.length > 1) {
     let firstAskRule: PermissionRule | undefined
     for (const sub of subcommands) {
@@ -1419,7 +1363,7 @@ function checkEarlyExitDeny(
  * + full-command prefix deny), then checks each individual SimpleCommand .text
  * span against prefix deny rules. The per-subcommand check is needed because
  * filterRulesByContentsMatchingInput has a compound-command guard
- * (splitCommand().length > 1 → prefix rules return false) that defeats
+ * (splitCommand_DEPRECATED().length > 1 → prefix rules return false) that defeats
  * `Bash(eval:*)` matching against a full pipeline like `echo foo | eval rm`.
  * Each SimpleCommand span is a single command, so the guard doesn't fire.
  *
@@ -1673,70 +1617,13 @@ export async function bashToolHasPermission(
   // no hidden substitutions) or 'too-complex' — which is exactly the signal
   // we need to decide whether splitCommand's output can be trusted.
   //
-  // When tree-sitter WASM is unavailable OR the injection check is disabled
-  // via env var, we fall back to the old path (legacy gate at ~1370 runs).
-  const injectionCheckDisabled = isEnvTruthy(
-    process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK,
-  )
-  // GrowthBook killswitch for shadow mode — when off, skip the native parse
-  // entirely. Computed once; feature() must stay inline in the ternary below.
-  const shadowEnabled = feature('TREE_SITTER_BASH_SHADOW')
-    ? getFeatureValue_CACHED_MAY_BE_STALE('tengu_birch_trellis', true)
-    : false
-  // Parse once here; the resulting AST feeds both parseForSecurityFromAst
-  // and bashToolCheckCommandOperatorPermissions.
-  let astRoot = injectionCheckDisabled
-    ? null
-    : feature('TREE_SITTER_BASH_SHADOW') && !shadowEnabled
-      ? null
-      : await parseCommandRaw(input.command)
-  let astResult: ParseForSecurityResult = astRoot
+  // parseCommandRaw only returns null for an empty command (over-length and
+  // parser aborts come back as PARSE_ABORTED → too-complex), so a null root
+  // means there is nothing to check.
+  const astRoot = await parseCommandRaw(input.command)
+  const astResult: ParseForSecurityResult = astRoot
     ? parseForSecurityFromAst(input.command, astRoot)
-    : { kind: 'parse-unavailable' }
-  let astSubcommands: string[] | null = null
-  let astRedirects: Redirect[] | undefined
-  let astCommands: SimpleCommand[] | undefined
-  let shadowLegacySubs: string[] | undefined
-
-  // Shadow-test tree-sitter: record its verdict, then force parse-unavailable
-  // so the legacy path stays authoritative. parseCommand stays gated on
-  // TREE_SITTER_BASH (not SHADOW) so legacy internals remain pure regex.
-  // One event per bash call captures both divergence AND unavailability
-  // reasons; module-load failures are separately covered by the
-  // session-scoped tengu_tree_sitter_load event.
-  if (feature('TREE_SITTER_BASH_SHADOW')) {
-    const available = astResult.kind !== 'parse-unavailable'
-    let tooComplex = false
-    let semanticFail = false
-    let subsDiffer = false
-    if (available) {
-      tooComplex = astResult.kind === 'too-complex'
-      semanticFail =
-        astResult.kind === 'simple' && !checkSemantics(astResult.commands).ok
-      const tsSubs =
-        astResult.kind === 'simple'
-          ? astResult.commands.map(c => c.text)
-          : undefined
-      const legacySubs = splitCommand(input.command)
-      shadowLegacySubs = legacySubs
-      subsDiffer =
-        tsSubs !== undefined &&
-        (tsSubs.length !== legacySubs.length ||
-          tsSubs.some((s, i) => s !== legacySubs[i]))
-    }
-    logEvent('tengu_tree_sitter_shadow', {
-      available,
-      astTooComplex: tooComplex,
-      astSemanticFail: semanticFail,
-      subsDiffer,
-      injectionCheckDisabled,
-      killswitchOff: !shadowEnabled,
-      cmdOverLength: input.command.length > 10000,
-    })
-    // Always force legacy — shadow mode is observational only.
-    astResult = { kind: 'parse-unavailable' }
-    astRoot = null
-  }
+    : { kind: 'simple', commands: [] }
 
   if (astResult.kind === 'too-complex') {
     // Parse succeeded but found structure we can't statically analyze
@@ -1768,63 +1655,40 @@ export async function bashToolHasPermission(
     }
   }
 
-  if (astResult.kind === 'simple') {
-    // Clean parse: check semantic-level concerns (zsh builtins, eval, etc.)
-    // that tokenize fine but are dangerous by name.
-    const sem = checkSemantics(astResult.commands)
-    if (!sem.ok) {
-      // Same deny-rule enforcement as the too-complex path: a user with
-      // `Bash(eval:*)` deny expects `eval "rm"` blocked, not downgraded.
-      const earlyExit = checkSemanticsDeny(
-        input,
-        appState.toolPermissionContext,
-        astResult.commands,
-      )
-      if (earlyExit !== null) return earlyExit
-      const decisionReason: PermissionDecisionReason = {
-        type: 'other' as const,
-        reason: sem.reason,
-      }
-      return {
-        behavior: 'ask',
-        decisionReason,
-        message: createPermissionRequestMessage(BashTool.name, decisionReason),
-        suggestions: [],
-      }
-    }
-    // Stash the tokenized subcommands for use below. Downstream code (rule
-    // matching, path extraction, cd detection) still operates on strings, so
-    // we pass the original source span for each SimpleCommand. Downstream
-    // processing (stripSafeWrappers, parseCommandArguments) re-tokenizes
-    // these spans — that re-tokenization has known bugs (stripCommentLines
-    // mishandles newlines inside quotes), but checkSemantics already caught
-    // any argv element containing a newline, so those bugs can't bite here.
-    // Migrating downstream to operate on argv directly is a later commit.
-    astSubcommands = astResult.commands.map(c => c.text)
-    astRedirects = astResult.commands.flatMap(c => c.redirects)
-    astCommands = astResult.commands
-  }
-
-  // Legacy shell-quote pre-check. Only reached on 'parse-unavailable'
-  // (tree-sitter not loaded OR TREE_SITTER_BASH feature gated off). Falls
-  // through to the full legacy path below.
-  if (astResult.kind === 'parse-unavailable') {
-    logForDebugging(
-      'bashToolHasPermission: tree-sitter unavailable, using legacy shell-quote path',
+  // Clean parse: check semantic-level concerns (zsh builtins, eval, etc.)
+  // that tokenize fine but are dangerous by name.
+  const sem = checkSemantics(astResult.commands)
+  if (!sem.ok) {
+    // Same deny-rule enforcement as the too-complex path: a user with
+    // `Bash(eval:*)` deny expects `eval "rm"` blocked, not downgraded.
+    const earlyExit = checkSemanticsDeny(
+      input,
+      appState.toolPermissionContext,
+      astResult.commands,
     )
-    const parseResult = tryParseShellCommand(input.command)
-    if (!parseResult.success) {
-      const decisionReason = {
-        type: 'other' as const,
-        reason: `Command contains malformed syntax that cannot be parsed: ${parseResult.error}`,
-      }
-      return {
-        behavior: 'ask',
-        decisionReason,
-        message: createPermissionRequestMessage(BashTool.name, decisionReason),
-      }
+    if (earlyExit !== null) return earlyExit
+    const decisionReason: PermissionDecisionReason = {
+      type: 'other' as const,
+      reason: sem.reason,
+    }
+    return {
+      behavior: 'ask',
+      decisionReason,
+      message: createPermissionRequestMessage(BashTool.name, decisionReason),
+      suggestions: [],
     }
   }
+  // Stash the tokenized subcommands for use below. Downstream code (rule
+  // matching, path extraction, cd detection) still operates on strings, so
+  // we pass the original source span for each SimpleCommand. Downstream
+  // processing (stripSafeWrappers, parseCommandArguments) re-tokenizes
+  // these spans — that re-tokenization has known bugs (stripCommentLines
+  // mishandles newlines inside quotes), but checkSemantics already caught
+  // any argv element containing a newline, so those bugs can't bite here.
+  // Migrating downstream to operate on argv directly is a later commit.
+  const astSubcommands = astResult.commands.map(c => c.text)
+  const astRedirects = astResult.commands.flatMap(c => c.redirects)
+  const astCommands = astResult.commands
 
   // Check sandbox auto-allow (which respects explicit deny/ask rules)
   // Only call this if sandboxing and auto-allow are both enabled
@@ -1990,51 +1854,9 @@ export async function bashToolHasPermission(
     // 1. Path constraints for output redirections
     // 2. Command safety for dangerous patterns (backticks, etc.) in redirect targets
     if (commandOperatorResult.behavior === 'allow') {
-      // Check for dangerous patterns (backticks, $(), etc.) in the original command
-      // This catches cases like: echo x | xargs echo > `pwd`/evil.txt
-      // where the backtick is in the redirect target (stripped from segments)
-      // Gate on AST: when astSubcommands is non-null, tree-sitter already
-      // validated structure (backticks/$() in redirect targets would have
-      // returned too-complex). Matches gating at ~1481, ~1706, ~1755.
-      // Avoids FP: `find -exec {} \; | grep x` tripping on backslash-;.
-      // bashCommandIsSafe runs the full legacy regex battery (~20 patterns) —
-      // only call it when we'll actually use the result.
-      const safetyResult =
-        astSubcommands === null
-          ? await bashCommandIsSafeAsync(input.command)
-          : null
-      if (
-        safetyResult !== null &&
-        safetyResult.behavior !== 'passthrough' &&
-        safetyResult.behavior !== 'allow'
-      ) {
-        // Attach pending classifier check - may auto-approve before user responds
-        appState = context.getAppState()
-        return {
-          behavior: 'ask',
-          message: createPermissionRequestMessage(BashTool.name, {
-            type: 'other',
-            reason:
-              safetyResult.message ??
-              'Command contains patterns that require approval',
-          }),
-          decisionReason: {
-            type: 'other',
-            reason:
-              safetyResult.message ??
-              'Command contains patterns that require approval',
-          },
-          ...(feature('BASH_CLASSIFIER')
-            ? {
-                pendingClassifierCheck: buildPendingClassifierCheck(
-                  input.command,
-                  appState.toolPermissionContext,
-                ),
-              }
-            : {}),
-        }
-      }
-
+      // Dangerous patterns (backticks, $(), etc.) in redirect targets — e.g.
+      // `echo x | xargs echo > \`pwd\`/evil.txt` — already returned
+      // too-complex from the AST parse above.
       appState = context.getAppState()
       // SECURITY: Compute compoundCommandHasCd from the full command, NOT
       // hardcode false. The pipe-handling path previously passed `false` here,
@@ -2075,108 +1897,17 @@ export async function bashToolHasPermission(
     return commandOperatorResult
   }
 
-  // SECURITY: Legacy misparsing gate. Only runs when the tree-sitter module
-  // is not loaded. Timeout/abort is fail-closed via too-complex (returned
-  // early above), not routed here. When the AST parse succeeded,
-  // astSubcommands is non-null and we've already validated structure; this
-  // block is skipped entirely. The AST's 'too-complex' result subsumes
-  // everything isBashSecurityCheckForMisparsing covered — both answer the
-  // same question: "can splitCommand be trusted on this input?"
-  if (
-    astSubcommands === null &&
-    !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK)
-  ) {
-    const originalCommandSafetyResult = await bashCommandIsSafeAsync(
-      input.command,
-    )
-    if (
-      originalCommandSafetyResult.behavior === 'ask' &&
-      originalCommandSafetyResult.isBashSecurityCheckForMisparsing
-    ) {
-      // Compound commands with safe heredoc patterns ($(cat <<'EOF'...EOF))
-      // trigger the $() check on the unsplit command. Strip the safe heredocs
-      // and re-check the remainder — if other misparsing patterns exist
-      // (e.g. backslash-escaped operators), they must still block.
-      const remainder = stripSafeHeredocSubstitutions(input.command)
-      const remainderResult =
-        remainder !== null ? await bashCommandIsSafeAsync(remainder) : null
-      if (
-        remainder === null ||
-        (remainderResult?.behavior === 'ask' &&
-          remainderResult.isBashSecurityCheckForMisparsing)
-      ) {
-        // Allow if the exact command has an explicit allow permission — the user
-        // made a conscious choice to permit this specific command.
-        appState = context.getAppState()
-        const exactMatchResult = bashToolCheckExactMatchPermission(
-          input,
-          appState.toolPermissionContext,
-        )
-        if (exactMatchResult.behavior === 'allow') {
-          return exactMatchResult
-        }
-        // Attach pending classifier check - may auto-approve before user responds
-        const decisionReason: PermissionDecisionReason = {
-          type: 'other' as const,
-          reason: originalCommandSafetyResult.message,
-        }
-        return {
-          behavior: 'ask',
-          message: createPermissionRequestMessage(
-            BashTool.name,
-            decisionReason,
-          ),
-          decisionReason,
-          suggestions: [], // Don't suggest saving a potentially dangerous command
-          ...(feature('BASH_CLASSIFIER')
-            ? {
-                pendingClassifierCheck: buildPendingClassifierCheck(
-                  input.command,
-                  appState.toolPermissionContext,
-                ),
-              }
-            : {}),
-        }
-      }
-    }
-  }
-
-  // Split into subcommands. Prefer the AST-extracted spans; fall back to
-  // splitCommand only when tree-sitter was unavailable. The cd-cwd filter
+  // Split into subcommands using the AST-extracted spans. The cd-cwd filter
   // strips the `cd ${cwd}` prefix that models like to prepend.
   const cwd = getCwd()
   const cwdMingw =
     getPlatform() === 'windows' ? windowsPathToPosixPath(cwd) : cwd
-  const rawSubcommands =
-    astSubcommands ?? shadowLegacySubs ?? splitCommand(input.command)
   const { subcommands, astCommandsByIdx } = filterCdCwdSubcommands(
-    rawSubcommands,
+    astSubcommands,
     astCommands,
     cwd,
     cwdMingw,
   )
-
-  // CC-643: Cap subcommand fanout. Only the legacy splitCommand path can
-  // explode — the AST path returns a bounded list (astSubcommands !== null)
-  // or short-circuits to 'too-complex' for structures it can't represent.
-  if (
-    astSubcommands === null &&
-    subcommands.length > MAX_SUBCOMMANDS_FOR_SECURITY_CHECK
-  ) {
-    logForDebugging(
-      `bashPermissions: ${subcommands.length} subcommands exceeds cap (${MAX_SUBCOMMANDS_FOR_SECURITY_CHECK}) — returning ask`,
-      { level: 'debug' },
-    )
-    const decisionReason = {
-      type: 'other' as const,
-      reason: `Command splits into ${subcommands.length} subcommands, too many to safety-check individually`,
-    }
-    return {
-      behavior: 'ask',
-      message: createPermissionRequestMessage(BashTool.name, decisionReason),
-      decisionReason,
-    }
-  }
 
   // Ask if there are multiple `cd` commands
   const cdCommands = subcommands.filter(subCommand =>
@@ -2336,39 +2067,9 @@ export async function bashToolHasPermission(
   }
 
   // If all subcommands are allowed via exact or prefix match, allow the
-  // command — but only if no command injection is possible. When the AST
-  // parse succeeded, each subcommand is already known-safe (no hidden
-  // substitutions, no structural tricks); the per-subcommand re-check is
-  // redundant. When on the legacy path, re-run bashCommandIsSafeAsync per sub.
-  let hasPossibleCommandInjection = false
-  if (
-    astSubcommands === null &&
-    !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_COMMAND_INJECTION_CHECK)
-  ) {
-    // CC-643: Batch divergence telemetry into a single logEvent. The per-sub
-    // logEvent was the hot-path syscall driver (each call → /proc/self/stat
-    // via process.memoryUsage()). Aggregate count preserves the signal.
-    let divergenceCount = 0
-    const onDivergence = () => {
-      divergenceCount++
-    }
-    const results = await Promise.all(
-      subcommands.map(c => bashCommandIsSafeAsync(c, onDivergence)),
-    )
-    hasPossibleCommandInjection = results.some(
-      r => r.behavior !== 'passthrough',
-    )
-    if (divergenceCount > 0) {
-      logEvent('tengu_tree_sitter_security_divergence', {
-        quoteContextDivergence: true,
-        count: divergenceCount,
-      })
-    }
-  }
-  if (
-    subcommandPermissionDecisions.every(_ => _.behavior === 'allow') &&
-    !hasPossibleCommandInjection
-  ) {
+  // command. Each subcommand came from the AST parse, so it is already
+  // known-safe (no hidden substitutions, no structural tricks).
+  if (subcommandPermissionDecisions.every(_ => _.behavior === 'allow')) {
     return {
       behavior: 'allow',
       updatedInput: input,
@@ -2409,7 +2110,6 @@ export async function bashToolHasPermission(
       appState.toolPermissionContext,
       commandSubcommandPrefix,
       compoundCommandHasCd,
-      astSubcommands !== null,
     )
     // If command wasn't allowed, attach pending classifier check.
     // At this point, 'ask' can only come from bashCommandIsSafe (security check inside
@@ -2445,7 +2145,6 @@ export async function bashToolHasPermission(
         appState.toolPermissionContext,
         commandSubcommandPrefix?.subcommandPrefixes.get(subcommand),
         compoundCommandHasCd,
-        astSubcommands !== null,
       ),
     )
   }
@@ -2570,21 +2269,18 @@ export function isNormalizedGitCommand(command: string): boolean {
     return true
   }
   const stripped = stripSafeWrappers(command)
-  const parsed = tryParseShellCommand(stripped)
-  if (parsed.success && parsed.tokens.length > 0) {
-    // Direct git command
-    if (parsed.tokens[0] === 'git') {
-      return true
-    }
-    // "xargs git ..." — xargs runs git in the current directory,
-    // so it must be treated as a git command for cd+git security checks.
-    // This matches the xargs prefix handling in filterRulesByContentsMatchingInput.
-    if (parsed.tokens[0] === 'xargs' && parsed.tokens.includes('git')) {
-      return true
-    }
-    return false
+  const argv = parseCommandArgv(stripped)
+  // Direct git command
+  if (argv[0] === 'git') {
+    return true
   }
-  return /^git(?:\s|$)/.test(stripped)
+  // "xargs git ..." — xargs runs git in the current directory,
+  // so it must be treated as a git command for cd+git security checks.
+  // This matches the xargs prefix handling in filterRulesByContentsMatchingInput.
+  if (argv[0] === 'xargs' && argv.includes('git')) {
+    return true
+  }
+  return false
 }
 
 /**
@@ -2601,13 +2297,8 @@ export function isNormalizedGitCommand(command: string): boolean {
  * DIRECTORY_CHANGE_ALIASES (src/utils/powershell/parser.ts).
  */
 export function isNormalizedCdCommand(command: string): boolean {
-  const stripped = stripSafeWrappers(command)
-  const parsed = tryParseShellCommand(stripped)
-  if (parsed.success && parsed.tokens.length > 0) {
-    const cmd = parsed.tokens[0]
-    return cmd === 'cd' || cmd === 'pushd' || cmd === 'popd'
-  }
-  return /^(?:cd|pushd|popd)(?:\s|$)/.test(stripped)
+  const cmd = parseCommandArgv(stripSafeWrappers(command))[0]
+  return cmd === 'cd' || cmd === 'pushd' || cmd === 'popd'
 }
 
 /**
@@ -2615,7 +2306,7 @@ export function isNormalizedCdCommand(command: string): boolean {
  * using normalized detection that handles env var prefixes and shell quotes.
  */
 export function commandHasAnyCd(command: string): boolean {
-  return splitCommand(command).some(subcmd =>
+  return splitCommand_DEPRECATED(command).some(subcmd =>
     isNormalizedCdCommand(subcmd.trim()),
   )
 }

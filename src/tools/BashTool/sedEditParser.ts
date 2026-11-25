@@ -4,7 +4,7 @@
  */
 
 import { randomBytes } from 'crypto'
-import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
+import { parseCommandArgv } from '../../utils/bash/commands.js'
 
 // BRE→ERE conversion placeholders (null-byte sentinels, never appear in user input)
 const BACKSLASH_PLACEHOLDER = '\x00BACKSLASH\x00'
@@ -47,32 +47,12 @@ export function isSedInPlaceEdit(command: string): boolean {
  * Returns null if the command is not a valid sed in-place edit
  */
 export function parseSedEditCommand(command: string): SedEditInfo | null {
-  const trimmed = command.trim()
+  const argv = parseCommandArgv(command.trim())
 
   // Must start with sed
-  const sedMatch = trimmed.match(/^\s*sed\s+/)
-  if (!sedMatch) return null
+  if (argv[0] !== 'sed') return null
 
-  const withoutSed = trimmed.slice(sedMatch[0].length)
-  const parseResult = tryParseShellCommand(withoutSed)
-  if (!parseResult.success) return null
-  const tokens = parseResult.tokens
-
-  // Extract string tokens only
-  const args: string[] = []
-  for (const token of tokens) {
-    if (typeof token === 'string') {
-      args.push(token)
-    } else if (
-      typeof token === 'object' &&
-      token !== null &&
-      'op' in token &&
-      token.op === 'glob'
-    ) {
-      // Glob patterns are too complex for this simple parser
-      return null
-    }
-  }
+  const args = argv.slice(1)
 
   // Parse flags and arguments
   let hasInPlaceFlag = false

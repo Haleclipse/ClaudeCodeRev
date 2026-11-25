@@ -41,7 +41,7 @@ export function ensureParserInitialized(): Promise<void> {
 }
 
 /** Always succeeds — pure-TS needs no init. */
-export function getParserModule(): ParserModule | null {
+export function getParserModule(): ParserModule {
   return MODULE
 }
 
@@ -899,7 +899,7 @@ function parseAndOr(P: ParseState): TsNode | null {
           op,
           inner,
         ])
-        const lastR = redirs[redirs.length - 1]!
+        const lastR = redirs.at(-1)!
         left = mk(
           P,
           'redirected_statement',
@@ -967,7 +967,7 @@ function parsePipeline(P: ParseState): TsNode | null {
           inner.endIndex,
           pipeKids,
         )
-        const lastR = redirs[redirs.length - 1]!
+        const lastR = redirs.at(-1)!
         const wrapped = mk(
           P,
           'redirected_statement',
@@ -987,7 +987,7 @@ function parsePipeline(P: ParseState): TsNode | null {
     }
   }
   if (parts.length === 1) return parts[0]!
-  const last = parts[parts.length - 1]!
+  const last = parts.at(-1)!
   return mk(P, 'pipeline', parts[0]!.startIndex, last.endIndex, parts)
 }
 
@@ -1019,7 +1019,7 @@ function parseCommand(P: ParseState): TsNode | null {
         bang,
         cmd,
       ])
-      const lastR = redirs[redirs.length - 1]!
+      const lastR = redirs.at(-1)!
       return mk(P, 'redirected_statement', neg.startIndex, lastR.endIndex, [
         neg,
         ...redirs,
@@ -1180,7 +1180,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
     }
     if (preRedirects.length > 0 && assignments.length === 0) {
       // Bare redirect → redirected_statement with just file_redirect children
-      const last = preRedirects[preRedirects.length - 1]!
+      const last = preRedirects.at(-1)!
       return mk(
         P,
         'redirected_statement',
@@ -1191,7 +1191,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
     }
     if (assignments.length > 1 && preRedirects.length === 0) {
       // `A=1 B=2` with no command → variable_assignments (plural)
-      const last = assignments[assignments.length - 1]!
+      const last = assignments.at(-1)!
       return mk(
         P,
         'variable_assignments',
@@ -1202,7 +1202,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
     }
     if (assignments.length > 0 || preRedirects.length > 0) {
       const all = [...assignments, ...preRedirects]
-      const last = all[all.length - 1]!
+      const last = all.at(-1)!
       return mk(P, 'command', start, last.endIndex, all)
     }
     return null
@@ -1233,7 +1233,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
         ) {
           bodyKids = body.children
         }
-        const last = bodyKids[bodyKids.length - 1]!
+        const last = bodyKids.at(-1)!
         return mk(P, 'function_definition', nm.startIndex, last.endIndex, [
           nm,
           oParen,
@@ -1355,7 +1355,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
   const cmdChildren = [...assignments, ...preRedirects, cmdName, ...args]
   const cmdEnd =
     cmdChildren.length > 0
-      ? cmdChildren[cmdChildren.length - 1]!.endIndex
+      ? cmdChildren.at(-1)!.endIndex
       : cmdName.endIndex
   const cmdStart = cmdChildren[0]!.startIndex
   const cmd = mk(P, 'command', cmdStart, cmdEnd, cmdChildren)
@@ -1393,7 +1393,7 @@ function parseSimpleCommand(P: ParseState): TsNode | null {
   }
 
   if (redirects.length > 0) {
-    const last = redirects[redirects.length - 1]!
+    const last = redirects.at(-1)!
     return mk(P, 'redirected_statement', cmd.startIndex, last.endIndex, [
       cmd,
       ...redirects,
@@ -1421,7 +1421,7 @@ function maybeRedirect(
     redirects.push(r)
   }
   if (redirects.length === 0) return node
-  const last = redirects[redirects.length - 1]!
+  const last = redirects.at(-1)!
   return mk(P, 'redirected_statement', node.startIndex, last.endIndex, [
     node,
     ...redirects,
@@ -1750,7 +1750,7 @@ function tryParseRedirect(P: ParseState, greedy = false): TsNode | null {
           break
         }
         if (pipeCmds.length > 0) {
-          const pl = pipeCmds[pipeCmds.length - 1]!
+          const pl = pipeCmds.at(-1)!
           // tree-sitter always wraps in pipeline after `|`, even single command
           kids.push(
             mk(P, 'pipeline', pipeCmds[0]!.startIndex, pl.endIndex, pipeCmds),
@@ -2156,7 +2156,7 @@ function parseWord(P: ParseState, _ctx: 'cmd' | 'arg'): TsNode | null {
   if (parts.length === 1) return parts[0]!
   // Concatenation
   const first = parts[0]!
-  const last = parts[parts.length - 1]!
+  const last = parts.at(-1)!
   return mk(P, 'concatenation', first.startIndex, last.endIndex, parts)
 }
 
@@ -2613,7 +2613,7 @@ function parseExpansionBody(P: ParseState): TsNode[] {
   }
   // Optional subscript [idx] — parsed arithmetically
   if (peek(P.L) === '[') {
-    const varNode = out[out.length - 1]
+    const varNode = out.at(-1)
     const brOpen = P.L.b
     advance(P.L)
     const brOpenNode = mk(P, '[', brOpen, P.L.b, [])
@@ -3026,7 +3026,7 @@ function parseExpansionRest(
   if (parts.length === 1) return parts[0]!
   // Multiple parts: wrap in concatenation (word mode keeps concat wrapping;
   // regex mode also concats per tree-sitter for mixed quote+glob patterns).
-  const last = parts[parts.length - 1]!
+  const last = parts.at(-1)!
   return mk(P, 'concatenation', parts[0]!.startIndex, last.endIndex, parts)
 }
 
@@ -3167,12 +3167,12 @@ function parseIf(P: ParseState, ifTok: Token): TsNode {
       consumeKeyword(P, 'then', eKids)
       const eBody = parseStatements(P, null)
       eKids.push(...eBody)
-      const last = eKids[eKids.length - 1]!
+      const last = eKids.at(-1)!
       kids.push(mk(P, 'elif_clause', eKw.startIndex, last.endIndex, eKids))
     } else if (t.type === 'WORD' && t.value === 'else') {
       const elKw = leaf(P, 'else', t)
       const elBody = parseStatements(P, null)
-      const last = elBody.length > 0 ? elBody[elBody.length - 1]! : elKw
+      const last = elBody.length > 0 ? elBody.at(-1)! : elKw
       kids.push(
         mk(P, 'else_clause', elKw.startIndex, last.endIndex, [elKw, ...elBody]),
       )
@@ -3182,7 +3182,7 @@ function parseIf(P: ParseState, ifTok: Token): TsNode {
     }
   }
   consumeKeyword(P, 'fi', kids)
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'if_statement', ifKw.startIndex, last.endIndex, kids)
 }
 
@@ -3193,7 +3193,7 @@ function parseWhile(P: ParseState, kwTok: Token): TsNode {
   kids.push(...cond)
   const dg = parseDoGroup(P)
   if (dg) kids.push(dg)
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'while_statement', kw.startIndex, last.endIndex, kids)
 }
 
@@ -3266,7 +3266,7 @@ function parseFor(P: ParseState, forTok: Token): TsNode {
         )
       }
     }
-    const last = kids[kids.length - 1]!
+    const last = kids.at(-1)!
     return mk(P, 'c_style_for_statement', forKw.startIndex, last.endIndex, kids)
   }
   // Regular for VAR in words; do ... done
@@ -3299,7 +3299,7 @@ function parseFor(P: ParseState, forTok: Token): TsNode {
   }
   const dg = parseDoGroup(P)
   if (dg) kids.push(dg)
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'for_statement', forKw.startIndex, last.endIndex, kids)
 }
 
@@ -3315,7 +3315,7 @@ function parseDoGroup(P: ParseState): TsNode | null {
   const body = parseStatements(P, null)
   const kids: TsNode[] = [doKw, ...body]
   consumeKeyword(P, 'done', kids)
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'do_group', doKw.startIndex, last.endIndex, kids)
 }
 
@@ -3343,7 +3343,7 @@ function parseCase(P: ParseState, caseTok: Token): TsNode {
     if (!item) break
     kids.push(item)
   }
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'case_statement', caseKw.startIndex, last.endIndex, kids)
 }
 
@@ -3375,7 +3375,7 @@ function parseCaseItem(P: ParseState): TsNode | null {
           : p,
       )
       const first = rewritten[0]!
-      const last = rewritten[rewritten.length - 1]!
+      const last = rewritten.at(-1)!
       kids.push(
         mk(P, 'concatenation', first.startIndex, last.endIndex, rewritten),
       )
@@ -3434,7 +3434,7 @@ function parseCaseItem(P: ParseState): TsNode | null {
       }
     }
   }
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'case_item', start, last.endIndex, kids)
 }
 
@@ -3591,7 +3591,7 @@ function parseFunction(P: ParseState, fnTok: Token): TsNode {
       kids.push(body)
     }
   }
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'function_definition', fnKw.startIndex, last.endIndex, kids)
 }
 
@@ -3643,7 +3643,7 @@ function parseDeclaration(P: ParseState, kwTok: Token): TsNode {
       break
     }
   }
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'declaration_command', kw.startIndex, last.endIndex, kids)
 }
 
@@ -3681,7 +3681,7 @@ function parseUnset(P: ParseState, kwTok: Token): TsNode {
       kids.push(arg)
     }
   }
-  const last = kids[kids.length - 1]!
+  const last = kids.at(-1)!
   return mk(P, 'unset_command', kw.startIndex, last.endIndex, kids)
 }
 
@@ -3915,7 +3915,7 @@ function parseTestBinary(P: ParseState, closer: string): TsNode | null {
     if (opText === '==' || opText === '!=') {
       const parts = parseTestExtglobRhs(P)
       if (parts.length === 0) return left
-      const last = parts[parts.length - 1]!
+      const last = parts.at(-1)!
       return mk(P, 'binary_expression', left.startIndex, last.endIndex, [
         left,
         op,

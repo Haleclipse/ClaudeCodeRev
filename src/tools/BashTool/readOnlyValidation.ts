@@ -1,10 +1,12 @@
 import type { z } from 'zod/v4'
 import { getOriginalCwd } from '../../bootstrap/state.js'
+import { parseForSecurityFromAst } from '../../utils/bash/ast.js'
+import { getParserModule } from '../../utils/bash/bashParser.js'
 import {
   extractOutputRedirections,
+  parseCommandArgv,
   splitCommand_DEPRECATED,
 } from '../../utils/bash/commands.js'
-import { tryParseShellCommand } from '../../utils/bash/shellQuote.js'
 import { getCwd } from '../../utils/cwd.js'
 import { isCurrentDirectoryBareGitRepo } from '../../utils/git.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
@@ -23,7 +25,6 @@ import {
 } from '../../utils/shell/readOnlyCommandValidation.js'
 import type { BashTool } from './BashTool.js'
 import { isNormalizedGitCommand } from './bashPermissions.js'
-import { bashCommandIsSafe_DEPRECATED } from './bashSecurity.js'
 import {
   COMMAND_OPERATION_TYPE,
   PATH_EXTRACTORS,
@@ -1244,32 +1245,10 @@ const SAFE_TARGET_COMMANDS_FOR_XARGS = [
  * Handles combined flags, argument validation, and shell quoting bypass detection.
  */
 export function isCommandSafeViaFlagParsing(command: string): boolean {
-  // Parse the command to get individual tokens using shell-quote for accuracy
-  // Handle glob operators by converting them to strings, they don't matter from the perspective
-  // of this function
-  const parseResult = tryParseShellCommand(command, env => `$${env}`)
-  if (!parseResult.success) return false
-
-  const parsed = parseResult.tokens.map(token => {
-    if (typeof token !== 'string') {
-      token = token as { op: 'glob'; pattern: string }
-      if (token.op === 'glob') {
-        return token.pattern
-      }
-    }
-    return token
-  })
-
-  // If there are operators (pipes, redirects, etc.), it's not a simple command.
-  // Breaking commands down into their constituent parts is handled upstream of
-  // this function, so we reject anything with operators here.
-  const hasOperators = parsed.some(token => typeof token !== 'string')
-  if (hasOperators) {
-    return false
-  }
-
-  // Now we know all tokens are strings
-  const tokens = parsed as string[]
+  // Parse the command into argv via the bash AST (quotes resolved). Breaking
+  // compound commands into their constituent parts is handled upstream of
+  // this function.
+  const tokens = parseCommandArgv(command)
 
   if (tokens.length === 0) {
     return false
@@ -1305,6 +1284,17 @@ export function isCommandSafeViaFlagParsing(command: string): boolean {
 
   // Special handling for git ls-remote to reject URLs that could lead to data exfiltration
   if (tokens[0] === 'git' && tokens[1] === 'ls-remote') {
+    // -o/--server-option sends arbitrary strings to the remote server
+    if (
+      tokens.some(
+        t =>
+          t === '-o' ||
+          t === '--server-option' ||
+          t.startsWith('--server-option='),
+      )
+    ) {
+      return false
+    }
     // Check if any argument looks like a URL or remote specification
     for (let i = 2; i < tokens.length; i++) {
       const token = tokens[i]
@@ -1501,6 +1491,77 @@ const READONLY_COMMANDS = [
   'tsort', // Topological sort
   'pr', // Paginate files for printing
 ]
+
+// argv-level equivalents of READONLY_COMMAND_REGEXES, checked against the
+// parsed argv (quotes resolved) before falling back to the regexes on raw text.
+const READONLY_COMMAND_SET = new Set(READONLY_COMMANDS)
+const MULTI_WORD_READONLY_COMMANDS = READONLY_COMMANDS.filter(c =>
+  c.includes(' '),
+)
+// find flags that delete files, run commands, or write output files
+const FIND_UNSAFE_FLAGS = new Set([
+  '-delete',
+  '-exec',
+  '-execdir',
+  '-ok',
+  '-okdir',
+  '-fprint',
+  '-fprint0',
+  '-fls',
+  '-fprintf',
+])
+// Read-only only when run without arguments
+const NO_ARG_READONLY_COMMANDS = new Set(['pwd', 'whoami', 'alias'])
+// Read-only only as these exact argv (e.g. `node -v --run x` runs a script)
+const EXACT_READONLY_ARGVS = [
+  ['claude', '-h'],
+  ['claude', '--help'],
+  ['node', '-v'],
+  ['node', '--version'],
+  ['python', '--version'],
+  ['python3', '--version'],
+  ['ip', 'addr'],
+]
+
+/**
+ * Decides read-only status from a parsed argv. Returns null when the argv
+ * alone can't decide — the caller then falls back to isCommandReadOnly on the
+ * raw text (flag-parsing allowlist + READONLY_COMMAND_REGEXES).
+ */
+function isArgvReadOnly(argv: string[]): boolean | null {
+  if (argv.length === 0) return false
+  const name = argv[0]!
+  if (NO_ARG_READONLY_COMMANDS.has(name)) return argv.length === 1
+  for (const exact of EXACT_READONLY_ARGVS) {
+    if (argv.length === exact.length && argv.every((a, i) => a === exact[i])) {
+      return true
+    }
+  }
+  if (READONLY_COMMAND_SET.has(name)) return true
+  for (const multi of MULTI_WORD_READONLY_COMMANDS) {
+    const words = multi.split(' ')
+    if (argv.length >= words.length && words.every((w, i) => argv[i] === w)) {
+      return true
+    }
+  }
+  if (name === 'echo') return true
+  if (name === 'ls') return true
+  if (name === 'cd') return argv.length <= 2
+  if (name === 'find') return !argv.some(a => FIND_UNSAFE_FLAGS.has(a))
+  if (name === 'history') {
+    return argv.length === 1 || (argv.length === 2 && /^\d+$/.test(argv[1]!))
+  }
+  if (name === 'arch') {
+    return (
+      argv.length === 1 ||
+      (argv.length === 2 && (argv[1] === '-h' || argv[1] === '--help'))
+    )
+  }
+  if (name === 'ifconfig') {
+    return argv.length === 1 || (argv.length === 2 && /^[a-zA-Z]/.test(argv[1]!))
+  }
+  return null
+}
 
 // Complex commands that require custom regex patterns
 // Warning: If possible, avoid adding new regexes here and prefer using COMMAND_ALLOWLIST
@@ -1793,12 +1854,7 @@ const NON_CREATING_WRITE_COMMANDS = new Set(['rm', 'rmdir', 'sed'])
  * (write/create operations excluding deletion and in-place modification).
  */
 function extractWritePathsFromSubcommand(subcommand: string): string[] {
-  const parseResult = tryParseShellCommand(subcommand, env => `$${env}`)
-  if (!parseResult.success) return []
-
-  const tokens = parseResult.tokens.filter(
-    (t): t is string => typeof t === 'string',
-  )
+  const tokens = parseCommandArgv(subcommand)
   if (tokens.length === 0) return []
 
   const baseCmd = tokens[0]
@@ -1878,23 +1934,26 @@ export function checkReadOnlyConstraints(
   compoundCommandHasCd: boolean,
 ): PermissionResult {
   const { command } = input
+  const root = getParserModule().parse(command)
+  const parsed = root
+    ? parseForSecurityFromAst(command, root)
+    : { kind: 'simple' as const, commands: [] }
 
-  // Detect if the command is not parseable and return early
-  const result = tryParseShellCommand(command, env => `$${env}`)
-  if (!result.success) {
+  // Anything the security walker can't reduce to simple commands
+  // (substitutions, control flow, parse aborts) is not auto-allowed here.
+  if (parsed.kind === 'too-complex') {
     return {
       behavior: 'passthrough',
-      message: 'Command cannot be parsed, requires further permission checks',
+      message: `Not a simple read-only command: ${parsed.reason}`,
     }
   }
 
-  // Check the original command for safety before splitting
-  // This is important because splitCommand_DEPRECATED may transform the command
-  // (e.g., ${VAR} becomes $VAR)
-  if (bashCommandIsSafe_DEPRECATED(command).behavior !== 'passthrough') {
+  // Globs and unquoted `$` expand at runtime — the argv we check is not the
+  // argv bash will run.
+  if (containsUnquotedExpansion(command)) {
     return {
       behavior: 'passthrough',
-      message: 'Command is not read-only, requires further permission checks',
+      message: 'Command contains unquoted glob or variable expansion',
     }
   }
 
@@ -1966,14 +2025,22 @@ export function checkReadOnlyConstraints(
   }
 
   // Check if all subcommands are read-only
-  const allSubcommandsReadOnly = splitCommand_DEPRECATED(command).every(
-    subcmd => {
-      if (bashCommandIsSafe_DEPRECATED(subcmd).behavior !== 'passthrough') {
+  const allSubcommandsReadOnly =
+    parsed.commands.length > 0 &&
+    parsed.commands.every(cmd => {
+      // Writing redirects (other than to /dev/null) make any command a write
+      if (
+        cmd.redirects.some(
+          r => (r.op === '>' || r.op === '>>') && r.target !== '/dev/null',
+        )
+      ) {
         return false
       }
-      return isCommandReadOnly(subcmd)
-    },
-  )
+      if (cmd.argv.some(arg => containsVulnerableUncPath(arg))) return false
+      const argvReadOnly = isArgvReadOnly(cmd.argv)
+      if (argvReadOnly !== null) return argvReadOnly
+      return isCommandReadOnly(cmd.text)
+    })
 
   if (allSubcommandsReadOnly) {
     return {

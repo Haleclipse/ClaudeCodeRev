@@ -113,7 +113,7 @@ function heuristicallyExtractBaseCommand(command: string): string {
   const segments = splitCommand_DEPRECATED(command)
 
   // Take the last command as that's what determines the exit code
-  const lastCommand = segments[segments.length - 1] || command
+  const lastCommand = segments.at(-1) || command
 
   return extractBaseCommand(lastCommand)
 }

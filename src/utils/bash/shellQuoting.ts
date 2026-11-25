@@ -48,7 +48,6 @@ export function quoteShellCommand(
   addStdinRedirect: boolean = true,
 ): string {
   // If command contains heredoc or multiline strings, handle specially
-  // The shell-quote library incorrectly escapes ! to \! in these cases
   if (containsHeredoc(command) || containsMultilineString(command)) {
     // For heredocs and multiline strings, we need to quote for eval
     // but avoid shell-quote's aggressive escaping
@@ -65,12 +64,10 @@ export function quoteShellCommand(
     return addStdinRedirect ? `${quoted} < /dev/null` : quoted
   }
 
-  // For regular commands, use shell-quote
-  if (addStdinRedirect) {
-    return quote([command, '<', '/dev/null'])
-  }
-
-  return quote([command])
+  // For regular commands, quote as a single eval argument. The stdin
+  // redirect goes OUTSIDE the quotes so it applies to eval itself.
+  const quoted = quote([command])
+  return addStdinRedirect ? `${quoted} < /dev/null` : quoted
 }
 
 /**
