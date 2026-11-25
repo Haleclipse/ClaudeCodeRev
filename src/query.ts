@@ -570,6 +570,7 @@ async function* queryLoop(
     toolUseContext = {
       ...toolUseContext,
       messages: messagesForQuery,
+      turnStartIndex: getTurnStartIndex(messagesForQuery),
     }
 
     const assistantMessages: AssistantMessage[] = []
@@ -1752,4 +1753,23 @@ async function* queryLoop(
     }
     state = next
   } // while (true)
+}
+
+/**
+ * Index of the last real user prompt — not a meta message, tool result, or
+ * compact summary — i.e. where the current turn begins. 0 if none.
+ */
+function getTurnStartIndex(messages: Message[]): number {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i]!
+    if (
+      message.type === 'user' &&
+      !message.isMeta &&
+      !message.toolUseResult &&
+      !message.isCompactSummary
+    ) {
+      return i
+    }
+  }
+  return 0
 }

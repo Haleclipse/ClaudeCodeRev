@@ -3030,12 +3030,23 @@ async function run(): Promise<CommanderCommand> {
       if (
         isNonInteractiveSession &&
         mainThreadAgentDefinition &&
-        !systemPrompt &&
         !isBuiltInAgent(mainThreadAgentDefinition)
       ) {
         const agentSystemPrompt = mainThreadAgentDefinition.getSystemPrompt()
         if (agentSystemPrompt) {
-          systemPrompt = agentSystemPrompt
+          // Workflow agents can ask to be appended to the default system
+          // prompt instead of replacing it (inferred; gated out of external
+          // builds, where only the replace branch remains)
+          if (
+            feature('WORKFLOW_SCRIPTS') &&
+            mainThreadAgentDefinition.appendSystemPrompt
+          ) {
+            appendSystemPrompt = appendSystemPrompt
+              ? `${appendSystemPrompt}\n\n${agentSystemPrompt}`
+              : agentSystemPrompt
+          } else if (!systemPrompt) {
+            systemPrompt = agentSystemPrompt
+          }
         }
       }
 
@@ -3046,12 +3057,13 @@ async function run(): Promise<CommanderCommand> {
       // call .toString() producing "[object Object]". The AsyncIterable case
       // is handled in print.ts via structuredIO.prependUserMessage().
       if (mainThreadAgentDefinition?.initialPrompt) {
+        const initialPrompt = mainThreadAgentDefinition.initialPrompt
         if (typeof inputPrompt === 'string') {
           inputPrompt = inputPrompt
-            ? `${mainThreadAgentDefinition.initialPrompt}\n\n${inputPrompt}`
-            : mainThreadAgentDefinition.initialPrompt
+            ? `${initialPrompt}\n\n${inputPrompt}`
+            : initialPrompt
         } else if (!inputPrompt) {
-          inputPrompt = mainThreadAgentDefinition.initialPrompt
+          inputPrompt = initialPrompt
         }
       }
 

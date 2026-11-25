@@ -354,6 +354,7 @@ export class QueryEngine {
 
     let processUserInputContext: ProcessUserInputContext = {
       messages: this.mutableMessages,
+      turnStartIndex: 0,
       // Slash commands that mutate the message array (e.g. /force-snip)
       // call setMessages(fn).  In interactive mode this writes back to
       // AppState; in print mode we write back to mutableMessages so the
@@ -597,6 +598,7 @@ export class QueryEngine {
     // model (from slash commands).
     processUserInputContext = {
       messages,
+      turnStartIndex: 0,
       setMessages: () => {},
       onChangeAPIKey: () => {},
       handleElicitation: this.config.handleElicitation,

@@ -3213,6 +3213,7 @@ export function REPL({
         getAppState: () => store.getState(),
         setAppState,
         messages,
+        turnStartIndex: 0,
         setMessages,
         updateFileHistoryState(
           updater: (prev: FileHistoryState) => FileHistoryState,

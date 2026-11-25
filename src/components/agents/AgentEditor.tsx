@@ -18,7 +18,10 @@ import {
   isPluginAgent,
 } from '../../tools/AgentTool/loadAgentsDir.js'
 import { editFileInEditor } from '../../utils/promptEditor.js'
-import { getActualAgentFilePath, updateAgentFile } from './agentFileUtils.js'
+import {
+  getActualAgentFilePath,
+  updateAgentFileFields,
+} from './agentFileUtils.js'
 import { ColorPicker } from './ColorPicker.js'
 import { ModelSelector } from './ModelSelector.js'
 import { ToolSelector } from './ToolSelector.js'
@@ -85,22 +88,21 @@ export function AgentEditor({
           return false
         }
 
-        await updateAgentFile(
-          agent,
-          agent.whenToUse,
-          newTools ?? agent.tools,
-          agent.getSystemPrompt(),
-          finalColor,
-          newModel ?? agent.model,
-        )
+        // Write back only what changed; the rest of the file is preserved
+        await updateAgentFileFields(agent, {
+          ...(hasToolsChanged && { tools: newTools }),
+          ...(hasColorChanged && { color: finalColor }),
+          ...(hasModelChanged && { model: newModel }),
+        })
 
         if (hasColorChanged && finalColor) {
           setAgentColor(agent.agentType, finalColor)
         }
 
         setAppState(state => {
+          // Same agentType can exist in several sources; update only this one
           const allAgents = state.agentDefinitions.allAgents.map(a =>
-            a.agentType === agent.agentType
+            a.agentType === agent.agentType && a.source === agent.source
               ? {
                   ...a,
                   tools: newTools ?? a.tools,

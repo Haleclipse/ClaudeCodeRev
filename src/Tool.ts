@@ -248,6 +248,12 @@ export type ToolUseContext = {
    *  Used by speculation for overlay file path rewriting. */
   requireCanUseTool?: boolean
   messages: Message[]
+  /**
+   * Index in `messages` where the current turn starts (the last real user
+   * prompt). Lets subagents with forksParentContext: "turn" inherit just the
+   * current turn. 0 when there is no meaningful turn boundary.
+   */
+  turnStartIndex: number
   fileReadingLimits?: {
     maxTokens?: number
     maxSizeBytes?: number

@@ -70,6 +70,19 @@ const AgentMcpServerSpecSchema = lazySchema(() =>
 // Zod schemas for JSON agent validation
 // Note: HooksSchema is lazy so the circular chain AppState -> loadAgentsDir -> settings/types
 // is broken at module load time
+// Agent states: name → description, written either as a plain string or as
+// { description }
+const AgentStatesSchema = lazySchema(() =>
+  z.record(
+    z.string(),
+    z
+      .union([z.string(), z.object({ description: z.string() })])
+      .transform(state =>
+        typeof state === 'string' ? state : state.description,
+      ),
+  ),
+)
+
 const AgentJsonSchema = lazySchema(() =>
   z.object({
     description: z.string().min(1, 'Description cannot be empty'),
@@ -89,6 +102,9 @@ const AgentJsonSchema = lazySchema(() =>
     maxTurns: z.number().int().positive().optional(),
     skills: z.array(z.string()).optional(),
     initialPrompt: z.string().optional(),
+    states: AgentStatesSchema().optional(),
+    outputs: z.record(z.string(), z.string()).optional(),
+    appendSystemPrompt: z.boolean().optional(),
     memory: z.enum(['user', 'project', 'local']).optional(),
     background: z.boolean().optional(),
     isolation: (process.env.USER_TYPE === 'ant'
@@ -122,6 +138,12 @@ export type BaseAgentDefinition = {
   requiredMcpServers?: string[] // MCP server name patterns that must be configured for agent to be available
   background?: boolean // Always run as background task when spawned
   initialPrompt?: string // Prepended to the first user turn (slash commands work)
+  states?: Record<string, string> // Named states the agent can report (name → description)
+  outputs?: Record<string, string> // Named outputs the agent produces (name → description)
+  appendSystemPrompt?: boolean // Append the agent prompt to the default system prompt instead of replacing it
+  /** Inherit the parent conversation: "turn" = the current turn only (from
+   * ToolUseContext.turnStartIndex), true = everything. */
+  forksParentContext?: 'turn' | true
   memory?: AgentMemoryScope // Persistent memory scope
   isolation?: 'worktree' | 'remote' // Run in an isolated git worktree, or remotely in CCR (ant-only)
   pendingSnapshotUpdate?: { snapshotTimestamp: string }
@@ -476,8 +498,8 @@ export function parseAgentFromJson(
     const agent: CustomAgentDefinition = {
       agentType: name,
       whenToUse: parsed.description,
-      ...(tools !== undefined ? { tools } : {}),
-      ...(disallowedTools !== undefined ? { disallowedTools } : {}),
+      ...(tools !== undefined && { tools }),
+      ...(disallowedTools !== undefined && { disallowedTools }),
       getSystemPrompt: () => {
         if (isAutoMemoryEnabled() && parsed.memory) {
           return (
@@ -487,23 +509,28 @@ export function parseAgentFromJson(
         return systemPrompt
       },
       source,
-      ...(parsed.model ? { model: parsed.model } : {}),
-      ...(parsed.effort !== undefined ? { effort: parsed.effort } : {}),
-      ...(parsed.permissionMode
-        ? { permissionMode: parsed.permissionMode }
+      ...(parsed.model && { model: parsed.model }),
+      ...(parsed.effort !== undefined && { effort: parsed.effort }),
+      ...(parsed.permissionMode && { permissionMode: parsed.permissionMode }),
+      ...(parsed.mcpServers &&
+        parsed.mcpServers.length > 0 && { mcpServers: parsed.mcpServers }),
+      ...(parsed.hooks && { hooks: parsed.hooks }),
+      ...(parsed.maxTurns !== undefined && { maxTurns: parsed.maxTurns }),
+      ...(parsed.skills &&
+        parsed.skills.length > 0 && { skills: parsed.skills }),
+      ...(parsed.initialPrompt && { initialPrompt: parsed.initialPrompt }),
+      // Workflow-agent fields; feature-gated (an empty spread in external
+      // builds, see parseAgentFromMarkdown)
+      ...(feature('WORKFLOW_SCRIPTS')
+        ? {
+            ...(parsed.states && { states: parsed.states }),
+            ...(parsed.outputs && { outputs: parsed.outputs }),
+            ...(parsed.appendSystemPrompt && { appendSystemPrompt: true }),
+          }
         : {}),
-      ...(parsed.mcpServers && parsed.mcpServers.length > 0
-        ? { mcpServers: parsed.mcpServers }
-        : {}),
-      ...(parsed.hooks ? { hooks: parsed.hooks } : {}),
-      ...(parsed.maxTurns !== undefined ? { maxTurns: parsed.maxTurns } : {}),
-      ...(parsed.skills && parsed.skills.length > 0
-        ? { skills: parsed.skills }
-        : {}),
-      ...(parsed.initialPrompt ? { initialPrompt: parsed.initialPrompt } : {}),
-      ...(parsed.background ? { background: parsed.background } : {}),
-      ...(parsed.memory ? { memory: parsed.memory } : {}),
-      ...(parsed.isolation ? { isolation: parsed.isolation } : {}),
+      ...(parsed.background && { background: parsed.background }),
+      ...(parsed.memory && { memory: parsed.memory }),
+      ...(parsed.isolation && { isolation: parsed.isolation }),
     }
 
     return agent
@@ -689,6 +716,26 @@ export function parseAgentFromMarkdown(
         ? initialPromptRaw
         : undefined
 
+    // Workflow-agent fields. Only read when workflow scripts are enabled;
+    // external builds keep the defaults.
+    let states: Record<string, string> | undefined
+    let outputs: Record<string, string> | undefined
+    let appendSystemPrompt = false
+    if (feature('WORKFLOW_SCRIPTS')) {
+      const statesResult = AgentStatesSchema().safeParse(frontmatter['states'])
+      if (statesResult.success) {
+        states = statesResult.data
+      }
+      const outputsResult = z
+        .record(z.string(), z.string())
+        .safeParse(frontmatter['outputs'])
+      if (outputsResult.success) {
+        outputs = outputsResult.data
+      }
+      const appendRaw = frontmatter['appendSystemPrompt']
+      appendSystemPrompt = appendRaw === true || appendRaw === 'true'
+    }
+
     // Parse mcpServers from frontmatter using same Zod validation as JSON agents
     const mcpServersRaw = frontmatter['mcpServers']
     let mcpServers: AgentMcpServerSpec[] | undefined
@@ -715,14 +762,17 @@ export function parseAgentFromMarkdown(
       baseDir,
       agentType: agentType,
       whenToUse: whenToUse,
-      ...(tools !== undefined ? { tools } : {}),
-      ...(disallowedTools !== undefined ? { disallowedTools } : {}),
-      ...(skills !== undefined ? { skills } : {}),
-      ...(initialPrompt !== undefined ? { initialPrompt } : {}),
-      ...(mcpServers !== undefined && mcpServers.length > 0
-        ? { mcpServers }
-        : {}),
-      ...(hooks !== undefined ? { hooks } : {}),
+      ...(tools !== undefined && { tools }),
+      ...(disallowedTools !== undefined && { disallowedTools }),
+      ...(skills !== undefined && { skills }),
+      ...(initialPrompt !== undefined && { initialPrompt }),
+      ...(states !== undefined &&
+        Object.keys(states).length > 0 && { states }),
+      ...(outputs !== undefined &&
+        Object.keys(outputs).length > 0 && { outputs }),
+      ...(appendSystemPrompt && { appendSystemPrompt }),
+      ...(mcpServers !== undefined && mcpServers.length > 0 && { mcpServers }),
+      ...(hooks !== undefined && { hooks }),
       getSystemPrompt: () => {
         if (isAutoMemoryEnabled() && memory) {
           const memoryPrompt = loadAgentMemoryPrompt(agentType, memory)
@@ -732,18 +782,18 @@ export function parseAgentFromMarkdown(
       },
       source,
       filename,
-      ...(color && typeof color === 'string' && AGENT_COLORS.includes(color)
-        ? { color }
-        : {}),
-      ...(model !== undefined ? { model } : {}),
-      ...(parsedEffort !== undefined ? { effort: parsedEffort } : {}),
-      ...(isValidPermissionMode
-        ? { permissionMode: permissionModeRaw as PermissionMode }
-        : {}),
-      ...(maxTurns !== undefined ? { maxTurns } : {}),
-      ...(background ? { background } : {}),
-      ...(memory ? { memory } : {}),
-      ...(isolation ? { isolation } : {}),
+      ...(color &&
+        typeof color === 'string' &&
+        AGENT_COLORS.includes(color) && { color }),
+      ...(model !== undefined && { model }),
+      ...(parsedEffort !== undefined && { effort: parsedEffort }),
+      ...(isValidPermissionMode && {
+        permissionMode: permissionModeRaw as PermissionMode,
+      }),
+      ...(maxTurns !== undefined && { maxTurns }),
+      ...(background && { background }),
+      ...(memory && { memory }),
+      ...(isolation && { isolation }),
     }
     return agentDef
   } catch (error) {

@@ -126,6 +126,7 @@ export async function startMCPServer(
         getAppState: () => getDefaultAppState(),
         setAppState: () => {},
         messages: [],
+        turnStartIndex: 0,
         readFileState: readFileStateCache,
         setInProgressToolUseIDs: () => {},
         setResponseLength: () => {},

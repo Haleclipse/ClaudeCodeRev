@@ -63,6 +63,19 @@ export function shouldInjectAgentListInMessages(): boolean {
   return getFeatureValue_CACHED_MAY_BE_STALE('tengu_agent_list_attach', false)
 }
 
+/**
+ * "Don't spawn agents unless asked" steering. CLAUDE_CODE_AGENT_COST_STEER
+ * forces it on/off; otherwise Pro subscribers only, behind
+ * tengu_willow_prism. Subagents start cold and re-derive context, which is
+ * the expensive path on smaller plans.
+ */
+function shouldSteerAgentCost(): boolean {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_AGENT_COST_STEER)) return true
+  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_AGENT_COST_STEER)) return false
+  if (getSubscriptionType() !== 'pro') return false
+  return getFeatureValue_CACHED_MAY_BE_STALE('tengu_willow_prism', false)
+}
+
 export async function getPrompt(
   agentDefinitions: AgentDefinition[],
   isCoordinator?: boolean,
@@ -198,12 +211,16 @@ assistant: "I'm going to use the ${AGENT_TOOL_NAME} tool to launch the greeting-
     : `Available agent types and the tools they have access to:
 ${effectiveAgents.map(agent => formatAgentLine(agent)).join('\n')}`
 
+  const costSteerSection = shouldSteerAgentCost()
+    ? `\n\n**Do not spawn agents unless the user asks.** Each spawn starts cold and re-derives context you already have — it's the expensive path on this plan. A task with "multiple angles," "thorough," or several parts is not a request to spawn; handle it inline with your own tools. Only use this tool when the user explicitly says to use a subagent, or names one of the agent types above.`
+    : ''
+
   // Shared core prompt used by both coordinator and non-coordinator modes
   const shared = `Launch a new agent to handle complex, multi-step tasks autonomously.
 
 The ${AGENT_TOOL_NAME} tool launches specialized agents (subprocesses) that autonomously handle complex tasks. Each agent type has specific capabilities and tools available to it.
 
-${agentListSection}
+${agentListSection}${costSteerSection}
 
 ${
   forkEnabled

@@ -66,7 +66,7 @@ import { evictTerminalTask } from '../../utils/task/framework.js'
 import { tokenCountWithEstimation } from '../../utils/tokens.js'
 import { createAbortController } from '../abortController.js'
 import { type AgentContext, runWithAgentContext } from '../agentContext.js'
-import { count } from '../array.js'
+import { count, uniq } from '../array.js'
 import { logForDebugging } from '../debug.js'
 import { cloneFileStateCache } from '../fileStateCache.js'
 import {
@@ -947,12 +947,10 @@ export async function runInProcessTeammate(
       // Log agent memory loaded event for in-process teammates
       if (agentDefinition.memory) {
         logEvent('tengu_agent_memory_loaded', {
-          ...(process.env.USER_TYPE === 'ant'
-            ? {
-                agent_type:
-                  agentDefinition.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
+          ...(process.env.USER_TYPE === 'ant' && {
+            agent_type:
+              agentDefinition.agentType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
           scope:
             agentDefinition.memory as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           source:
@@ -980,24 +978,22 @@ export async function runInProcessTeammate(
     // shutdown requests, send messages, and coordinate via the task list,
     // even with explicit tool lists
     tools: agentDefinition?.tools
-      ? [
-          ...new Set([
-            ...agentDefinition.tools,
-            SEND_MESSAGE_TOOL_NAME,
-            TEAM_CREATE_TOOL_NAME,
-            TEAM_DELETE_TOOL_NAME,
-            TASK_CREATE_TOOL_NAME,
-            TASK_GET_TOOL_NAME,
-            TASK_LIST_TOOL_NAME,
-            TASK_UPDATE_TOOL_NAME,
-          ]),
-        ]
+      ? uniq([
+          ...agentDefinition.tools,
+          SEND_MESSAGE_TOOL_NAME,
+          TEAM_CREATE_TOOL_NAME,
+          TEAM_DELETE_TOOL_NAME,
+          TASK_CREATE_TOOL_NAME,
+          TASK_GET_TOOL_NAME,
+          TASK_LIST_TOOL_NAME,
+          TASK_UPDATE_TOOL_NAME,
+        ])
       : ['*'],
     source: 'projectSettings',
     permissionMode: 'default',
     // Propagate model from custom agent definition so getAgentModel()
     // can use it as a fallback when no tool-level model is specified
-    ...(agentDefinition?.model ? { model: agentDefinition.model } : {}),
+    ...(agentDefinition?.model && { model: agentDefinition.model }),
   }
 
   // All messages across all prompts

@@ -163,6 +163,7 @@ export async function buildSideQuestionFallbackParams({
     getAppState,
     setAppState,
     messages: forkContextMessages,
+    turnStartIndex: 0,
     setInProgressToolUseIDs: () => {},
     setResponseLength: () => {},
     updateFileHistoryState: () => {},

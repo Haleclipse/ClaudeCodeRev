@@ -1,4 +1,4 @@
-import { mkdir, open, unlink } from 'fs/promises'
+import { mkdir, open, readFile, unlink } from 'fs/promises'
 import { join } from 'path'
 import type { SettingSource } from 'src/utils/settings/constants.js'
 import { getManagedFilePath } from 'src/utils/settings/managedPath.js'
@@ -12,6 +12,8 @@ import { getCwd } from '../../utils/cwd.js'
 import type { EffortValue } from '../../utils/effort.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
 import { getErrnoCode } from '../../utils/errors.js'
+import { parseFrontmatter } from '../../utils/frontmatterParser.js'
+import { stringifyYaml } from '../../utils/yaml.js'
 import { AGENT_PATHS } from './types.js'
 
 /**
@@ -46,7 +48,7 @@ export function formatAgentAsMarkdown(
   const memoryLine = memory ? `\nmemory: ${memory}` : ''
 
   return `---
-name: ${agentType}
+name: "${agentType}"
 description: "${escapedWhenToUse}"${toolsLine}${modelLine}${effortLine}${colorLine}${memoryLine}
 ---
 
@@ -109,8 +111,12 @@ export function getActualAgentFilePath(agent: AgentDefinition): string {
     throw new Error('Cannot get file path for plugin agents')
   }
 
-  const dirPath = getAgentDirectoryPath(agent.source)
   const filename = agent.filename || agent.agentType
+  // Loaded agents remember the directory they came from
+  if (agent.baseDir) {
+    return join(agent.baseDir, `${filename}.md`)
+  }
+  const dirPath = getAgentDirectoryPath(agent.source)
   return join(dirPath, `${filename}.md`)
 }
 
@@ -203,36 +209,49 @@ export async function saveAgentToFile(
 }
 
 /**
- * Updates an existing agent file
+ * Updates selected frontmatter fields of an existing agent file in place.
+ * Every other frontmatter key and the prompt body are preserved (the old
+ * approach regenerated the whole file and dropped hand-written fields).
+ * A field present in `updates` with an empty value is removed; tools
+ * undefined or ['*'] means "all tools" and also removes the field.
  */
-export async function updateAgentFile(
+export async function updateAgentFileFields(
   agent: AgentDefinition,
-  newWhenToUse: string,
-  newTools: string[] | undefined,
-  newSystemPrompt: string,
-  newColor?: string,
-  newModel?: string,
-  newMemory?: AgentMemoryScope,
-  newEffort?: EffortValue,
+  updates: { tools?: string[]; color?: string; model?: string },
 ): Promise<void> {
   if (agent.source === 'built-in') {
     throw new Error('Cannot update built-in agents')
   }
 
   const filePath = getActualAgentFilePath(agent)
+  const raw = await readFile(filePath, 'utf-8')
+  const { frontmatter, content } = parseFrontmatter(raw, filePath)
+  const next: Record<string, unknown> = { ...frontmatter }
 
-  const content = formatAgentAsMarkdown(
-    agent.agentType,
-    newWhenToUse,
-    newTools,
-    newSystemPrompt,
-    newColor,
-    newModel,
-    newMemory,
-    newEffort,
-  )
+  if ('tools' in updates) {
+    const tools = updates.tools
+    if (tools === undefined || (tools.length === 1 && tools[0] === '*')) {
+      delete next.tools
+    } else {
+      next.tools = tools.join(', ')
+    }
+  }
+  if ('color' in updates) {
+    if (updates.color) {
+      next.color = updates.color
+    } else {
+      delete next.color
+    }
+  }
+  if ('model' in updates) {
+    if (updates.model) {
+      next.model = updates.model
+    } else {
+      delete next.model
+    }
+  }
 
-  await writeFileAndFlush(filePath, content)
+  await writeFileAndFlush(filePath, `---\n${stringifyYaml(next)}---\n${content}`)
 }
 
 /**
