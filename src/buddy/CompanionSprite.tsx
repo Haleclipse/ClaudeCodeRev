@@ -68,6 +68,9 @@ function SpeechBubble({
       borderColor={borderColor}
       paddingX={1}
       width={34}
+      // The downward-tail bubble floats over the transcript in fullscreen;
+      // paint its background so text underneath doesn't show through
+      opaque={tail === 'down'}
     >
       {lines.map((l, i) => (
         <Text

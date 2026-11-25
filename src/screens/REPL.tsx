@@ -549,6 +549,7 @@ import {
   CompanionFloatingBubble,
   MIN_COLS_FOR_FULL_SPRITE,
 } from '../buddy/CompanionSprite.js'
+import { fireCompanionObserver } from '../buddy/observer.js'
 import { DevBar } from '../components/DevBar.js'
 // Session manager removed - using AppState now
 import type { RemoteSessionConfig } from '../remote/RemoteSessionManager.js'
@@ -3769,7 +3770,7 @@ export function REPL({
 
 
       if (feature('BUDDY')) {
-        void fireCompanionObserver(messagesRef.current, reaction =>
+        fireCompanionObserver(messagesRef.current, reaction =>
           setAppState(prev =>
             prev.companionReaction === reaction
               ? prev

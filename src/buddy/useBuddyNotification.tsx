@@ -3,15 +3,23 @@ import React, { useEffect } from 'react'
 import { useNotifications } from '../context/notifications.js'
 import { Text } from '../ink.js'
 import { getGlobalConfig } from '../utils/config.js'
+import { getAPIProvider } from '../utils/model/providers.js'
+import { isEssentialTrafficOnly } from '../utils/privacyLevel.js'
 import { getRainbowColor } from '../utils/thinking.js'
 
 // Local date, not UTC — 24h rolling wave across timezones. Sustained Twitter
 // buzz instead of a single UTC-midnight spike, gentler on soul-gen load.
-// Teaser window: April 1-7, 2026 only. Command stays live forever after.
+// Teaser window: April 2026 onward. First-party only — hatching and reactions
+// go through the org-scoped buddy endpoints (OAuth), and both are skipped in
+// essential-traffic-only mode.
 export function isBuddyTeaserWindow(): boolean {
+  if (getAPIProvider() !== 'firstParty') return false
+  if (isEssentialTrafficOnly()) return false
   if ("external" === 'ant') return true
   const d = new Date()
-  return d.getFullYear() === 2026 && d.getMonth() === 3 && d.getDate() <= 7
+  return (
+    d.getFullYear() > 2026 || (d.getFullYear() === 2026 && d.getMonth() >= 3)
+  )
 }
 
 export function isBuddyLive(): boolean {
