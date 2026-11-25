@@ -1,0 +1,4224 @@
+{
+  "generatedBy": "scripts/gen-stubs.ts",
+  "version": "2.1.88",
+  "summary": {
+    "sourceFiles": 1887,
+    "stubFiles": 169,
+    "gatedTargets": 125,
+    "gatedTargetsSource": 43,
+    "gatedTargetsStub": 82,
+    "gatedTargetsMissing": 0,
+    "runtimeLazyTargets": 1,
+    "missingExports": 1
+  },
+  "gated": [
+    {
+      "target": "src/assistant/gate.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/main.tsx:146"
+      ]
+    },
+    {
+      "target": "src/assistant/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/bridge/initReplBridge.ts:480",
+        "src/main.tsx:143"
+      ]
+    },
+    {
+      "target": "src/bridge/bridgeEnabled.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('CCR_AUTO_CONNECT')",
+        "feature('CCR_MIRROR') && !fullRemoteControl"
+      ],
+      "flags": [
+        "CCR_AUTO_CONNECT",
+        "CCR_MIRROR"
+      ],
+      "env": [],
+      "sites": [
+        "src/main.tsx:4045",
+        "src/utils/config.ts:40"
+      ]
+    },
+    {
+      "target": "src/bridge/peerSessions.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('UDS_INBOX') && typeof input.message === 'string') && (addr.scheme === 'bridge')"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/SendMessageTool/SendMessageTool.ts:759"
+      ]
+    },
+    {
+      "target": "src/bridge/webhookSanitizer.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('BRIDGE_MODE')) && (feature('KAIROS_GITHUB_WEBHOOKS'))"
+      ],
+      "flags": [
+        "BRIDGE_MODE",
+        "KAIROS_GITHUB_WEBHOOKS"
+      ],
+      "env": [],
+      "sites": [
+        "src/hooks/useReplBridge.tsx:232"
+      ]
+    },
+    {
+      "target": "src/commands/agents-platform/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.USER_TYPE === 'ant'"
+      ],
+      "flags": [],
+      "env": [
+        "USER_TYPE"
+      ],
+      "sites": [
+        "src/commands.ts:50"
+      ]
+    },
+    {
+      "target": "src/commands/assistant/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:71"
+      ]
+    },
+    {
+      "target": "src/commands/bridge/index.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('BRIDGE_MODE')"
+      ],
+      "flags": [
+        "BRIDGE_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:74"
+      ]
+    },
+    {
+      "target": "src/commands/brief.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS') || feature('KAIROS_BRIEF')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_BRIEF"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:68"
+      ]
+    },
+    {
+      "target": "src/commands/buddy/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('BUDDY')"
+      ],
+      "flags": [
+        "BUDDY"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:120"
+      ]
+    },
+    {
+      "target": "src/commands/force-snip.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('HISTORY_SNIP')"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:84"
+      ]
+    },
+    {
+      "target": "src/commands/fork/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('FORK_SUBAGENT')"
+      ],
+      "flags": [
+        "FORK_SUBAGENT"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:115"
+      ]
+    },
+    {
+      "target": "src/commands/peers/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('UDS_INBOX')"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:110"
+      ]
+    },
+    {
+      "target": "src/commands/proactive.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('PROACTIVE') || feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS",
+        "PROACTIVE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:64"
+      ]
+    },
+    {
+      "target": "src/commands/remote-setup/index.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('CCR_REMOTE_SETUP')"
+      ],
+      "flags": [
+        "CCR_REMOTE_SETUP"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:93"
+      ]
+    },
+    {
+      "target": "src/commands/remoteControlServer/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('DAEMON') && feature('BRIDGE_MODE')"
+      ],
+      "flags": [
+        "BRIDGE_MODE",
+        "DAEMON"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:78"
+      ]
+    },
+    {
+      "target": "src/commands/subscribe-pr.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS_GITHUB_WEBHOOKS')"
+      ],
+      "flags": [
+        "KAIROS_GITHUB_WEBHOOKS"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:102"
+      ]
+    },
+    {
+      "target": "src/commands/torch.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('TORCH')"
+      ],
+      "flags": [
+        "TORCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:107"
+      ]
+    },
+    {
+      "target": "src/commands/ultraplan.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('ULTRAPLAN')"
+      ],
+      "flags": [
+        "ULTRAPLAN"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:105"
+      ]
+    },
+    {
+      "target": "src/commands/voice/index.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('VOICE_MODE')"
+      ],
+      "flags": [
+        "VOICE_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:81"
+      ]
+    },
+    {
+      "target": "src/commands/workflows/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:88"
+      ]
+    },
+    {
+      "target": "src/components/AntModelSwitchCallout.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "\"external\" === 'ant'"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:465",
+        "src/screens/REPL.tsx:469"
+      ]
+    },
+    {
+      "target": "src/components/FeedbackSurvey/useFrustrationDetection.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "\"external\" === 'ant'"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:211"
+      ]
+    },
+    {
+      "target": "src/components/LogoV2/ChannelsNotice.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS') || feature('KAIROS_CHANNELS')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_CHANNELS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/LogoV2/LogoV2.tsx:62"
+      ]
+    },
+    {
+      "target": "src/components/messages/SnipBoundaryMessage.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('HISTORY_SNIP')) && (isSnipBoundaryMessage(message))"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/Message.tsx:218"
+      ]
+    },
+    {
+      "target": "src/components/messages/teamMemCollapsed.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/CollapsedReadSearchContent.tsx:26"
+      ]
+    },
+    {
+      "target": "src/components/messages/teamMemSaved.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/SystemTextMessage.tsx:19"
+      ]
+    },
+    {
+      "target": "src/components/messages/UserChannelMessage.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "(feature('KAIROS') || feature('KAIROS_CHANNELS')) && (param.text.includes('<channel source=\"'))"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_CHANNELS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/UserTextMessage.tsx:182"
+      ]
+    },
+    {
+      "target": "src/components/messages/UserCrossSessionMessage.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('UDS_INBOX')) && (param.text.includes('<cross-session-message'))"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/UserTextMessage.tsx:171"
+      ]
+    },
+    {
+      "target": "src/components/messages/UserForkBoilerplateMessage.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('FORK_SUBAGENT')) && (param.text.includes('<fork-boilerplate>'))"
+      ],
+      "flags": [
+        "FORK_SUBAGENT"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/UserTextMessage.tsx:158"
+      ]
+    },
+    {
+      "target": "src/components/messages/UserGitHubWebhookMessage.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('KAIROS_GITHUB_WEBHOOKS')) && (param.text.startsWith('<github-webhook-activity>'))"
+      ],
+      "flags": [
+        "KAIROS_GITHUB_WEBHOOKS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/messages/UserTextMessage.tsx:104"
+      ]
+    },
+    {
+      "target": "src/components/permissions/MonitorPermissionRequest/MonitorPermissionRequest.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MONITOR_TOOL')"
+      ],
+      "flags": [
+        "MONITOR_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:67"
+      ]
+    },
+    {
+      "target": "src/components/permissions/ReviewArtifactPermissionRequest/ReviewArtifactPermissionRequest.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('REVIEW_ARTIFACT')"
+      ],
+      "flags": [
+        "REVIEW_ARTIFACT"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:43"
+      ]
+    },
+    {
+      "target": "src/components/PromptInput/VoiceIndicator.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('VOICE_MODE')"
+      ],
+      "flags": [
+        "VOICE_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/PromptInput/Notifications.tsx:45"
+      ]
+    },
+    {
+      "target": "src/components/tasks/MonitorMcpDetailDialog.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MONITOR_TOOL')"
+      ],
+      "flags": [
+        "MONITOR_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:155"
+      ]
+    },
+    {
+      "target": "src/components/tasks/WorkflowDetailDialog.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:137"
+      ]
+    },
+    {
+      "target": "src/components/UndercoverAutoCallout.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "\"external\" === 'ant'"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:474"
+      ]
+    },
+    {
+      "target": "src/context/voice.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "> React.ReactNode = feature('VOICE_MODE')"
+      ],
+      "flags": [
+        "VOICE_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/state/AppState.tsx:24"
+      ]
+    },
+    {
+      "target": "src/coordinator/coordinatorMode.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "> { [k: string]: string } = feature('COORDINATOR_MODE')",
+        "feature('COORDINATOR_MODE')",
+        "feature('COORDINATOR_MODE') && isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE) && !mainThreadAgentDefinition"
+      ],
+      "flags": [
+        "COORDINATOR_MODE"
+      ],
+      "env": [
+        "CLAUDE_CODE_COORDINATOR_MODE"
+      ],
+      "sites": [
+        "src/QueryEngine.ts:116",
+        "src/cli/print.ts:359",
+        "src/commands/clear/conversation.ts:235",
+        "src/components/PromptInput/PromptInputFooterLeftSide.tsx:6",
+        "src/main.tsx:137",
+        "src/screens/REPL.tsx:226",
+        "src/screens/REPL.tsx:2365",
+        "src/screens/REPL.tsx:2529",
+        "src/screens/ResumeConversation.tsx:245",
+        "src/screens/ResumeConversation.tsx:292",
+        "src/tools.ts:121",
+        "src/utils/systemPrompt.ts:70",
+        "src/utils/toolPool.ts:23"
+      ]
+    },
+    {
+      "target": "src/coordinator/workerAgent.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('COORDINATOR_MODE')) && (isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE))"
+      ],
+      "flags": [
+        "COORDINATOR_MODE"
+      ],
+      "env": [
+        "CLAUDE_CODE_COORDINATOR_MODE"
+      ],
+      "sites": [
+        "src/tools/AgentTool/builtInAgents.ts:39"
+      ]
+    },
+    {
+      "target": "src/hooks/notifs/useAntOrgWarningNotification.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "\"external\" === 'ant'"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:218"
+      ]
+    },
+    {
+      "target": "src/hooks/useScheduledTasks.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:418"
+      ]
+    },
+    {
+      "target": "src/hooks/useVoice.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature( 'VOICE_MODE', )"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/hooks/useVoiceIntegration.tsx:28"
+      ]
+    },
+    {
+      "target": "src/hooks/useVoiceIntegration.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('VOICE_MODE')"
+      ],
+      "flags": [
+        "VOICE_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:196",
+        "src/screens/REPL.tsx:204"
+      ]
+    },
+    {
+      "target": "src/jobs/classifier.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEMPLATES')"
+      ],
+      "flags": [
+        "TEMPLATES"
+      ],
+      "env": [],
+      "sites": [
+        "src/query.ts:70",
+        "src/query/stopHooks.ts:46"
+      ]
+    },
+    {
+      "target": "src/memdir/memoryShapeTelemetry.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MEMORY_SHAPE_TELEMETRY')"
+      ],
+      "flags": [
+        "MEMORY_SHAPE_TELEMETRY"
+      ],
+      "env": [],
+      "sites": [
+        "src/memdir/findRelevantMemories.ts:69",
+        "src/utils/sessionFileAccessHooks.ts:39"
+      ]
+    },
+    {
+      "target": "src/memdir/teamMemPaths.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/memory/MemoryFileSelector.tsx:29",
+        "src/memdir/memdir.ts:8",
+        "src/services/extractMemories/extractMemories.ts:66",
+        "src/services/teamMemorySync/teamMemSecretGuard.ts:22",
+        "src/utils/claudemd.ts:83",
+        "src/utils/config.ts:37",
+        "src/utils/memoryFileDetection.ts:18",
+        "src/utils/sessionFileAccessHooks.ts:33"
+      ]
+    },
+    {
+      "target": "src/memdir/teamMemPrompts.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/memdir/memdir.ts:107"
+      ]
+    },
+    {
+      "target": "src/proactive/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('PROACTIVE') || feature('KAIROS')) && ((options as { proactive?: boolean }).proactive || isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE))",
+        "feature('PROACTIVE') || feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS",
+        "PROACTIVE"
+      ],
+      "env": [
+        "CLAUDE_CODE_PROACTIVE"
+      ],
+      "sites": [
+        "src/cli/print.ts:363",
+        "src/commands/clear/conversation.ts:114",
+        "src/components/Messages.tsx:102",
+        "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61",
+        "src/components/PromptInput/usePromptInputPlaceholder.ts:13",
+        "src/constants/prompts.ts:74",
+        "src/main.tsx:6517",
+        "src/screens/REPL.tsx:408",
+        "src/services/compact/prompt.ts:8",
+        "src/tools/AgentTool/AgentTool.tsx:137",
+        "src/utils/systemPrompt.ts:20"
+      ]
+    },
+    {
+      "target": "src/proactive/useProactive.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('PROACTIVE') || feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS",
+        "PROACTIVE"
+      ],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:415"
+      ]
+    },
+    {
+      "target": "src/services/compact/cachedMCConfig.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('CACHED_MICROCOMPACT')"
+      ],
+      "flags": [
+        "CACHED_MICROCOMPACT"
+      ],
+      "env": [],
+      "sites": [
+        "src/constants/prompts.ts:68"
+      ]
+    },
+    {
+      "target": "src/services/compact/reactiveCompact.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('REACTIVE_COMPACT')"
+      ],
+      "flags": [
+        "REACTIVE_COMPACT"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands/compact/compact.ts:36",
+        "src/query.ts:16"
+      ]
+    },
+    {
+      "target": "src/services/compact/snipCompact.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('HISTORY_SNIP')",
+        "feature('HISTORY_SNIP') && process.env.NODE_ENV !== 'test'"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [
+        "NODE_ENV"
+      ],
+      "sites": [
+        "src/QueryEngine.ts:123",
+        "src/components/Message.tsx:213",
+        "src/query.ts:116",
+        "src/utils/messages.ts:2354",
+        "src/utils/messages.ts:2424",
+        "src/utils/messages.ts:4152"
+      ]
+    },
+    {
+      "target": "src/services/compact/snipProjection.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "!options?.includeSnipped && feature('HISTORY_SNIP')",
+        "feature('HISTORY_SNIP')"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [],
+      "sites": [
+        "src/QueryEngine.ts:126",
+        "src/components/Message.tsx:211",
+        "src/utils/messages.ts:4651"
+      ]
+    },
+    {
+      "target": "src/services/contextCollapse/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(!isBareMode()) && (feature('CONTEXT_COLLAPSE'))",
+        "(feature('CONTEXT_COLLAPSE')) && (isMainThreadCompact)",
+        "feature('CONTEXT_COLLAPSE')"
+      ],
+      "flags": [
+        "CONTEXT_COLLAPSE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands/context/context-noninteractive.ts:116",
+        "src/components/ContextVisualization.tsx:28",
+        "src/components/TokenWarning.tsx:106",
+        "src/query.ts:19",
+        "src/screens/REPL.tsx:4931",
+        "src/services/compact/autoCompact.ts:218",
+        "src/services/compact/postCompactCleanup.ts:46",
+        "src/setup.ts:298",
+        "src/utils/analyzeContext.ts:1122"
+      ]
+    },
+    {
+      "target": "src/services/contextCollapse/operations.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('CONTEXT_COLLAPSE')"
+      ],
+      "flags": [
+        "CONTEXT_COLLAPSE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands/context/context-noninteractive.ts:53",
+        "src/commands/context/context.tsx:23"
+      ]
+    },
+    {
+      "target": "src/services/contextCollapse/persist.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('CONTEXT_COLLAPSE')"
+      ],
+      "flags": [
+        "CONTEXT_COLLAPSE"
+      ],
+      "env": [],
+      "sites": [
+        "src/screens/ResumeConversation.tsx:320",
+        "src/utils/sessionRestore.ts:130",
+        "src/utils/sessionRestore.ts:497"
+      ]
+    },
+    {
+      "target": "src/services/extractMemories/extractMemories.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXTRACT_MEMORIES')"
+      ],
+      "flags": [
+        "EXTRACT_MEMORIES"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:375",
+        "src/query/stopHooks.ts:43",
+        "src/utils/backgroundHousekeeping.ts:8"
+      ]
+    },
+    {
+      "target": "src/services/sessionTranscript/sessionTranscript.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/services/compact/compact.ts:7",
+        "src/utils/attachments.ts:207"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/featureCheck.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/constants/prompts.ts:96",
+        "src/tools/SkillTool/SkillTool.ts:113",
+        "src/utils/attachments.ts:98"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/localSearch.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:98",
+        "src/services/mcp/useManageMCPConnections.ts:29"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/prefetch.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/query.ts:67",
+        "src/utils/attachments.ts:100"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/remoteSkillLoader.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/SkillTool/SkillTool.ts:111"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/remoteSkillState.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/SkillTool/SkillTool.ts:110"
+      ]
+    },
+    {
+      "target": "src/services/skillSearch/telemetry.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('EXPERIMENTAL_SKILL_SEARCH')"
+      ],
+      "flags": [
+        "EXPERIMENTAL_SKILL_SEARCH"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/SkillTool/SkillTool.ts:112"
+      ]
+    },
+    {
+      "target": "src/services/teamMemorySync/secretScanner.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/services/teamMemorySync/teamMemSecretGuard.ts:24"
+      ]
+    },
+    {
+      "target": "src/services/teamMemorySync/watcher.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/sessionFileAccessHooks.ts:36"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/claudeApi.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('BUILDING_CLAUDE_APPS')"
+      ],
+      "flags": [
+        "BUILDING_CLAUDE_APPS"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:66"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/dream.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS') || feature('KAIROS_DREAM')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_DREAM"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:37"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/hunter.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('REVIEW_ARTIFACT')"
+      ],
+      "flags": [
+        "REVIEW_ARTIFACT"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:43"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/loop.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:49"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/runSkillGenerator.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('RUN_SKILL_GENERATOR')"
+      ],
+      "flags": [
+        "RUN_SKILL_GENERATOR"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:75"
+      ]
+    },
+    {
+      "target": "src/skills/bundled/scheduleRemoteAgents.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS_REMOTE')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS_REMOTE"
+      ],
+      "env": [],
+      "sites": [
+        "src/skills/bundled/index.ts:60"
+      ]
+    },
+    {
+      "target": "src/skills/mcpSkills.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MCP_SKILLS')"
+      ],
+      "flags": [
+        "MCP_SKILLS"
+      ],
+      "env": [],
+      "sites": [
+        "src/services/mcp/client.ts:119",
+        "src/services/mcp/useManageMCPConnections.ts:24"
+      ]
+    },
+    {
+      "target": "src/tasks/LocalWorkflowTask/LocalWorkflowTask.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:141",
+        "src/tasks.ts:10"
+      ]
+    },
+    {
+      "target": "src/tasks/MonitorMcpTask/MonitorMcpTask.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MONITOR_TOOL')"
+      ],
+      "flags": [
+        "MONITOR_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:150",
+        "src/tasks.ts:13",
+        "src/tools/AgentTool/runAgent.ts:851"
+      ]
+    },
+    {
+      "target": "src/tools/AgentTool/forkSubagent.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('FORK_SUBAGENT') && tool.name === AGENT_TOOL_NAME"
+      ],
+      "flags": [
+        "FORK_SUBAGENT"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/ToolSearchTool/prompt.ts:79"
+      ]
+    },
+    {
+      "target": "src/tools/AgentTool/loadAgentsDir.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "(feature('COORDINATOR_MODE')) && (warning)",
+        "(options.continue) && (result) && (feature('COORDINATOR_MODE') && coordinatorModeModule) && (warning)",
+        "(options.resume) && (feature('COORDINATOR_MODE') && coordinatorModeModule) && (warning)"
+      ],
+      "flags": [
+        "COORDINATOR_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:4928",
+        "src/cli/print.ts:5130",
+        "src/screens/REPL.tsx:2376",
+        "src/screens/ResumeConversation.tsx:251"
+      ]
+    },
+    {
+      "target": "src/tools/BriefTool/BriefTool.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "((feature('PROACTIVE') || feature('KAIROS')) && ((options as { proactive?: boolean }).proactive || isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE)) && !coordinatorModeModule?.isCoordinatorMode()) && (feature('KAIROS') || feature('KAIROS_BRIEF'))",
+        "(feature('KAIROS') || feature('KAIROS_BRIEF')) && !getIsNonInteractiveSession() && !getUserMsgOptIn() && getInitialSettings().defaultView === 'chat'",
+        "(feature('KAIROS') || feature('KAIROS_BRIEF')) && baseTools.length > 0",
+        "feature('KAIROS') || feature('KAIROS_BRIEF')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_BRIEF",
+        "PROACTIVE"
+      ],
+      "env": [
+        "CLAUDE_CODE_PROACTIVE"
+      ],
+      "sites": [
+        "src/components/Settings/Config.tsx:226",
+        "src/constants/prompts.ts:84",
+        "src/hooks/useGlobalKeybindings.tsx:107",
+        "src/hooks/useGlobalKeybindings.tsx:180",
+        "src/main.tsx:2581",
+        "src/main.tsx:3180",
+        "src/main.tsx:3199"
+      ]
+    },
+    {
+      "target": "src/tools/BriefTool/prompt.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "(feature('KAIROS') || feature('KAIROS_BRIEF')) && baseTools.length > 0",
+        "feature('KAIROS') || feature('KAIROS_BRIEF')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_BRIEF"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/Messages.tsx:107",
+        "src/constants/prompts.ts:79",
+        "src/main.tsx:2579",
+        "src/tools/ToolSearchTool/prompt.ts:12",
+        "src/utils/attachments.ts:203",
+        "src/utils/conversationRecovery.ts:58",
+        "src/utils/conversationRecovery.ts:64",
+        "src/utils/permissions/permissionRuleParser.ts:13"
+      ]
+    },
+    {
+      "target": "src/tools/CtxInspectTool/CtxInspectTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('CONTEXT_COLLAPSE')"
+      ],
+      "flags": [
+        "CONTEXT_COLLAPSE"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:111"
+      ]
+    },
+    {
+      "target": "src/tools/DiscoverSkillsTool/prompt.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature( 'EXPERIMENTAL_SKILL_SEARCH', )"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/constants/prompts.ts:90"
+      ]
+    },
+    {
+      "target": "src/tools/ListPeersTool/ListPeersTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('UDS_INBOX')"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:127"
+      ]
+    },
+    {
+      "target": "src/tools/MonitorTool/MonitorTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('MONITOR_TOOL')"
+      ],
+      "flags": [
+        "MONITOR_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:61",
+        "src/tools.ts:40"
+      ]
+    },
+    {
+      "target": "src/tools/OverflowTestTool/OverflowTestTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('OVERFLOW_TEST_TOOL')"
+      ],
+      "flags": [
+        "OVERFLOW_TEST_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:108",
+        "src/utils/permissions/classifierDecision.ts:34"
+      ]
+    },
+    {
+      "target": "src/tools/PowerShellTool/PowerShellTool.tsx",
+      "status": "source",
+      "gateKind": "runtime",
+      "gates": [
+        "!cached",
+        "usePowerShell"
+      ],
+      "flags": [],
+      "env": [],
+      "sites": [
+        "src/utils/processUserInput/processBashCommand.tsx:107",
+        "src/utils/promptShellExecution.ts:40"
+      ]
+    },
+    {
+      "target": "src/tools/PushNotificationTool/PushNotificationTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS') || feature('KAIROS_PUSH_NOTIFICATION')"
+      ],
+      "flags": [
+        "KAIROS",
+        "KAIROS_PUSH_NOTIFICATION"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:47"
+      ]
+    },
+    {
+      "target": "src/tools/RemoteTriggerTool/RemoteTriggerTool.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS_REMOTE')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS_REMOTE"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:37"
+      ]
+    },
+    {
+      "target": "src/tools/REPLTool/REPLTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.USER_TYPE === 'ant'"
+      ],
+      "flags": [],
+      "env": [
+        "USER_TYPE"
+      ],
+      "sites": [
+        "src/tools.ts:18"
+      ]
+    },
+    {
+      "target": "src/tools/ReviewArtifactTool/ReviewArtifactTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('REVIEW_ARTIFACT')"
+      ],
+      "flags": [
+        "REVIEW_ARTIFACT"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:37"
+      ]
+    },
+    {
+      "target": "src/tools/ScheduleCronTool/CronCreateTool.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:31"
+      ]
+    },
+    {
+      "target": "src/tools/ScheduleCronTool/CronDeleteTool.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:32"
+      ]
+    },
+    {
+      "target": "src/tools/ScheduleCronTool/CronListTool.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:33"
+      ]
+    },
+    {
+      "target": "src/tools/ScheduleCronTool/prompt.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:372"
+      ]
+    },
+    {
+      "target": "src/tools/SendUserFileTool/prompt.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/Messages.tsx:112",
+        "src/tools/ToolSearchTool/prompt.ts:17",
+        "src/utils/conversationRecovery.ts:69"
+      ]
+    },
+    {
+      "target": "src/tools/SendUserFileTool/SendUserFileTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:43"
+      ]
+    },
+    {
+      "target": "src/tools/SleepTool/SleepTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('PROACTIVE') || feature('KAIROS')"
+      ],
+      "flags": [
+        "KAIROS",
+        "PROACTIVE"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:27"
+      ]
+    },
+    {
+      "target": "src/tools/SnipTool/prompt.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('HISTORY_SNIP')"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/collapseReadSearch.ts:39"
+      ]
+    },
+    {
+      "target": "src/tools/SnipTool/SnipTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('HISTORY_SNIP')"
+      ],
+      "flags": [
+        "HISTORY_SNIP"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:124"
+      ]
+    },
+    {
+      "target": "src/tools/SubscribePRTool/SubscribePRTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('KAIROS_GITHUB_WEBHOOKS')"
+      ],
+      "flags": [
+        "KAIROS_GITHUB_WEBHOOKS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:51"
+      ]
+    },
+    {
+      "target": "src/tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.USER_TYPE === 'ant'"
+      ],
+      "flags": [],
+      "env": [
+        "USER_TYPE"
+      ],
+      "sites": [
+        "src/tools.ts:22"
+      ]
+    },
+    {
+      "target": "src/tools/TerminalCaptureTool/prompt.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('TERMINAL_PANEL')"
+      ],
+      "flags": [
+        "TERMINAL_PANEL"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/permissions/classifierDecision.ts:29"
+      ]
+    },
+    {
+      "target": "src/tools/TerminalCaptureTool/TerminalCaptureTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('TERMINAL_PANEL')"
+      ],
+      "flags": [
+        "TERMINAL_PANEL"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:114"
+      ]
+    },
+    {
+      "target": "src/tools/VerifyPlanExecutionTool/constants.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.USER_TYPE === 'ant'"
+      ],
+      "flags": [],
+      "env": [
+        "USER_TYPE"
+      ],
+      "sites": [
+        "src/utils/permissions/classifierDecision.ts:40"
+      ]
+    },
+    {
+      "target": "src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.CLAUDE_CODE_VERIFY_PLAN === 'true'"
+      ],
+      "flags": [],
+      "env": [
+        "CLAUDE_CODE_VERIFY_PLAN"
+      ],
+      "sites": [
+        "src/tools.ts:93"
+      ]
+    },
+    {
+      "target": "src/tools/WebBrowserTool/WebBrowserPanel.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WEB_BROWSER_TOOL')"
+      ],
+      "flags": [
+        "WEB_BROWSER_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/screens/REPL.tsx:542"
+      ]
+    },
+    {
+      "target": "src/tools/WebBrowserTool/WebBrowserTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WEB_BROWSER_TOOL')"
+      ],
+      "flags": [
+        "WEB_BROWSER_TOOL"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:118"
+      ]
+    },
+    {
+      "target": "src/tools/WorkflowTool/bundled/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools.ts:131"
+      ]
+    },
+    {
+      "target": "src/tools/WorkflowTool/constants.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/permissions/classifierDecision.ts:45"
+      ]
+    },
+    {
+      "target": "src/tools/WorkflowTool/createWorkflowCommand.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands.ts:403"
+      ]
+    },
+    {
+      "target": "src/tools/WorkflowTool/WorkflowPermissionRequest.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:55"
+      ]
+    },
+    {
+      "target": "src/tools/WorkflowTool/WorkflowTool.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('WORKFLOW_SCRIPTS')"
+      ],
+      "flags": [
+        "WORKFLOW_SCRIPTS"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/PermissionRequest.tsx:49",
+        "src/tools.ts:132"
+      ]
+    },
+    {
+      "target": "src/utils/computerUse/common.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('CHICAGO_MCP')",
+        "new Set( feature('CHICAGO_MCP')"
+      ],
+      "flags": [
+        "CHICAGO_MCP"
+      ],
+      "env": [],
+      "sites": [
+        "src/services/analytics/metadata.ts:133",
+        "src/services/mcp/client.ts:247",
+        "src/services/mcp/config.ts:1514"
+      ]
+    },
+    {
+      "target": "src/utils/computerUse/wrapper.tsx",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('CHICAGO_MCP')"
+      ],
+      "flags": [
+        "CHICAGO_MCP"
+      ],
+      "env": [],
+      "sites": [
+        "src/services/mcp/client.ts:243"
+      ]
+    },
+    {
+      "target": "src/utils/cronJitterConfig.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:369"
+      ]
+    },
+    {
+      "target": "src/utils/cronScheduler.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('AGENT_TRIGGERS')"
+      ],
+      "flags": [
+        "AGENT_TRIGGERS"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:366"
+      ]
+    },
+    {
+      "target": "src/utils/deepLink/registerProtocol.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('LODESTONE')"
+      ],
+      "flags": [
+        "LODESTONE"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/backgroundHousekeeping.ts:11"
+      ]
+    },
+    {
+      "target": "src/utils/permissions/autoModeState.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TRANSCRIPT_CLASSIFIER')"
+      ],
+      "flags": [
+        "TRANSCRIPT_CLASSIFIER"
+      ],
+      "env": [],
+      "sites": [
+        "src/components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.tsx:93",
+        "src/main.tsx:386",
+        "src/services/api/claude.ts:106",
+        "src/tools/ExitPlanModeTool/ExitPlanModeV2Tool.ts:53",
+        "src/utils/attachments.ts:104",
+        "src/utils/permissions/permissionSetup.ts:33",
+        "src/utils/permissions/permissions.ts:63"
+      ]
+    },
+    {
+      "target": "src/utils/permissions/classifierDecision.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TRANSCRIPT_CLASSIFIER')"
+      ],
+      "flags": [
+        "TRANSCRIPT_CLASSIFIER"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/permissions/permissions.ts:60"
+      ]
+    },
+    {
+      "target": "src/utils/permissions/permissionSetup.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TRANSCRIPT_CLASSIFIER')"
+      ],
+      "flags": [
+        "TRANSCRIPT_CLASSIFIER"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/ExitPlanModeTool/ExitPlanModeV2Tool.ts:56"
+      ]
+    },
+    {
+      "target": "src/utils/protectedNamespace.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "process.env.USER_TYPE === 'ant'"
+      ],
+      "flags": [],
+      "env": [
+        "USER_TYPE"
+      ],
+      "sites": [
+        "src/utils/envUtils.ts:142"
+      ]
+    },
+    {
+      "target": "src/utils/sessionStorage.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('COORDINATOR_MODE')"
+      ],
+      "flags": [
+        "COORDINATOR_MODE"
+      ],
+      "env": [],
+      "sites": [
+        "src/commands/clear/conversation.ts:232",
+        "src/screens/REPL.tsx:2527",
+        "src/screens/ResumeConversation.tsx:290"
+      ]
+    },
+    {
+      "target": "src/utils/taskSummary.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('BG_SESSIONS')"
+      ],
+      "flags": [
+        "BG_SESSIONS"
+      ],
+      "env": [],
+      "sites": [
+        "src/query.ts:119"
+      ]
+    },
+    {
+      "target": "src/utils/teamMemoryOps.ts",
+      "status": "source",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAMMEM')"
+      ],
+      "flags": [
+        "TEAMMEM"
+      ],
+      "env": [],
+      "sites": [
+        "src/utils/collapseReadSearch.ts:35"
+      ]
+    },
+    {
+      "target": "src/utils/udsClient.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "(feature('UDS_INBOX') && typeof input.message === 'string') && (addr.scheme === 'uds')"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/tools/SendMessageTool/SendMessageTool.ts:778"
+      ]
+    },
+    {
+      "target": "src/utils/udsMessaging.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('UDS_INBOX')"
+      ],
+      "flags": [
+        "UDS_INBOX"
+      ],
+      "env": [],
+      "sites": [
+        "src/cli/print.ts:2687",
+        "src/utils/messages/systemInit.ts:91"
+      ]
+    }
+  ],
+  "missingExports": [
+    {
+      "module": "src/bootstrap/state.ts",
+      "name": "isReplBridgeActive",
+      "shape": "noop",
+      "importedBy": [
+        "src/tools/SendMessageTool/SendMessageTool.ts:3",
+        "src/tools/ToolSearchTool/prompt.ts:2"
+      ]
+    }
+  ],
+  "stubs": [
+    {
+      "path": "src/assistant/AssistantSessionChooser.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/dialogLaunchers.tsx:84 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/assistant/gate.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:146 (dynamic)",
+        "src/main.tsx:146 (require)"
+      ]
+    },
+    {
+      "path": "src/assistant/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/bridge/initReplBridge.ts:480 (dynamic)",
+        "src/bridge/initReplBridge.ts:480 (require)",
+        "src/commands/bridge/bridge.tsx:268 (dynamic)",
+        "src/hooks/useReplBridge.tsx:205 (dynamic)",
+        "src/main.tsx:143 (dynamic)",
+        "src/main.tsx:143 (require)"
+      ]
+    },
+    {
+      "path": "src/assistant/sessionDiscovery.ts",
+      "kind": "known-types",
+      "exports": [
+        "AssistantSession"
+      ],
+      "referencedFrom": [
+        "src/dialogLaunchers.tsx:10",
+        "src/main.tsx:4452 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/bridge/peerSessions.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/SendMessageTool/SendMessageTool.ts:759 (dynamic)",
+        "src/tools/SendMessageTool/SendMessageTool.ts:759 (require)"
+      ]
+    },
+    {
+      "path": "src/bridge/webhookSanitizer.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/hooks/useReplBridge.tsx:232 (dynamic)",
+        "src/hooks/useReplBridge.tsx:232 (require)"
+      ]
+    },
+    {
+      "path": "src/cli/bg.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:197 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/cli/handlers/ant.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:6237 (dynamic)",
+        "src/main.tsx:6253 (dynamic)",
+        "src/main.tsx:6277 (dynamic)",
+        "src/main.tsx:6296 (dynamic)",
+        "src/main.tsx:6313 (dynamic)",
+        "src/main.tsx:6323 (dynamic)",
+        "src/main.tsx:6351 (dynamic)",
+        "src/main.tsx:6361 (dynamic)",
+        "src/main.tsx:6375 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/cli/handlers/templateJobs.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:223 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/cli/rollback.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:6200 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/cli/transports/Transport.ts",
+      "kind": "known-types",
+      "exports": [
+        "Transport"
+      ],
+      "referencedFrom": [
+        "src/cli/remoteIO.ts:28",
+        "src/cli/transports/SSETransport.ts:10",
+        "src/cli/transports/WebSocketTransport.ts:18",
+        "src/cli/transports/transportUtils.ts:5"
+      ]
+    },
+    {
+      "path": "src/cli/up.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:6176 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/commands/agents-platform/index.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:50 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/ant-trace/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:147"
+      ]
+    },
+    {
+      "path": "src/commands/assistant/assistant.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/dialogLaunchers.tsx:105 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/commands/assistant/index.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:71 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/autofix-pr/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:3"
+      ]
+    },
+    {
+      "path": "src/commands/backfill-sessions/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:4"
+      ]
+    },
+    {
+      "path": "src/commands/break-cache/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:32"
+      ]
+    },
+    {
+      "path": "src/commands/buddy/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:120 (dynamic)",
+        "src/commands.ts:120 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/bughunter/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:54"
+      ]
+    },
+    {
+      "path": "src/commands/ctx_viz/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:20"
+      ]
+    },
+    {
+      "path": "src/commands/debug-tool-call/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:204"
+      ]
+    },
+    {
+      "path": "src/commands/env/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:172"
+      ]
+    },
+    {
+      "path": "src/commands/force-snip.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:84 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/fork/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:115 (dynamic)",
+        "src/commands.ts:115 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/good-claude/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:6"
+      ]
+    },
+    {
+      "path": "src/commands/install-github-app/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "State",
+        "Warning",
+        "Workflow"
+      ],
+      "referencedFrom": [
+        "src/commands/install-github-app/CreatingStep.tsx:3",
+        "src/commands/install-github-app/WarningsStep.tsx:6",
+        "src/commands/install-github-app/install-github-app.tsx:29",
+        "src/commands/install-github-app/setupGitHubActions.ts:15",
+        "src/components/WorkflowMultiselectDialog.tsx:2"
+      ]
+    },
+    {
+      "path": "src/commands/issue/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:7"
+      ]
+    },
+    {
+      "path": "src/commands/mock-limits/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:139"
+      ]
+    },
+    {
+      "path": "src/commands/oauth-refresh/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:203"
+      ]
+    },
+    {
+      "path": "src/commands/onboarding/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:35"
+      ]
+    },
+    {
+      "path": "src/commands/peers/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:110 (dynamic)",
+        "src/commands.ts:110 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/perf-issue/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:148"
+      ]
+    },
+    {
+      "path": "src/commands/plugin/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "PluginSettingsProps",
+        "ViewState"
+      ],
+      "referencedFrom": [
+        "src/commands/plugin/AddMarketplace.tsx:21",
+        "src/commands/plugin/BrowseMarketplace.tsx:52",
+        "src/commands/plugin/DiscoverPlugins.tsx:50",
+        "src/commands/plugin/ManageMarketplaces.tsx:42",
+        "src/commands/plugin/ManagePlugins.tsx:95",
+        "src/commands/plugin/PluginSettings.tsx:36"
+      ]
+    },
+    {
+      "path": "src/commands/plugin/unifiedTypes.ts",
+      "kind": "known-types",
+      "exports": [
+        "UnifiedInstalledItem"
+      ],
+      "referencedFrom": [
+        "src/commands/plugin/ManagePlugins.tsx:97",
+        "src/commands/plugin/UnifiedInstalledCell.tsx:5"
+      ]
+    },
+    {
+      "path": "src/commands/proactive.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:64 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/remoteControlServer/index.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:78 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/reset-limits/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "resetLimits",
+        "resetLimitsNonInteractive"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:143"
+      ]
+    },
+    {
+      "path": "src/commands/share/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:42"
+      ]
+    },
+    {
+      "path": "src/commands/subscribe-pr.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:102 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/summary/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:142"
+      ]
+    },
+    {
+      "path": "src/commands/teleport/index.ts",
+      "kind": "inferred",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:46"
+      ]
+    },
+    {
+      "path": "src/commands/torch.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "default"
+      ],
+      "referencedFrom": [
+        "src/commands.ts:107 (require)"
+      ]
+    },
+    {
+      "path": "src/commands/workflows/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:88 (dynamic)",
+        "src/commands.ts:88 (require)"
+      ]
+    },
+    {
+      "path": "src/components/AntModelSwitchCallout.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "AntModelSwitchCallout",
+        "shouldShowModelSwitchCallout"
+      ],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:465 (require)",
+        "src/screens/REPL.tsx:469 (require)"
+      ]
+    },
+    {
+      "path": "src/components/FeedbackSurvey/useFrustrationDetection.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:209 (dynamic)",
+        "src/screens/REPL.tsx:211 (require)"
+      ]
+    },
+    {
+      "path": "src/components/FeedbackSurvey/utils.ts",
+      "kind": "known-types",
+      "exports": [
+        "FeedbackSurveyResponse",
+        "FeedbackSurveyType"
+      ],
+      "referencedFrom": [
+        "src/components/FeedbackSurvey/FeedbackSurvey.tsx:14",
+        "src/components/FeedbackSurvey/FeedbackSurveyView.tsx:4",
+        "src/components/FeedbackSurvey/useFeedbackSurvey.tsx:22",
+        "src/components/FeedbackSurvey/useMemorySurvey.tsx:23",
+        "src/components/FeedbackSurvey/usePostCompactSurvey.tsx:14",
+        "src/components/FeedbackSurvey/useSurveyState.tsx:4",
+        "src/components/SkillImprovementSurvey.tsx:7",
+        "src/hooks/useSkillImprovementSurvey.ts:2"
+      ]
+    },
+    {
+      "path": "src/components/Spinner/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "RGBColor",
+        "SpinnerMode"
+      ],
+      "referencedFrom": [
+        "src/components/Spinner/GlimmerMessage.tsx:6",
+        "src/components/Spinner/SpinnerAnimationRow.tsx:13",
+        "src/components/Spinner/index.ts:5",
+        "src/components/Spinner/useShimmerAnimation.ts:4",
+        "src/components/Spinner/utils.ts:2",
+        "src/hooks/useCancelRequest.ts:17",
+        "src/hooks/useRemoteSession.ts:4",
+        "src/utils/handlePromptSubmit.ts:6"
+      ]
+    },
+    {
+      "path": "src/components/UndercoverAutoCallout.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "UndercoverAutoCallout"
+      ],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:474 (require)"
+      ]
+    },
+    {
+      "path": "src/components/agents/SnapshotUpdateDialog.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/dialogLaunchers.tsx:39 (dynamic)",
+        "src/main.tsx:3293 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/components/agents/new-agent-creation/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "AgentWizardData"
+      ],
+      "referencedFrom": [
+        "src/components/agents/new-agent-creation/CreateAgentWizard.tsx:7",
+        "src/components/agents/new-agent-creation/wizard-steps/ColorStep.tsx:11",
+        "src/components/agents/new-agent-creation/wizard-steps/ConfirmStep.tsx:18",
+        "src/components/agents/new-agent-creation/wizard-steps/ConfirmStepWrapper.tsx:14",
+        "src/components/agents/new-agent-creation/wizard-steps/DescriptionStep.tsx:11",
+        "src/components/agents/new-agent-creation/wizard-steps/GenerateStep.tsx:15",
+        "src/components/agents/new-agent-creation/wizard-steps/LocationStep.tsx:10",
+        "src/components/agents/new-agent-creation/wizard-steps/MemoryStep.tsx:15",
+        "src/components/agents/new-agent-creation/wizard-steps/MethodStep.tsx:9",
+        "src/components/agents/new-agent-creation/wizard-steps/ModelStep.tsx:8",
+        "src/components/agents/new-agent-creation/wizard-steps/PromptStep.tsx:11",
+        "src/components/agents/new-agent-creation/wizard-steps/ToolsStep.tsx:9",
+        "src/components/agents/new-agent-creation/wizard-steps/TypeStep.tsx:12"
+      ]
+    },
+    {
+      "path": "src/components/mcp/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "AgentMcpServerInfo",
+        "ClaudeAIServerInfo",
+        "HTTPServerInfo",
+        "MCPClientState",
+        "MCPViewState",
+        "SSEServerInfo",
+        "ServerInfo",
+        "StdioServerInfo"
+      ],
+      "referencedFrom": [
+        "src/commands/plugin/ManagePlugins.tsx:13",
+        "src/components/mcp/MCPAgentServerMenu.tsx:17",
+        "src/components/mcp/MCPListPanel.tsx:15",
+        "src/components/mcp/MCPRemoteServerMenu.tsx:45",
+        "src/components/mcp/MCPSettings.tsx:22",
+        "src/components/mcp/MCPStdioServerMenu.tsx:24",
+        "src/components/mcp/MCPToolDetailView.tsx:10",
+        "src/components/mcp/MCPToolListView.tsx:16",
+        "src/components/mcp/index.ts:9",
+        "src/services/mcp/utils.ts:5"
+      ]
+    },
+    {
+      "path": "src/components/messages/SnipBoundaryMessage.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/Message.tsx:218 (dynamic)",
+        "src/components/Message.tsx:218 (require)"
+      ]
+    },
+    {
+      "path": "src/components/messages/UserCrossSessionMessage.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/messages/UserTextMessage.tsx:171 (dynamic)",
+        "src/components/messages/UserTextMessage.tsx:171 (require)"
+      ]
+    },
+    {
+      "path": "src/components/messages/UserForkBoilerplateMessage.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/messages/UserTextMessage.tsx:158 (dynamic)",
+        "src/components/messages/UserTextMessage.tsx:158 (require)"
+      ]
+    },
+    {
+      "path": "src/components/messages/UserGitHubWebhookMessage.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/messages/UserTextMessage.tsx:104 (dynamic)",
+        "src/components/messages/UserTextMessage.tsx:104 (require)"
+      ]
+    },
+    {
+      "path": "src/components/permissions/MonitorPermissionRequest/MonitorPermissionRequest.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:67 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:67 (require)"
+      ]
+    },
+    {
+      "path": "src/components/permissions/ReviewArtifactPermissionRequest/ReviewArtifactPermissionRequest.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:43 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:43 (require)"
+      ]
+    },
+    {
+      "path": "src/components/tasks/MonitorMcpDetailDialog.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:155 (dynamic)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:155 (require)"
+      ]
+    },
+    {
+      "path": "src/components/tasks/WorkflowDetailDialog.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:137 (dynamic)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:137 (require)"
+      ]
+    },
+    {
+      "path": "src/components/ui/option.ts",
+      "kind": "known-types",
+      "exports": [
+        "Option"
+      ],
+      "referencedFrom": [
+        "src/components/permissions/rules/PermissionRuleList.tsx:45"
+      ]
+    },
+    {
+      "path": "src/components/wizard/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "WizardContextValue",
+        "WizardProviderProps",
+        "WizardStepComponent"
+      ],
+      "referencedFrom": [
+        "src/components/agents/new-agent-creation/CreateAgentWizard.tsx:6",
+        "src/components/wizard/WizardProvider.tsx:10",
+        "src/components/wizard/index.ts:1",
+        "src/components/wizard/useWizard.ts:2"
+      ]
+    },
+    {
+      "path": "src/constants/querySource.ts",
+      "kind": "known-types",
+      "exports": [
+        "QuerySource"
+      ],
+      "referencedFrom": [
+        "src/Tool.ts:76",
+        "src/query.ts:94",
+        "src/query/stopHooks.ts:51",
+        "src/services/api/claude.ts:144",
+        "src/services/api/promptCacheBreakDetection.ts:13",
+        "src/services/api/withRetry.ts:8",
+        "src/services/compact/autoCompact.ts:4",
+        "src/services/compact/compact.ts:13",
+        "src/services/compact/microCompact.ts:3",
+        "src/services/compact/postCompactCleanup.ts:2",
+        "src/tools/AgentTool/runAgent.ts:12",
+        "src/utils/attachments.ts:161",
+        "src/utils/forkedAgent.ts:14",
+        "src/utils/handlePromptSubmit.ts:7",
+        "src/utils/hooks/apiQueryHookHelper.ts:2",
+        "src/utils/hooks/postSamplingHooks.ts:1",
+        "src/utils/log.ts:6",
+        "src/utils/processUserInput/processUserInput.ts:8",
+        "src/utils/promptCategory.ts:1",
+        "src/utils/shell/prefix.ts:11",
+        "src/utils/sideQuery.ts:8"
+      ]
+    },
+    {
+      "path": "src/coordinator/workerAgent.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/AgentTool/builtInAgents.ts:39 (dynamic)",
+        "src/tools/AgentTool/builtInAgents.ts:39 (require)"
+      ]
+    },
+    {
+      "path": "src/daemon/main.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:177 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/daemon/workerRegistry.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:110 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/entrypoints/sdk/controlTypes.ts",
+      "kind": "known-types",
+      "exports": [
+        "SDKControlCancelRequest",
+        "SDKControlInitializeRequest",
+        "SDKControlInitializeResponse",
+        "SDKControlMcpSetServersResponse",
+        "SDKControlPermissionRequest",
+        "SDKControlReloadPluginsResponse",
+        "SDKControlRequest",
+        "SDKControlRequestInner",
+        "SDKControlResponse",
+        "SDKPartialAssistantMessage",
+        "StdinMessage",
+        "StdoutMessage"
+      ],
+      "referencedFrom": [
+        "src/bridge/bridgeMessaging.ts:15",
+        "src/bridge/initReplBridge.ts:20",
+        "src/bridge/remoteBridgeCore.ts:68",
+        "src/bridge/replBridge.ts:51",
+        "src/bridge/replBridgeTransport.ts:1",
+        "src/cli/print.ts:121",
+        "src/cli/remoteIO.ts:1",
+        "src/cli/structuredIO.ts:16",
+        "src/cli/transports/HybridTransport.ts:2",
+        "src/cli/transports/SSETransport.ts:2",
+        "src/cli/transports/WebSocketTransport.ts:1",
+        "src/cli/transports/ccrClient.ts:2",
+        "src/entrypoints/agentSdkTypes.ts:19",
+        "src/hooks/useReplBridge.tsx:21",
+        "src/remote/RemoteSessionManager.ts:2",
+        "src/remote/SessionsWebSocket.ts:4",
+        "src/remote/remotePermissionBridge.ts:2",
+        "src/server/directConnectManager.ts:4",
+        "src/utils/streamlinedTransform.ts:12"
+      ]
+    },
+    {
+      "path": "src/entrypoints/sdk/runtimeTypes.ts",
+      "kind": "known-types",
+      "exports": [
+        "AnyZodRawShape",
+        "EffortLevel",
+        "ForkSessionOptions",
+        "ForkSessionResult",
+        "GetSessionInfoOptions",
+        "GetSessionMessagesOptions",
+        "InferShape",
+        "InternalOptions",
+        "InternalQuery",
+        "ListSessionsOptions",
+        "McpSdkServerConfigWithInstance",
+        "NonNullableUsage",
+        "Options",
+        "Query",
+        "SDKSession",
+        "SDKSessionOptions",
+        "SdkMcpToolDefinition",
+        "SessionMessage",
+        "SessionMutationOptions"
+      ],
+      "referencedFrom": [
+        "src/entrypoints/agentSdkTypes.ts:26",
+        "src/entrypoints/agentSdkTypes.ts:44",
+        "src/utils/effort.ts:9"
+      ]
+    },
+    {
+      "path": "src/entrypoints/sdk/sdkUtilityTypes.ts",
+      "kind": "known-types",
+      "exports": [
+        "NonNullableUsage"
+      ],
+      "referencedFrom": [
+        "src/entrypoints/sdk/coreTypes.ts:22",
+        "src/services/api/emptyUsage.ts:1",
+        "src/services/api/logging.ts:31"
+      ]
+    },
+    {
+      "path": "src/environment-runner/main.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:235 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/hooks/notifs/useAntOrgWarningNotification.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:216 (dynamic)",
+        "src/screens/REPL.tsx:218 (require)"
+      ]
+    },
+    {
+      "path": "src/ink/cursor.ts",
+      "kind": "known-types",
+      "exports": [
+        "Cursor"
+      ],
+      "referencedFrom": [
+        "src/ink/frame.ts:1"
+      ]
+    },
+    {
+      "path": "src/ink/devtools.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/ink/reconciler.ts:36 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/ink/events/paste-event.ts",
+      "kind": "known-types",
+      "exports": [
+        "PasteEvent"
+      ],
+      "referencedFrom": [
+        "src/ink/events/event-handlers.ts:4"
+      ]
+    },
+    {
+      "path": "src/ink/events/resize-event.ts",
+      "kind": "known-types",
+      "exports": [
+        "ResizeEvent"
+      ],
+      "referencedFrom": [
+        "src/ink/events/event-handlers.ts:5"
+      ]
+    },
+    {
+      "path": "src/ink/global.d.ts",
+      "kind": "known-types",
+      "exports": [],
+      "referencedFrom": [
+        "src/ink/components/Box.tsx:1",
+        "src/ink/components/ScrollBox.tsx:14"
+      ]
+    },
+    {
+      "path": "src/jobs/classifier.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/query.ts:70 (dynamic)",
+        "src/query.ts:70 (require)",
+        "src/query/stopHooks.ts:46 (dynamic)",
+        "src/query/stopHooks.ts:46 (require)"
+      ]
+    },
+    {
+      "path": "src/keybindings/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "Chord",
+        "KeybindingAction",
+        "KeybindingBlock",
+        "KeybindingContextName",
+        "ParsedBinding",
+        "ParsedKeystroke"
+      ],
+      "referencedFrom": [
+        "src/components/ConfigurableShortcutHint.tsx:2",
+        "src/components/permissions/PermissionPrompt.tsx:3",
+        "src/hooks/useExitOnCtrlCD.ts:3",
+        "src/hooks/useVoiceIntegration.tsx:16",
+        "src/keybindings/KeybindingContext.tsx:14",
+        "src/keybindings/KeybindingProviderSetup.tsx:27",
+        "src/keybindings/defaultBindings.ts:5",
+        "src/keybindings/loadUserBindings.ts:26",
+        "src/keybindings/match.ts:2",
+        "src/keybindings/parser.ts:1",
+        "src/keybindings/resolver.ts:4",
+        "src/keybindings/shortcutFormat.ts:7",
+        "src/keybindings/template.ts:12",
+        "src/keybindings/useKeybinding.ts:5",
+        "src/keybindings/useShortcutDisplay.ts:7",
+        "src/keybindings/validate.ts:7",
+        "src/utils/exportRenderer.tsx:6"
+      ]
+    },
+    {
+      "path": "src/memdir/memoryShapeTelemetry.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/memdir/findRelevantMemories.ts:69 (dynamic)",
+        "src/memdir/findRelevantMemories.ts:69 (require)",
+        "src/utils/sessionFileAccessHooks.ts:39 (dynamic)",
+        "src/utils/sessionFileAccessHooks.ts:39 (require)"
+      ]
+    },
+    {
+      "path": "src/proactive/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/cli/print.ts:363 (dynamic)",
+        "src/cli/print.ts:363 (require)",
+        "src/commands/clear/conversation.ts:114 (require)",
+        "src/components/Messages.tsx:102 (require)",
+        "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61 (require)",
+        "src/components/PromptInput/usePromptInputPlaceholder.ts:13 (require)",
+        "src/constants/prompts.ts:74 (require)",
+        "src/main.tsx:6517 (require)",
+        "src/screens/REPL.tsx:408 (require)",
+        "src/services/compact/prompt.ts:8 (dynamic)",
+        "src/services/compact/prompt.ts:8 (require)",
+        "src/tools/AgentTool/AgentTool.tsx:137 (dynamic)",
+        "src/tools/AgentTool/AgentTool.tsx:137 (require)",
+        "src/utils/systemPrompt.ts:20 (dynamic)",
+        "src/utils/systemPrompt.ts:20 (require)"
+      ]
+    },
+    {
+      "path": "src/proactive/useProactive.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "useProactive"
+      ],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:415 (require)"
+      ]
+    },
+    {
+      "path": "src/query/transitions.ts",
+      "kind": "known-types",
+      "exports": [
+        "Continue",
+        "Terminal"
+      ],
+      "referencedFrom": [
+        "src/query.ts:104"
+      ]
+    },
+    {
+      "path": "src/self-hosted-runner/main.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/entrypoints/cli.tsx:247 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/backends/dangerousBackend.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5566 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/connectHeadless.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5723 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/lockfile.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5572 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/parseConnectUrl.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5695 (dynamic)",
+        "src/main.tsx:908 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/server.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5564 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/serverBanner.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5569 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/serverLog.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5570 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/server/sessionManager.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:5565 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/services/compact/cachedMCConfig.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/constants/prompts.ts:68 (dynamic)",
+        "src/constants/prompts.ts:68 (require)"
+      ]
+    },
+    {
+      "path": "src/services/compact/cachedMicrocompact.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/services/api/claude.ts:1195 (dynamic)",
+        "src/services/compact/microCompact.ts:100 (dynamic)",
+        "src/services/compact/microCompact.ts:113 (dynamic)",
+        "src/services/compact/microCompact.ts:56 (dynamic)",
+        "src/services/compact/microCompact.ts:57 (dynamic)",
+        "src/services/compact/microCompact.ts:59 (dynamic)",
+        "src/services/compact/microCompact.ts:63 (dynamic)",
+        "src/services/compact/microCompact.ts:66 (dynamic)",
+        "src/services/compact/microCompact.ts:71 (dynamic)",
+        "src/services/compact/microCompact.ts:89 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/services/compact/reactiveCompact.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands/compact/compact.ts:36 (dynamic)",
+        "src/commands/compact/compact.ts:36 (require)",
+        "src/query.ts:16 (dynamic)",
+        "src/query.ts:16 (require)"
+      ]
+    },
+    {
+      "path": "src/services/compact/snipCompact.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/QueryEngine.ts:123 (dynamic)",
+        "src/QueryEngine.ts:123 (require)",
+        "src/components/Message.tsx:213 (dynamic)",
+        "src/components/Message.tsx:213 (require)",
+        "src/query.ts:116 (dynamic)",
+        "src/query.ts:116 (require)",
+        "src/utils/attachments.ts:3973 (dynamic)",
+        "src/utils/attachments.ts:3973 (require)",
+        "src/utils/messages.ts:2354 (dynamic)",
+        "src/utils/messages.ts:2354 (require)",
+        "src/utils/messages.ts:2424 (dynamic)",
+        "src/utils/messages.ts:2424 (require)",
+        "src/utils/messages.ts:4152 (dynamic)",
+        "src/utils/messages.ts:4152 (require)"
+      ]
+    },
+    {
+      "path": "src/services/compact/snipProjection.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/QueryEngine.ts:126 (dynamic)",
+        "src/QueryEngine.ts:126 (require)",
+        "src/components/Message.tsx:211 (dynamic)",
+        "src/components/Message.tsx:211 (require)",
+        "src/utils/messages.ts:4651 (dynamic)",
+        "src/utils/messages.ts:4651 (require)"
+      ]
+    },
+    {
+      "path": "src/services/contextCollapse/index.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands/context/context-noninteractive.ts:116 (dynamic)",
+        "src/commands/context/context-noninteractive.ts:116 (require)",
+        "src/components/ContextVisualization.tsx:28 (dynamic)",
+        "src/components/ContextVisualization.tsx:28 (require)",
+        "src/components/TokenWarning.tsx:106 (dynamic)",
+        "src/components/TokenWarning.tsx:106 (require)",
+        "src/components/TokenWarning.tsx:32 (dynamic)",
+        "src/components/TokenWarning.tsx:32 (require)",
+        "src/query.ts:19 (dynamic)",
+        "src/query.ts:19 (require)",
+        "src/screens/REPL.tsx:4931 (dynamic)",
+        "src/screens/REPL.tsx:4931 (require)",
+        "src/services/compact/autoCompact.ts:218 (dynamic)",
+        "src/services/compact/autoCompact.ts:218 (require)",
+        "src/services/compact/postCompactCleanup.ts:46 (dynamic)",
+        "src/services/compact/postCompactCleanup.ts:46 (require)",
+        "src/setup.ts:298 (dynamic)",
+        "src/setup.ts:298 (require)",
+        "src/utils/analyzeContext.ts:1122 (dynamic)",
+        "src/utils/analyzeContext.ts:1122 (require)"
+      ]
+    },
+    {
+      "path": "src/services/contextCollapse/operations.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands/context/context-noninteractive.ts:53 (dynamic)",
+        "src/commands/context/context-noninteractive.ts:53 (require)",
+        "src/commands/context/context.tsx:23 (dynamic)",
+        "src/commands/context/context.tsx:23 (require)"
+      ]
+    },
+    {
+      "path": "src/services/contextCollapse/persist.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/screens/ResumeConversation.tsx:320 (dynamic)",
+        "src/screens/ResumeConversation.tsx:320 (require)",
+        "src/utils/sessionRestore.ts:130 (dynamic)",
+        "src/utils/sessionRestore.ts:130 (require)",
+        "src/utils/sessionRestore.ts:497 (dynamic)",
+        "src/utils/sessionRestore.ts:497 (require)"
+      ]
+    },
+    {
+      "path": "src/services/lsp/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "LspServerConfig",
+        "LspServerState",
+        "ScopedLspServerConfig"
+      ],
+      "referencedFrom": [
+        "src/services/lsp/LSPServerInstance.ts:10",
+        "src/services/lsp/LSPServerManager.ts:11",
+        "src/services/lsp/config.ts:7",
+        "src/types/plugin.ts:1",
+        "src/utils/plugins/lspPluginIntegration.ts:4"
+      ]
+    },
+    {
+      "path": "src/services/oauth/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "BillingType",
+        "OAuthProfileResponse",
+        "OAuthTokenExchangeResponse",
+        "OAuthTokens",
+        "RateLimitTier",
+        "ReferralCampaign",
+        "ReferralEligibilityResponse",
+        "ReferralRedemptionsResponse",
+        "ReferrerRewardInfo",
+        "SubscriptionType",
+        "UserRolesResponse"
+      ],
+      "referencedFrom": [
+        "src/cli/handlers/auth.ts:22",
+        "src/components/Passes/Passes.tsx:16",
+        "src/services/api/referral.ts:13",
+        "src/services/mockRateLimits.ts:8",
+        "src/services/oauth/client.ts:24",
+        "src/services/oauth/getOauthProfile.ts:3",
+        "src/services/oauth/index.ts:6",
+        "src/utils/auth.ts:28",
+        "src/utils/config.ts:11"
+      ]
+    },
+    {
+      "path": "src/services/sessionTranscript/sessionTranscript.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/services/compact/compact.ts:7 (dynamic)",
+        "src/services/compact/compact.ts:7 (require)",
+        "src/utils/attachments.ts:207 (dynamic)",
+        "src/utils/attachments.ts:207 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/featureCheck.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/constants/prompts.ts:96 (dynamic)",
+        "src/constants/prompts.ts:96 (require)",
+        "src/tools/SkillTool/SkillTool.ts:113 (dynamic)",
+        "src/tools/SkillTool/SkillTool.ts:113 (require)",
+        "src/utils/attachments.ts:98 (dynamic)",
+        "src/utils/attachments.ts:98 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/localSearch.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:98 (dynamic)",
+        "src/commands.ts:98 (require)",
+        "src/services/mcp/useManageMCPConnections.ts:29 (dynamic)",
+        "src/services/mcp/useManageMCPConnections.ts:29 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/prefetch.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/query.ts:67 (dynamic)",
+        "src/query.ts:67 (require)",
+        "src/utils/attachments.ts:100 (dynamic)",
+        "src/utils/attachments.ts:100 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/remoteSkillLoader.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/SkillTool/SkillTool.ts:111 (dynamic)",
+        "src/tools/SkillTool/SkillTool.ts:111 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/remoteSkillState.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/SkillTool/SkillTool.ts:110 (dynamic)",
+        "src/tools/SkillTool/SkillTool.ts:110 (require)"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/signals.ts",
+      "kind": "known-types",
+      "exports": [
+        "DiscoverySignal"
+      ],
+      "referencedFrom": [
+        "src/utils/attachments.ts:88"
+      ]
+    },
+    {
+      "path": "src/services/skillSearch/telemetry.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/SkillTool/SkillTool.ts:112 (dynamic)",
+        "src/tools/SkillTool/SkillTool.ts:112 (require)"
+      ]
+    },
+    {
+      "path": "src/services/tips/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "Tip",
+        "TipContext"
+      ],
+      "referencedFrom": [
+        "src/services/tips/tipRegistry.ts:57",
+        "src/services/tips/tipScheduler.ts:8"
+      ]
+    },
+    {
+      "path": "src/skills/bundled/dream.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "registerDreamSkill"
+      ],
+      "referencedFrom": [
+        "src/skills/bundled/index.ts:37 (require)"
+      ]
+    },
+    {
+      "path": "src/skills/bundled/hunter.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "registerHunterSkill"
+      ],
+      "referencedFrom": [
+        "src/skills/bundled/index.ts:43 (require)"
+      ]
+    },
+    {
+      "path": "src/skills/bundled/runSkillGenerator.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "registerRunSkillGeneratorSkill"
+      ],
+      "referencedFrom": [
+        "src/skills/bundled/index.ts:75 (require)"
+      ]
+    },
+    {
+      "path": "src/skills/mcpSkills.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/services/mcp/client.ts:119 (dynamic)",
+        "src/services/mcp/client.ts:119 (require)",
+        "src/services/mcp/useManageMCPConnections.ts:24 (dynamic)",
+        "src/services/mcp/useManageMCPConnections.ts:24 (require)"
+      ]
+    },
+    {
+      "path": "src/ssh/SSHSessionManager.ts",
+      "kind": "known-types",
+      "exports": [
+        "SSHSessionManager"
+      ],
+      "referencedFrom": [
+        "src/hooks/useSSHSession.ts:24"
+      ]
+    },
+    {
+      "path": "src/ssh/createSSHSession.ts",
+      "kind": "known-types",
+      "exports": [
+        "SSHSession"
+      ],
+      "referencedFrom": [
+        "src/hooks/useSSHSession.ts:23",
+        "src/main.tsx:4366 (dynamic)",
+        "src/screens/REPL.tsx:147"
+      ]
+    },
+    {
+      "path": "src/tasks/LocalWorkflowTask/LocalWorkflowTask.ts",
+      "kind": "known-types",
+      "exports": [
+        "LocalWorkflowTaskState"
+      ],
+      "referencedFrom": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:141 (dynamic)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:141 (require)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:30",
+        "src/tasks.ts:10 (require)",
+        "src/tasks/types.ts:8"
+      ]
+    },
+    {
+      "path": "src/tasks/MonitorMcpTask/MonitorMcpTask.ts",
+      "kind": "known-types",
+      "exports": [
+        "MonitorMcpTaskState"
+      ],
+      "referencedFrom": [
+        "src/components/tasks/BackgroundTasksDialog.tsx:150 (dynamic)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:150 (require)",
+        "src/components/tasks/BackgroundTasksDialog.tsx:31",
+        "src/tasks.ts:13 (require)",
+        "src/tasks/types.ts:9",
+        "src/tools/AgentTool/runAgent.ts:851 (dynamic)",
+        "src/tools/AgentTool/runAgent.ts:851 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/CtxInspectTool/CtxInspectTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "CtxInspectTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:111 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/DiscoverSkillsTool/prompt.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/constants/prompts.ts:90 (dynamic)",
+        "src/constants/prompts.ts:90 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/ListPeersTool/ListPeersTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "ListPeersTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:127 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/MonitorTool/MonitorTool.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:61 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:61 (require)",
+        "src/tools.ts:40 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/OverflowTestTool/OverflowTestTool.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools.ts:108 (require)",
+        "src/utils/permissions/classifierDecision.ts:34 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:34 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/PushNotificationTool/PushNotificationTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "PushNotificationTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:47 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/REPLTool/REPLTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "REPLTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:18 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/ReviewArtifactTool/ReviewArtifactTool.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:37 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:37 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SendUserFileTool/SendUserFileTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "SendUserFileTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:43 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SendUserFileTool/prompt.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/Messages.tsx:112 (dynamic)",
+        "src/components/Messages.tsx:112 (require)",
+        "src/tools/ToolSearchTool/prompt.ts:17 (dynamic)",
+        "src/tools/ToolSearchTool/prompt.ts:17 (require)",
+        "src/utils/conversationRecovery.ts:69 (dynamic)",
+        "src/utils/conversationRecovery.ts:69 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SleepTool/SleepTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "SleepTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:27 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SnipTool/SnipTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "SnipTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:124 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SnipTool/prompt.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/collapseReadSearch.ts:39 (dynamic)",
+        "src/utils/collapseReadSearch.ts:39 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SubscribePRTool/SubscribePRTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "SubscribePRTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:51 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "SuggestBackgroundPRTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:22 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/TerminalCaptureTool/TerminalCaptureTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "TerminalCaptureTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:114 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/TerminalCaptureTool/prompt.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/permissions/classifierDecision.ts:29 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:29 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/TungstenTool/TungstenLiveMonitor.ts",
+      "kind": "inferred",
+      "exports": [
+        "TungstenLiveMonitor"
+      ],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:539"
+      ]
+    },
+    {
+      "path": "src/tools/TungstenTool/TungstenTool.ts",
+      "kind": "inferred",
+      "exports": [
+        "TungstenTool"
+      ],
+      "referencedFrom": [
+        "src/commands/clear/caches.ts:96 (dynamic)",
+        "src/components/agents/ToolSelector.tsx:21",
+        "src/tools.ts:60"
+      ]
+    },
+    {
+      "path": "src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "VerifyPlanExecutionTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:93 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/VerifyPlanExecutionTool/constants.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/permissions/classifierDecision.ts:40 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:40 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WebBrowserTool/WebBrowserPanel.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/screens/REPL.tsx:542 (dynamic)",
+        "src/screens/REPL.tsx:542 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WebBrowserTool/WebBrowserTool.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "WebBrowserTool"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:118 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WorkflowTool/WorkflowPermissionRequest.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:55 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:55 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WorkflowTool/WorkflowTool.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/permissions/PermissionRequest.tsx:49 (dynamic)",
+        "src/components/permissions/PermissionRequest.tsx:49 (require)",
+        "src/tools.ts:132 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WorkflowTool/bundled/index.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "initBundledWorkflows"
+      ],
+      "referencedFrom": [
+        "src/tools.ts:131 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WorkflowTool/constants.ts",
+      "kind": "inferred",
+      "exports": [
+        "WORKFLOW_TOOL_NAME"
+      ],
+      "referencedFrom": [
+        "src/constants/tools.ts:29",
+        "src/utils/permissions/classifierDecision.ts:45 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:45 (require)"
+      ]
+    },
+    {
+      "path": "src/tools/WorkflowTool/createWorkflowCommand.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands.ts:403 (dynamic)",
+        "src/commands.ts:403 (require)"
+      ]
+    },
+    {
+      "path": "src/types/connectorText.ts",
+      "kind": "known-types",
+      "exports": [
+        "ConnectorTextBlock",
+        "ConnectorTextDelta",
+        "isConnectorTextBlock"
+      ],
+      "referencedFrom": [
+        "src/components/Message.tsx:15",
+        "src/services/api/claude.ts:40",
+        "src/services/api/logging.ts:17",
+        "src/utils/messages.ts:40"
+      ]
+    },
+    {
+      "path": "src/types/fileSuggestion.ts",
+      "kind": "known-types",
+      "exports": [
+        "FileSuggestionCommandInput"
+      ],
+      "referencedFrom": [
+        "src/hooks/fileSuggestions.ts:15",
+        "src/utils/hooks.ts:112"
+      ]
+    },
+    {
+      "path": "src/types/message.ts",
+      "kind": "known-types",
+      "exports": [
+        "AssistantMessage",
+        "AttachmentMessage",
+        "CollapsedReadSearchGroup",
+        "CollapsibleMessage",
+        "CompactMetadata",
+        "GroupedToolUseMessage",
+        "HookResultMessage",
+        "Message",
+        "MessageOrigin",
+        "NormalizedAssistantMessage",
+        "NormalizedMessage",
+        "NormalizedUserMessage",
+        "PartialCompactDirection",
+        "ProgressMessage",
+        "RenderableMessage",
+        "RequestStartEvent",
+        "StopHookInfo",
+        "StreamEvent",
+        "SystemAPIErrorMessage",
+        "SystemAgentsKilledMessage",
+        "SystemApiMetricsMessage",
+        "SystemAwaySummaryMessage",
+        "SystemBridgeStatusMessage",
+        "SystemCompactBoundaryMessage",
+        "SystemFileSnapshotMessage",
+        "SystemInformationalMessage",
+        "SystemLocalCommandMessage",
+        "SystemMemorySavedMessage",
+        "SystemMessage",
+        "SystemMessageLevel",
+        "SystemMicrocompactBoundaryMessage",
+        "SystemPermissionRetryMessage",
+        "SystemScheduledTaskFireMessage",
+        "SystemStopHookSummaryMessage",
+        "SystemThinkingMessage",
+        "SystemTurnDurationMessage",
+        "TombstoneMessage",
+        "ToolUseSummaryMessage",
+        "UserMessage"
+      ],
+      "referencedFrom": [
+        "src/QueryEngine.ts:42",
+        "src/Tool.ts:32",
+        "src/bridge/bridgeMessaging.ts:22",
+        "src/bridge/initReplBridge.ts:27",
+        "src/bridge/remoteBridgeCore.ts:66",
+        "src/bridge/replBridge.ts:48",
+        "src/buddy/prompt.ts:2",
+        "src/cli/print.ts:41",
+        "src/cli/structuredIO.ts:7",
+        "src/commands/btw/btw.tsx:18",
+        "src/commands/clear/conversation.ts:25",
+        "src/commands/compact/compact.ts:23",
+        "src/commands/context/context-noninteractive.ts:6",
+        "src/commands/context/context.tsx:7",
+        "src/commands/copy/copy.tsx:18",
+        "src/commands/export/export.tsx:6",
+        "src/commands/feedback/feedback.tsx:8",
+        "src/commands/rename/generateSessionName.ts:2",
+        "src/components/CompactSummary.tsx:5",
+        "src/components/Feedback.tsx:21",
+        "src/components/FeedbackSurvey/submitTranscriptShare.ts:3",
+        "src/components/FeedbackSurvey/useFeedbackSurvey.tsx:9",
+        "src/components/FeedbackSurvey/useMemorySurvey.tsx:11",
+        "src/components/FeedbackSurvey/usePostCompactSurvey.tsx:9",
+        "src/components/FullscreenLayout.tsx:25",
+        "src/components/Message.tsx:19",
+        "src/components/MessageModel.tsx:4",
+        "src/components/MessageRow.tsx:6",
+        "src/components/MessageSelector.tsx:24",
+        "src/components/MessageTimestamp.tsx:4",
+        "src/components/Messages.tsx:20",
+        "src/components/PromptInput/Notifications.tsx:20",
+        "src/components/PromptInput/PromptInput.tsx:107",
+        "src/components/PromptInput/PromptInputFooter.tsx:15",
+        "src/components/StatusLine.tsx:30",
+        "src/components/VirtualMessageList.tsx:17",
+        "src/components/diff/DiffDialog.tsx:10",
+        "src/components/messageActions.tsx:7",
+        "src/components/messages/AssistantToolUseMessage.tsx:16",
+        "src/components/messages/CollapsedReadSearchContent.tsx:8",
+        "src/components/messages/GroupedToolUseContent.tsx:11",
+        "src/components/messages/SystemAPIErrorMessage.tsx:5",
+        "src/components/messages/SystemTextMessage.tsx:24",
+        "src/components/messages/UserToolResultMessage/UserToolErrorMessage.tsx:11",
+        "src/components/messages/UserToolResultMessage/UserToolRejectMessage.tsx:9",
+        "src/components/messages/UserToolResultMessage/UserToolResultMessage.tsx:4",
+        "src/components/messages/UserToolResultMessage/UserToolSuccessMessage.tsx:12",
+        "src/components/messages/nullRenderingAttachments.ts:2",
+        "src/components/messages/teamMemCollapsed.tsx:3",
+        "src/components/messages/teamMemSaved.ts:1",
+        "src/components/permissions/PermissionExplanation.tsx:5",
+        "src/components/permissions/PermissionRequest.tsx:19",
+        "src/hooks/toolPermission/PermissionContext.ts:16",
+        "src/hooks/useAssistantHistory.ts:19",
+        "src/hooks/useAwaySummary.ts:9",
+        "src/hooks/useCanUseTool.tsx:22",
+        "src/hooks/useDeferredHookMessages.ts:2",
+        "src/hooks/useDirectConnect.ts:18",
+        "src/hooks/useIssueFlagBanner.ts:3",
+        "src/hooks/useLogMessages.ts:4",
+        "src/hooks/useRemoteSession.ts:22",
+        "src/hooks/useReplBridge.tsx:29",
+        "src/hooks/useSSHSession.ts:27",
+        "src/hooks/useScheduledTasks.ts:9",
+        "src/hooks/useSessionBackgrounding.ts:12",
+        "src/hooks/useSkillImprovementSurvey.ts:9",
+        "src/hooks/useSwarmInitialization.ts:13",
+        "src/hooks/useTurnDiffs.ts:5",
+        "src/main.tsx:205",
+        "src/query.ts:30",
+        "src/query/stopHooks.ts:10",
+        "src/remote/remotePermissionBridge.ts:4",
+        "src/remote/sdkMessageAdapter.ts:11",
+        "src/screens/REPL.tsx:294",
+        "src/screens/ResumeConversation.tsx:27",
+        "src/services/PromptSuggestion/promptSuggestion.ts:3",
+        "src/services/PromptSuggestion/speculation.ts:16",
+        "src/services/SessionMemory/sessionMemory.ts:19",
+        "src/services/api/claude.ts:45",
+        "src/services/api/errors.ts:12",
+        "src/services/api/logging.ts:18",
+        "src/services/api/promptCacheBreakDetection.ts:7",
+        "src/services/api/withRetry.ts:9",
+        "src/services/autoDream/autoDream.ts:22",
+        "src/services/awaySummary.ts:3",
+        "src/services/compact/autoCompact.ts:6",
+        "src/services/compact/compact.ts:24",
+        "src/services/compact/grouping.ts:1",
+        "src/services/compact/microCompact.ts:12",
+        "src/services/compact/prompt.ts:2",
+        "src/services/compact/sessionMemoryCompact.ts:6",
+        "src/services/extractMemories/extractMemories.ts:38",
+        "src/services/mcp/client.ts:124",
+        "src/services/tools/StreamingToolExecutor.ts:10",
+        "src/services/tools/toolExecution.ts:53",
+        "src/services/tools/toolHooks.ts:10",
+        "src/services/tools/toolOrchestration.ts:4",
+        "src/services/vcr.ts:9",
+        "src/skills/bundled/skillify.ts:2",
+        "src/state/AppStateStore.ts:22",
+        "src/tasks/InProcessTeammateTask/InProcessTeammateTask.tsx:18",
+        "src/tasks/InProcessTeammateTask/types.ts:4",
+        "src/tasks/LocalAgentTask/LocalAgentTask.tsx:23",
+        "src/tasks/LocalMainSessionTask.ts:31",
+        "src/tools/AgentTool/AgentTool.tsx:4",
+        "src/tools/AgentTool/UI.tsx:24",
+        "src/tools/AgentTool/agentToolUtils.ts:39",
+        "src/tools/AgentTool/forkSubagent.ts:10",
+        "src/tools/AgentTool/runAgent.ts:32",
+        "src/tools/BashTool/BashTool.tsx:35",
+        "src/tools/BashTool/UI.tsx:13",
+        "src/tools/BriefTool/UI.tsx:6",
+        "src/tools/EnterPlanModeTool/UI.tsx:6",
+        "src/tools/EnterWorktreeTool/UI.tsx:4",
+        "src/tools/ExitPlanModeTool/UI.tsx:9",
+        "src/tools/ExitWorktreeTool/UI.tsx:4",
+        "src/tools/FileEditTool/UI.tsx:13",
+        "src/tools/FileWriteTool/UI.tsx:17",
+        "src/tools/GrepTool/UI.tsx:9",
+        "src/tools/ListMcpResourcesTool/UI.tsx:6",
+        "src/tools/MCPTool/UI.tsx:14",
+        "src/tools/NotebookEditTool/UI.tsx:3",
+        "src/tools/PowerShellTool/PowerShellTool.tsx:34",
+        "src/tools/PowerShellTool/UI.tsx:11",
+        "src/tools/ReadMcpResourceTool/UI.tsx:7",
+        "src/tools/SkillTool/SkillTool.ts:21",
+        "src/tools/SkillTool/UI.tsx:13",
+        "src/tools/WebFetchTool/UI.tsx:6",
+        "src/tools/WebSearchTool/UI.tsx:5",
+        "src/tools/utils.ts:1",
+        "src/types/command.ts:13",
+        "src/types/hooks.ts:15",
+        "src/types/logs.ts:5",
+        "src/types/textInputTypes.ts:10",
+        "src/utils/analyzeContext.ts:41",
+        "src/utils/api.ts:37",
+        "src/utils/attachments.ts:55",
+        "src/utils/collapseBackgroundBashNotifications.ts:7",
+        "src/utils/collapseHookSummaries.ts:1",
+        "src/utils/collapseReadSearch.ts:17",
+        "src/utils/collapseTeammateShutdowns.ts:1",
+        "src/utils/contextAnalysis.ts:7",
+        "src/utils/conversationRecovery.ts:15",
+        "src/utils/exportRenderer.tsx:9",
+        "src/utils/fingerprint.ts:2",
+        "src/utils/forkedAgent.ts:26",
+        "src/utils/groupToolUses.ts:4",
+        "src/utils/handlePromptSubmit.ts:14",
+        "src/utils/hooks.ts:113",
+        "src/utils/hooks.ts:149",
+        "src/utils/hooks/apiQueryHookHelper.ts:4",
+        "src/utils/hooks/execAgentHook.ts:11",
+        "src/utils/hooks/execPromptHook.ts:5",
+        "src/utils/hooks/postSamplingHooks.ts:3",
+        "src/utils/hooks/sessionHooks.ts:3",
+        "src/utils/hooks/skillImprovement.ts:11",
+        "src/utils/mcpInstructionsDelta.ts:7",
+        "src/utils/messagePredicates.ts:1",
+        "src/utils/messages.ts:41",
+        "src/utils/messages/mappers.ts:16",
+        "src/utils/permissions/permissionExplainer.ts:4",
+        "src/utils/permissions/permissions.ts:14",
+        "src/utils/permissions/yoloClassifier.ts:20",
+        "src/utils/plans.ts:7",
+        "src/utils/processUserInput/processBashCommand.tsx:7",
+        "src/utils/processUserInput/processSlashCommand.tsx:20",
+        "src/utils/processUserInput/processTextPrompt.ts:4",
+        "src/utils/processUserInput/processUserInput.ts:20",
+        "src/utils/queryContext.ts:19",
+        "src/utils/queryHelpers.ts:19",
+        "src/utils/sessionRestore.ts:30",
+        "src/utils/sessionStart.ts:2",
+        "src/utils/sessionStorage.ts:57",
+        "src/utils/sessionTitle.ts:19",
+        "src/utils/sideQuestion.ts:11",
+        "src/utils/swarm/inProcessRunner.ts:58",
+        "src/utils/teammateMailbox.ts:16",
+        "src/utils/telemetry/betaSessionTracing.ts:33",
+        "src/utils/telemetry/sessionTracing.ts:17",
+        "src/utils/teleport.tsx:29",
+        "src/utils/tokens.ts:3",
+        "src/utils/toolResultStorage.ts:18",
+        "src/utils/toolSearch.ts:27",
+        "src/utils/transcriptSearch.ts:1"
+      ]
+    },
+    {
+      "path": "src/types/messageQueueTypes.ts",
+      "kind": "known-types",
+      "exports": [
+        "QueueOperation",
+        "QueueOperationMessage"
+      ],
+      "referencedFrom": [
+        "src/types/logs.ts:6",
+        "src/utils/messageQueueManager.ts:6",
+        "src/utils/sessionStorage.ts:65"
+      ]
+    },
+    {
+      "path": "src/types/notebook.ts",
+      "kind": "known-types",
+      "exports": [
+        "NotebookCell",
+        "NotebookCellOutput",
+        "NotebookCellSource",
+        "NotebookCellSourceOutput",
+        "NotebookCellType",
+        "NotebookContent",
+        "NotebookOutputImage"
+      ],
+      "referencedFrom": [
+        "src/components/permissions/NotebookEditPermissionRequest/NotebookEditToolDiff.tsx:5",
+        "src/tools/NotebookEditTool/NotebookEditTool.ts:9",
+        "src/utils/notebook.ts:8"
+      ]
+    },
+    {
+      "path": "src/types/statusLine.ts",
+      "kind": "known-types",
+      "exports": [
+        "StatusLineCommandInput"
+      ],
+      "referencedFrom": [
+        "src/components/StatusLine.tsx:31",
+        "src/utils/hooks.ts:110"
+      ]
+    },
+    {
+      "path": "src/types/tools.ts",
+      "kind": "known-types",
+      "exports": [
+        "AgentToolProgress",
+        "BashProgress",
+        "MCPProgress",
+        "PowerShellProgress",
+        "REPLToolProgress",
+        "SdkWorkflowProgress",
+        "ShellProgress",
+        "SkillToolProgress",
+        "TaskOutputProgress",
+        "ToolProgressData",
+        "WebSearchProgress"
+      ],
+      "referencedFrom": [
+        "src/Tool.ts:49",
+        "src/components/BashModeProgress.tsx:4",
+        "src/tools/AgentTool/AgentTool.tsx:333",
+        "src/tools/AgentTool/UI.tsx:25",
+        "src/tools/BashTool/BashTool.tsx:509",
+        "src/tools/BashTool/BashTool.tsx:511",
+        "src/tools/MCPTool/MCPTool.ts:25",
+        "src/tools/MCPTool/UI.tsx:15",
+        "src/tools/PowerShellTool/PowerShellTool.tsx:356",
+        "src/tools/PowerShellTool/PowerShellTool.tsx:358",
+        "src/tools/PowerShellTool/UI.tsx:12",
+        "src/tools/SkillTool/SkillTool.ts:97",
+        "src/tools/SkillTool/SkillTool.ts:99",
+        "src/tools/TaskOutputTool/TaskOutputTool.tsx:68",
+        "src/tools/WebSearchTool/WebSearchTool.ts:72",
+        "src/tools/WebSearchTool/WebSearchTool.ts:74",
+        "src/utils/processUserInput/processBashCommand.tsx:12",
+        "src/utils/sdkEventQueue.ts:4",
+        "src/utils/task/sdkProgress.ts:1"
+      ]
+    },
+    {
+      "path": "src/types/utils.ts",
+      "kind": "known-types",
+      "exports": [
+        "DeepImmutable",
+        "Permutations"
+      ],
+      "referencedFrom": [
+        "src/Tool.ts:85",
+        "src/components/tasks/AsyncAgentDetailDialog.tsx:2",
+        "src/components/tasks/BackgroundTask.tsx:4",
+        "src/components/tasks/BackgroundTasksDialog.tsx:41",
+        "src/components/tasks/DreamDetailDialog.tsx:2",
+        "src/components/tasks/InProcessTeammateDetailDialog.tsx:2",
+        "src/components/tasks/RemoteSessionDetailDialog.tsx:5",
+        "src/components/tasks/RemoteSessionProgress.tsx:3",
+        "src/components/tasks/ShellDetailDialog.tsx:8",
+        "src/components/tasks/ShellProgress.tsx:6",
+        "src/components/tasks/taskStatusUtils.tsx:10",
+        "src/state/AppStateStore.ts:24",
+        "src/utils/messageQueueManager.ts:3",
+        "src/utils/messages.ts:121",
+        "src/utils/messages/mappers.ts:21"
+      ]
+    },
+    {
+      "path": "src/utils/attributionHooks.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/commands/clear/caches.ts:106 (dynamic)",
+        "src/services/compact/postCompactCleanup.ts:72 (dynamic)",
+        "src/setup.ts:355 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/attributionTrailer.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/attribution.ts:384 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/ccshareResume.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:4885 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/eventLoopStallDetector.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:696 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/filePersistence/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "DEFAULT_UPLOAD_CONCURRENCY",
+        "FILE_COUNT_LIMIT",
+        "FailedPersistence",
+        "FilesPersistedEventData",
+        "OUTPUTS_SUBDIR",
+        "PersistedFile",
+        "TurnStartTime"
+      ],
+      "referencedFrom": [
+        "src/utils/filePersistence/filePersistence.ts:29",
+        "src/utils/filePersistence/outputsScanner.ts:14"
+      ]
+    },
+    {
+      "path": "src/utils/postCommitAttribution.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/worktree.ts:606 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/protectedNamespace.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/utils/envUtils.ts:142 (dynamic)",
+        "src/utils/envUtils.ts:142 (require)"
+      ]
+    },
+    {
+      "path": "src/utils/sdkHeapDumpMonitor.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:3918 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/secureStorage/types.ts",
+      "kind": "known-types",
+      "exports": [
+        "SecureStorage",
+        "SecureStorageData"
+      ],
+      "referencedFrom": [
+        "src/services/mcp/auth.ts:43",
+        "src/utils/secureStorage/fallbackStorage.ts:1",
+        "src/utils/secureStorage/index.ts:4",
+        "src/utils/secureStorage/macOsKeychainHelpers.ts:21",
+        "src/utils/secureStorage/macOsKeychainStorage.ts:14",
+        "src/utils/secureStorage/plainTextStorage.ts:11"
+      ]
+    },
+    {
+      "path": "src/utils/sessionDataUploader.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/main.tsx:4194 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/systemThemeWatcher.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/components/design-system/ThemeProvider.tsx:83 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/taskSummary.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/query.ts:119 (dynamic)",
+        "src/query.ts:119 (require)"
+      ]
+    },
+    {
+      "path": "src/utils/udsClient.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/tools/SendMessageTool/SendMessageTool.ts:778 (dynamic)",
+        "src/tools/SendMessageTool/SendMessageTool.ts:778 (require)",
+        "src/utils/conversationRecovery.ts:494 (dynamic)"
+      ]
+    },
+    {
+      "path": "src/utils/udsMessaging.ts",
+      "kind": "inferred",
+      "exports": [],
+      "referencedFrom": [
+        "src/cli/print.ts:2687 (require)",
+        "src/setup.ts:96 (dynamic)",
+        "src/utils/messages/systemInit.ts:91 (require)"
+      ]
+    }
+  ]
+}
