@@ -5,8 +5,9 @@
     "lib": ["ES2022", "ES2023"],
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "jsx": "react-jsx",
-    "jsxImportSource": "react",
+    // Classic runtime, as in the official build: its bundle has ~7k React.createElement
+    // calls and no react/jsx-runtime module (every .tsx imports React explicitly).
+    "jsx": "react",
 
     /* Strictness — relaxed for recovered source (matches reference project) */
     "strict": false,

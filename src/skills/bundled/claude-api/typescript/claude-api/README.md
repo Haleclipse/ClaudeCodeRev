@@ -1,12 +1,4 @@
-# TypeScript SDK
-
-Install and configure the Anthropic TypeScript SDK for Node.js, Deno, Bun, and browser environments
-
----
-
-This library provides convenient access to the Anthropic REST API from server-side TypeScript or JavaScript.
-
-> For API feature documentation with code examples, see the [API reference](https://platform.claude.com/docs/en/api/overview). This page covers TypeScript-specific SDK features and configuration.
+# Claude API — TypeScript
 
 ## Installation
 
@@ -14,760 +6,328 @@ This library provides convenient access to the Anthropic REST API from server-si
 npm install @anthropic-ai/sdk
 ```
 
-## Requirements
-
-TypeScript >= 4.9 is supported.
-
-The following runtimes are supported:
-
-- Node.js 20 LTS or later ([non-EOL](https://endoflife.date/nodejs)) versions.
-- Deno v1.28.0 or higher.
-- Bun 1.0 or later.
-- Cloudflare Workers.
-- Vercel Edge Runtime.
-- Jest 28 or greater with the `"node"` environment (`"jsdom"` is not supported at this time).
-- Nitro v2.6 or greater.
-- Web browsers: disabled by default to avoid exposing your secret API credentials (see [API key best practices](https://support.anthropic.com/en/articles/9767949-api-key-best-practices-keeping-your-keys-safe-and-secure)). Enable browser support by explicitly setting `dangerouslyAllowBrowser` to `true`.
-
-Note that React Native is not supported at this time.
-
-If you are interested in other runtime environments, please open or upvote an issue on [GitHub](https://github.com/anthropics/anthropic-sdk-typescript).
-
-## Usage
+## Client Initialization
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
-const client = new Anthropic({
-  apiKey: process.env["ANTHROPIC_API_KEY"] // This is the default and can be omitted
-});
-
-const message = await client.messages.create({
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-  model: "claude-opus-4-6"
-});
-
-console.log(message.content);
-```
-
-## Request and response types
-
-This library includes TypeScript definitions for all request params and response fields. You may import and use them like so:
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  apiKey: process.env["ANTHROPIC_API_KEY"] // This is the default and can be omitted
-});
-
-const params: Anthropic.MessageCreateParams = {
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-  model: "claude-opus-4-6"
-};
-const message: Anthropic.Message = await client.messages.create(params);
-```
-
-Documentation for each method, request param, and response field are available in docstrings and will appear on hover in most modern editors.
-
-## Counting tokens
-
-You can see the exact usage for a given request through the `usage` response property, e.g.
-
-```typescript
-const message = await client.messages.create(/* ... */);
-console.log(message.usage);
-// { input_tokens: 25, output_tokens: 13 }
-```
-
-## Streaming responses
-
-The SDK provides support for streaming responses using Server Sent Events (SSE).
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
+// Default (uses ANTHROPIC_API_KEY env var)
 const client = new Anthropic();
 
-const stream = await client.messages.create({
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-  model: "claude-opus-4-6",
-  stream: true
+// Explicit API key
+const client = new Anthropic({ apiKey: "your-api-key" });
+```
+
+---
+
+## Basic Message Request
+
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [{ role: "user", content: "What is the capital of France?" }],
 });
-for await (const messageStreamEvent of stream) {
-  console.log(messageStreamEvent.type);
+// response.content is ContentBlock[] — a discriminated union. Narrow by .type
+// before accessing .text (TypeScript will error on content[0].text without this).
+for (const block of response.content) {
+  if (block.type === "text") {
+    console.log(block.text);
+  }
 }
 ```
 
-If you need to cancel a stream, you can `break` from the loop or call `stream.controller.abort()`.
+---
 
-## Streaming helpers
-
-This library provides several conveniences for streaming messages, for example:
+## System Prompts
 
 ```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const anthropic = new Anthropic();
-
-async function main() {
-  const stream = anthropic.messages
-    .stream({
-      model: "claude-opus-4-6",
-      max_tokens: 1024,
-      messages: [
-        {
-          role: "user",
-          content: "Say hello there!"
-        }
-      ]
-    })
-    .on("text", (text) => {
-      console.log(text);
-    });
-
-  const message = await stream.finalMessage();
-  console.log(message);
-}
-
-main();
-```
-
-Streaming with `client.messages.stream(...)` exposes various helpers for your convenience including event handlers and accumulation.
-
-Alternatively, you can use `client.messages.create({ ..., stream: true })` which only returns an async iterable of the events in the stream and thus uses less memory (it does not build up a final message object for you).
-
-## Tool helpers
-
-This SDK provides helpers for making it easy to create and run tools in the Messages API. You can use Zod schemas or JSON Schemas to describe the input to a tool. You can then run those tools using the `client.messages.toolRunner()` method. This method will handle passing the inputs generated by the chosen model into the right tool and passing the result back to the model.
-
-For more details on tool use, see the [tool use overview](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview).
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
-import { z } from "zod";
-
-const anthropic = new Anthropic();
-
-const weatherTool = betaZodTool({
-  name: "get_weather",
-  inputSchema: z.object({
-    location: z.string()
-  }),
-  description: "Get the current weather in a given location",
-  run: (input) => {
-    return `The weather in ${input.location} is foggy and 60F`;
-  }
-});
-
-const finalMessage = await anthropic.beta.messages.toolRunner({
-  model: "claude-opus-4-6",
-  max_tokens: 1000,
-  messages: [{ role: "user", content: "What is the weather in San Francisco?" }],
-  tools: [weatherTool]
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  system:
+    "You are a helpful coding assistant. Always provide examples in Python.",
+  messages: [{ role: "user", content: "How do I read a JSON file?" }],
 });
 ```
 
-### Tool errors
+---
 
-To report an error from a tool back to the model, throw a `ToolError` from the `run` function. Unlike a plain `Error`, `ToolError` accepts content blocks, allowing you to include images or other structured content in the error response:
+## Vision (Images)
 
-```typescript
-import { ToolError } from "@anthropic-ai/sdk/lib/tools/BetaRunnableTool";
-
-const screenshotTool = betaZodTool({
-  name: "take_screenshot",
-  inputSchema: z.object({ url: z.string() }),
-  run: async (input) => {
-    if (!isValidUrl(input.url)) {
-      throw new ToolError(`Invalid URL: ${input.url}`);
-    }
-    const result = await takeScreenshot(input.url);
-    if (result.error) {
-      // Include the error screenshot so the model can see what went wrong
-      throw new ToolError([
-        { type: "text", text: `Failed to load page: ${result.error}` },
-        {
-          type: "image",
-          source: { type: "base64", data: result.screenshot, media_type: "image/png" }
-        }
-      ]);
-    }
-    return {
-      type: "image",
-      source: { type: "base64", data: result.screenshot, media_type: "image/png" }
-    };
-  }
-});
-```
-
-If a plain `Error` is thrown, the message will be converted to a text content block.
-
-## MCP helpers
-
-This SDK provides helpers for integrating with [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) servers. These helpers convert MCP types to Claude API types, reducing boilerplate when working with MCP tools, prompts, and resources.
-
-> The Claude API also supports an [`mcp_servers` parameter](https://platform.claude.com/docs/en/agents-and-tools/mcp) that lets Claude connect directly to remote MCP servers. Use `mcp_servers` when you have remote servers accessible via URL and only need tool support. Use the MCP helpers when you need local MCP servers, prompts, resources, or more control over the MCP connection.
-
-For the Claude API's built-in remote MCP server support, see [MCP Connector](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector).
+### URL
 
 ```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import {
-  mcpTools,
-  mcpMessages,
-  mcpResourceToContent,
-  mcpResourceToFile
-} from "@anthropic-ai/sdk/helpers/beta/mcp";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-
-const anthropic = new Anthropic();
-
-// Connect to an MCP server
-const transport = new StdioClientTransport({ command: "mcp-server", args: [] });
-const mcpClient = new Client({ name: "my-client", version: "1.0.0" });
-await mcpClient.connect(transport);
-
-// Use MCP prompts
-const { messages } = await mcpClient.getPrompt({ name: "my-prompt" });
-const response = await anthropic.beta.messages.create({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
-  messages: mcpMessages(messages)
-});
-
-// Use MCP tools with toolRunner
-const { tools } = await mcpClient.listTools();
-const runner = await anthropic.beta.messages.toolRunner({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Use the available tools" }],
-  tools: mcpTools(tools, mcpClient)
-});
-
-// Use MCP resources as content
-const resource = await mcpClient.readResource({ uri: "file:///path/to/doc.txt" });
-await anthropic.beta.messages.create({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
   messages: [
     {
       role: "user",
       content: [
-        mcpResourceToContent(resource),
-        { type: "text", text: "Summarize this document" }
-      ]
-    }
-  ]
-});
-
-// Upload MCP resources as files
-const fileResource = await mcpClient.readResource({ uri: "file:///path/to/data.json" });
-await anthropic.beta.files.upload({ file: mcpResourceToFile(fileResource) });
-```
-
-### MCP error handling
-
-The conversion functions throw `UnsupportedMCPValueError` if an MCP value isn't supported by the Claude API (e.g., unsupported content type, unsupported MIME type, non-http/https resource link).
-
-## Message batches
-
-This SDK provides support for the [Message Batches API](https://platform.claude.com/docs/en/build-with-claude/batch-processing) under the `client.messages.batches` namespace.
-
-### Creating a batch
-
-Message Batches takes an array of requests, where each object has a `custom_id` identifier, and the exact same request `params` as the standard Messages API:
-
-```typescript
-await client.messages.batches.create({
-  requests: [
-    {
-      custom_id: "my-first-request",
-      params: {
-        model: "claude-opus-4-6",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: "Hello, world" }]
-      }
+        {
+          type: "image",
+          source: { type: "url", url: "https://example.com/image.png" },
+        },
+        { type: "text", text: "Describe this image" },
+      ],
     },
-    {
-      custom_id: "my-second-request",
-      params: {
-        model: "claude-opus-4-6",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: "Hi again, friend" }]
-      }
-    }
-  ]
+  ],
 });
 ```
 
-### Getting results from a batch
-
-Once a Message Batch has been processed, indicated by `.processing_status === 'ended'`, you can access the results with `.batches.results()`
-
-```typescript
-const results = await client.messages.batches.results(batch_id);
-for await (const entry of results) {
-  if (entry.result.type === "succeeded") {
-    console.log(entry.result.message.content);
-  }
-}
-```
-
-## File uploads
-
-Request parameters that correspond to file uploads can be passed in many different forms:
-
-- `File` (or an object with the same structure)
-- a `fetch` `Response` (or an object with the same structure)
-- an `fs.ReadStream`
-- the return value of the `toFile` helper
-
-Set the content-type explicitly as the files API will not infer it for you:
+### Base64
 
 ```typescript
 import fs from "fs";
-import Anthropic, { toFile } from "@anthropic-ai/sdk";
 
-const client = new Anthropic();
+const imageData = fs.readFileSync("image.png").toString("base64");
 
-// If you have access to Node `fs` we recommend using `fs.createReadStream()`:
-await client.beta.files.upload({
-  file: await toFile(fs.createReadStream("/path/to/file"), undefined, {
-    type: "application/json"
-  }),
-  betas: ["files-api-2025-04-14"]
-});
-
-// Or if you have the web `File` API you can pass a `File` instance:
-await client.beta.files.upload({
-  file: new File(["my bytes"], "file.txt", { type: "text/plain" }),
-  betas: ["files-api-2025-04-14"]
-});
-// You can also pass a `fetch` `Response`:
-await client.beta.files.upload({
-  file: await fetch("https://somesite/file"),
-  betas: ["files-api-2025-04-14"]
-});
-
-// Or a `Buffer` / `Uint8Array`
-await client.beta.files.upload({
-  file: await toFile(Buffer.from("my bytes"), "file", { type: "text/plain" }),
-  betas: ["files-api-2025-04-14"]
-});
-await client.beta.files.upload({
-  file: await toFile(new Uint8Array([0, 1, 2]), "file", { type: "text/plain" }),
-  betas: ["files-api-2025-04-14"]
-});
-```
-
-## Handling errors
-
-When the library is unable to connect to the API,
-or if the API returns a non-success status code (i.e., 4xx or 5xx response),
-a subclass of `APIError` will be thrown:
-
-```typescript
-const message = await client.messages
-  .create({
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  })
-  .catch(async (err) => {
-    if (err instanceof Anthropic.APIError) {
-      console.log(err.status); // 400
-      console.log(err.name); // BadRequestError
-      console.log(err.headers); // {server: 'nginx', ...}
-    } else {
-      throw err;
-    }
-  });
-```
-
-Error codes are as follows:
-
-| Status Code | Error Type                 |
-| ----------- | -------------------------- |
-| 400         | `BadRequestError`          |
-| 401         | `AuthenticationError`      |
-| 403         | `PermissionDeniedError`    |
-| 404         | `NotFoundError`            |
-| 422         | `UnprocessableEntityError` |
-| 429         | `RateLimitError`           |
-| >=500       | `InternalServerError`      |
-| N/A         | `APIConnectionError`       |
-
-## Request IDs
-
-All object responses in the SDK provide a `_request_id` property which is added from the `request-id` response header so that you can quickly log failing requests and report them back to Anthropic.
-
-```typescript
-const message = await client.messages.create({
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }],
-  model: "claude-opus-4-6"
-});
-console.log(message._request_id); // req_018EeWyXxfu5pfWkrYcMdjWG
-```
-
-## Retries
-
-Certain errors will be automatically retried 2 times by default, with a short exponential backoff.
-Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict,
-429 Rate Limit, and >=500 Internal errors will all be retried by default.
-
-You can use the `maxRetries` option to configure or disable this:
-
-```typescript
-// Configure the default for all requests:
-const client = new Anthropic({
-  maxRetries: 0 // default is 2
-});
-
-// Or, configure per-request:
-await client.messages.create(
-  {
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  },
-  { maxRetries: 5 }
-);
-```
-
-## Timeouts
-
-By default requests time out after 10 minutes. However if you have specified a large `max_tokens` value and are
-_not_ streaming, the default timeout will be calculated dynamically using the formula:
-
-```typescript
-const minimum = 10 * 60;
-const calculated = (60 * 60 * maxTokens) / 128_000;
-return calculated < minimum ? minimum * 1000 : calculated * 1000;
-```
-
-which will result in a timeout up to 60 minutes, scaled by the `max_tokens` parameter, unless overridden at the request or client level.
-
-You can configure this with a `timeout` option:
-
-```typescript
-// Configure the default for all requests:
-const client = new Anthropic({
-  timeout: 20 * 1000 // 20 seconds (default is 10 minutes)
-});
-
-// Override per-request:
-await client.messages.create(
-  {
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  },
-  { timeout: 5 * 1000 }
-);
-```
-
-On timeout, an `APIConnectionTimeoutError` is thrown.
-
-Note that requests which time out will be [retried twice by default](#retries).
-
-## Long requests
-
-> Consider using the streaming [Messages API](#streaming-responses) for longer running requests.
-
-Avoid setting a large `max_tokens` value without using streaming.
-Some networks may drop idle connections after a certain period of time, which
-can cause the request to fail or [timeout](#timeouts) without receiving a response from Anthropic.
-
-This SDK will also throw an error if a non-streaming request is expected to be above roughly 10 minutes long.
-Passing `stream: true` or [overriding](#timeouts) the `timeout` option at the client or request level disables this error.
-
-An expected request latency longer than the [timeout](#timeouts) for a non-streaming request
-will result in the client terminating the connection and retrying without receiving a response.
-
-When supported by the `fetch` implementation, the SDK sets a [TCP socket keep-alive](https://tldp.org/HOWTO/TCP-Keepalive-HOWTO/overview.html) option in order
-to reduce the impact of idle connection timeouts on some networks.
-This can be [overridden](#configuring-proxies) by configuring a custom proxy.
-
-## Auto-pagination
-
-List methods in the Claude API are paginated.
-You can use the `for await ... of` syntax to iterate through items across all pages:
-
-```typescript
-async function fetchAllMessageBatches(params: Record<string, unknown>) {
-  const allMessageBatches = [];
-  // Automatically fetches more pages as needed.
-  for await (const messageBatch of client.messages.batches.list({ limit: 20 })) {
-    allMessageBatches.push(messageBatch);
-  }
-  return allMessageBatches;
-}
-```
-
-Alternatively, you can request a single page at a time:
-
-```typescript
-let page = await client.messages.batches.list({ limit: 20 });
-for (const messageBatch of page.data) {
-  console.log(messageBatch);
-}
-
-// Convenience methods are provided for manually paginating:
-while (page.hasNextPage()) {
-  page = await page.getNextPage();
-  // ...
-}
-```
-
-## Default headers
-
-The SDK automatically sends the `anthropic-version` header set to `2023-06-01`.
-
-If you need to, you can override it by setting default headers on a per-request basis.
-
-Be aware that doing so may result in incorrect types and other unexpected or undefined behavior in the SDK.
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic();
-
-const message = await client.messages.create(
-  {
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  },
-  { headers: { "anthropic-version": "My-Custom-Value" } }
-);
-```
-
-## Advanced usage
-
-### Accessing raw Response data (e.g., headers)
-
-The "raw" `Response` returned by `fetch()` can be accessed through the `.asResponse()` method on the `APIPromise` type that all methods return.
-This method returns as soon as the headers for a successful response are received and does not consume the response body, so you are free to write custom parsing or streaming logic.
-
-You can also use the `.withResponse()` method to get the raw `Response` along with the parsed data.
-Unlike `.asResponse()` this method consumes the body, returning once it is parsed.
-
-```typescript
-const client = new Anthropic();
-
-const response = await client.messages
-  .create({
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  })
-  .asResponse();
-console.log(response.headers.get("X-My-Header"));
-console.log(response.statusText); // access the underlying Response object
-
-const { data: message, response: raw } = await client.messages
-  .create({
-    max_tokens: 1024,
-    messages: [{ role: "user", content: "Hello, Claude" }],
-    model: "claude-opus-4-6"
-  })
-  .withResponse();
-console.log(raw.headers.get("X-My-Header"));
-console.log(message.content);
-```
-
-### Logging
-
-> All log messages are intended for debugging only. The format and content of log messages may change between releases.
-
-#### Log levels
-
-The log level can be configured in two ways:
-
-1. Via the `ANTHROPIC_LOG` environment variable
-2. Using the `logLevel` client option (overrides the environment variable if set)
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  logLevel: "debug" // Show all log messages
-});
-```
-
-Available log levels, from most to least verbose:
-
-- `'debug'` - Show debug messages, info, warnings, and errors
-- `'info'` - Show info messages, warnings, and errors
-- `'warn'` - Show warnings and errors (default)
-- `'error'` - Show only errors
-- `'off'` - Disable all logging
-
-At the `'debug'` level, all HTTP requests and responses are logged, including headers and bodies.
-Some authentication-related headers are redacted, but sensitive data in request and response bodies
-may still be visible.
-
-#### Custom logger
-
-By default, this library logs to `globalThis.console`. You can also provide a custom logger.
-Most logging libraries are supported, including [pino](https://www.npmjs.com/package/pino), [winston](https://www.npmjs.com/package/winston), [bunyan](https://www.npmjs.com/package/bunyan), [consola](https://www.npmjs.com/package/consola), [signale](https://www.npmjs.com/package/signale), and [@std/log](https://jsr.io/@std/log).
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import pino from "pino";
-
-const logger = pino();
-
-const client = new Anthropic({
-  logger: logger.child({ name: "Anthropic" }),
-  logLevel: "debug" // Send all messages to pino, allowing it to filter
-});
-```
-
-### Making custom/undocumented requests
-
-This library is typed for convenient access to the documented API. If you need to access undocumented
-endpoints, params, or response properties, the library can still be used.
-
-#### Undocumented endpoints
-
-```typescript
-await client.post("/some/path", {
-  body: { some_prop: "foo" },
-  query: { some_query_arg: "bar" }
-});
-```
-
-#### Undocumented request params
-
-```typescript
-client.messages.create({
-  // ...
-  // @ts-expect-error baz is not yet public
-  baz: "undocumented option"
-});
-```
-
-### Customizing the fetch client
-
-By default, this library expects a global `fetch` function is defined.
-
-If you want to use a different `fetch` function, you can either polyfill the global:
-
-```typescript
-import fetch from "my-fetch";
-globalThis.fetch = fetch;
-```
-
-Or pass it to the client:
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import fetch from "my-fetch";
-const client = new Anthropic({ fetch });
-```
-
-### Configuring proxies
-
-**Node.js:**
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-import * as undici from "undici";
-
-const proxyAgent = new undici.ProxyAgent("http://localhost:8888");
-const client = new Anthropic({
-  fetchOptions: {
-    dispatcher: proxyAgent
-  }
-});
-```
-
-**Bun:**
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic({
-  fetchOptions: {
-    proxy: "http://localhost:8888"
-  }
-});
-```
-
-**Deno:**
-
-```typescript
-import Anthropic from "npm:@anthropic-ai/sdk";
-
-const httpClient = Deno.createHttpClient({ proxy: { url: "http://localhost:8888" } });
-const client = new Anthropic({
-  fetchOptions: {
-    client: httpClient
-  }
-});
-```
-
-## Beta features
-
-Beta features are available before general release to get early feedback and test new functionality.
-
-You can access most beta API features through the beta property of the client. To enable a particular beta feature, you need to add the appropriate [beta header](https://platform.claude.com/docs/en/api/beta-headers) to the `betas` field when creating a message.
-
-For example, to use the [Files API](https://platform.claude.com/docs/en/build-with-claude/files):
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic();
-const response = await client.beta.messages.create({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
   messages: [
     {
       role: "user",
       content: [
-        { type: "text", text: "Please summarize this document for me." },
         {
-          type: "document",
-          source: {
-            type: "file",
-            file_id: "file_abc123"
-          }
-        }
-      ]
-    }
+          type: "image",
+          source: { type: "base64", media_type: "image/png", data: imageData },
+        },
+        { type: "text", text: "What's in this image?" },
+      ],
+    },
   ],
-  betas: ["files-api-2025-04-14"]
 });
 ```
 
-## Platform integrations
+---
 
-The TypeScript SDK supports Bedrock, Vertex AI, and Foundry through separate npm packages:
+## Prompt Caching
 
-- **Bedrock:** `npm install @anthropic-ai/bedrock-sdk`: Provides `AnthropicBedrock` client
-- **Vertex AI:** `npm install @anthropic-ai/vertex-sdk`: Provides `AnthropicVertex` client
-- **Foundry:** `npm install @anthropic-ai/foundry-sdk`: Provides `AnthropicFoundry` client
+**Caching is a prefix match** — any byte change anywhere in the prefix invalidates everything after it. For placement patterns, architectural guidance (frozen system prompt, deterministic tool order, where to put volatile content), and the silent-invalidator audit checklist, read `shared/prompt-caching.md`.
 
-## Semantic versioning
+### Automatic Caching (Recommended)
 
-This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:
+Use top-level `cache_control` to automatically cache the last cacheable block in the request:
 
-1. Changes that only affect static types, without breaking runtime behavior.
-2. Changes to library internals which are technically public but not intended or documented for external use.
-3. Changes that aren't expected to impact the vast majority of users in practice.
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  cache_control: { type: "ephemeral" }, // auto-caches the last cacheable block
+  system: "You are an expert on this large document...",
+  messages: [{ role: "user", content: "Summarize the key points" }],
+});
+```
 
-## Additional resources
+### Manual Cache Control
 
-- [GitHub repository](https://github.com/anthropics/anthropic-sdk-typescript)
-- [API reference](https://platform.claude.com/docs/en/api/overview)
-- [Streaming guide](https://platform.claude.com/docs/en/build-with-claude/streaming)
-- [Tool use guide](https://platform.claude.com/docs/en/agents-and-tools/tool-use/overview)
+For fine-grained control, add `cache_control` to specific content blocks:
+
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  system: [
+    {
+      type: "text",
+      text: "You are an expert on this large document...",
+      cache_control: { type: "ephemeral" }, // default TTL is 5 minutes
+    },
+  ],
+  messages: [{ role: "user", content: "Summarize the key points" }],
+});
+
+// With explicit TTL (time-to-live)
+const response2 = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  system: [
+    {
+      type: "text",
+      text: "You are an expert on this large document...",
+      cache_control: { type: "ephemeral", ttl: "1h" }, // 1 hour TTL
+    },
+  ],
+  messages: [{ role: "user", content: "Summarize the key points" }],
+});
+```
+
+### Verifying Cache Hits
+
+```typescript
+console.log(response.usage.cache_creation_input_tokens); // tokens written to cache (~1.25x cost)
+console.log(response.usage.cache_read_input_tokens);     // tokens served from cache (~0.1x cost)
+console.log(response.usage.input_tokens);                // uncached tokens (full cost)
+```
+
+If `cache_read_input_tokens` is zero across repeated identical-prefix requests, a silent invalidator is at work — `Date.now()` or a UUID in the system prompt, non-deterministic key ordering, or a varying tool set. See `shared/prompt-caching.md` for the full audit table.
+
+---
+
+## Extended Thinking
+
+> **Opus 4.6 and Sonnet 4.6:** Use adaptive thinking. `budget_tokens` is deprecated on both Opus 4.6 and Sonnet 4.6.
+> **Older models:** Use `thinking: {type: "enabled", budget_tokens: N}` (must be < `max_tokens`, min 1024).
+
+```typescript
+// Opus 4.6: adaptive thinking (recommended)
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  thinking: { type: "adaptive" },
+  output_config: { effort: "high" }, // low | medium | high | max
+  messages: [
+    { role: "user", content: "Solve this math problem step by step..." },
+  ],
+});
+
+for (const block of response.content) {
+  if (block.type === "thinking") {
+    console.log("Thinking:", block.thinking);
+  } else if (block.type === "text") {
+    console.log("Response:", block.text);
+  }
+}
+```
+
+---
+
+## Error Handling
+
+Use the SDK's typed exception classes — never check error messages with string matching:
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+try {
+  const response = await client.messages.create({...});
+} catch (error) {
+  if (error instanceof Anthropic.BadRequestError) {
+    console.error("Bad request:", error.message);
+  } else if (error instanceof Anthropic.AuthenticationError) {
+    console.error("Invalid API key");
+  } else if (error instanceof Anthropic.RateLimitError) {
+    console.error("Rate limited - retry later");
+  } else if (error instanceof Anthropic.APIError) {
+    console.error(`API error ${error.status}:`, error.message);
+  }
+}
+```
+
+All classes extend `Anthropic.APIError` with a typed `status` field. Check from most specific to least specific. See [shared/error-codes.md](../../shared/error-codes.md) for the full error code reference.
+
+---
+
+## Multi-Turn Conversations
+
+The API is stateless — send the full conversation history each time. Use `Anthropic.MessageParam[]` to type the messages array:
+
+```typescript
+const messages: Anthropic.MessageParam[] = [
+  { role: "user", content: "My name is Alice." },
+  { role: "assistant", content: "Hello Alice! Nice to meet you." },
+  { role: "user", content: "What's my name?" },
+];
+
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: messages,
+});
+```
+
+**Rules:**
+
+- Consecutive same-role messages are allowed — the API combines them into a single turn
+- First message must be `user`
+- Use SDK types (`Anthropic.MessageParam`, `Anthropic.Message`, `Anthropic.Tool`, etc.) for all API data structures — don't redefine equivalent interfaces
+
+---
+
+### Compaction (long conversations)
+
+> **Beta, Opus 4.6 and Sonnet 4.6.** When conversations approach the 200K context window, compaction automatically summarizes earlier context server-side. The API returns a `compaction` block; you must pass it back on subsequent requests — append `response.content`, not just the text.
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const messages: Anthropic.Beta.BetaMessageParam[] = [];
+
+async function chat(userMessage: string): Promise<string> {
+  messages.push({ role: "user", content: userMessage });
+
+  const response = await client.beta.messages.create({
+    betas: ["compact-2026-01-12"],
+    model: "{{OPUS_ID}}",
+    max_tokens: 16000,
+    messages,
+    context_management: {
+      edits: [{ type: "compact_20260112" }],
+    },
+  });
+
+  // Append full content — compaction blocks must be preserved
+  messages.push({ role: "assistant", content: response.content });
+
+  const textBlock = response.content.find(
+    (b): b is Anthropic.Beta.BetaTextBlock => b.type === "text",
+  );
+  return textBlock?.text ?? "";
+}
+
+// Compaction triggers automatically when context grows large
+console.log(await chat("Help me build a Python web scraper"));
+console.log(await chat("Add support for JavaScript-rendered pages"));
+console.log(await chat("Now add rate limiting and error handling"));
+```
+
+---
+
+## Stop Reasons
+
+The `stop_reason` field in the response indicates why the model stopped generating:
+
+| Value           | Meaning                                                         |
+| --------------- | --------------------------------------------------------------- |
+| `end_turn`      | Claude finished its response naturally                          |
+| `max_tokens`    | Hit the `max_tokens` limit — increase it or use streaming       |
+| `stop_sequence` | Hit a custom stop sequence                                      |
+| `tool_use`      | Claude wants to call a tool — execute it and continue           |
+| `pause_turn`    | Model paused and can be resumed (agentic flows)                 |
+| `refusal`       | Claude refused for safety reasons — output may not match schema |
+
+---
+
+## Cost Optimization Strategies
+
+### 1. Use Prompt Caching for Repeated Context
+
+```typescript
+// Automatic caching (simplest — caches the last cacheable block)
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  cache_control: { type: "ephemeral" },
+  system: largeDocumentText, // e.g., 50KB of context
+  messages: [{ role: "user", content: "Summarize the key points" }],
+});
+
+// First request: full cost
+// Subsequent requests: ~90% cheaper for cached portion
+```
+
+### 2. Use Token Counting Before Requests
+
+```typescript
+const countResponse = await client.messages.countTokens({
+  model: "{{OPUS_ID}}",
+  messages: messages,
+  system: system,
+});
+
+const estimatedInputCost = countResponse.input_tokens * 0.000005; // $5/1M tokens
+console.log(`Estimated input cost: $${estimatedInputCost.toFixed(4)}`);
+```

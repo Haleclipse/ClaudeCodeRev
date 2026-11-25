@@ -1,133 +1,527 @@
-# Tool use with Claude
+# Tool Use — TypeScript
 
-Connect Claude to external tools and APIs. Learn where tools execute and how the agentic loop works.
+For conceptual overview (tool definitions, tool choice, tips), see [shared/tool-use-concepts.md](../../shared/tool-use-concepts.md).
+
+## Tool Runner (Recommended)
+
+**Beta:** The tool runner is in beta in the TypeScript SDK.
+
+Use `betaZodTool` with Zod schemas to define tools with a `run` function, then pass them to `client.beta.messages.toolRunner()`:
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { betaZodTool } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { z } from "zod";
+
+const client = new Anthropic();
+
+const getWeather = betaZodTool({
+  name: "get_weather",
+  description: "Get current weather for a location",
+  inputSchema: z.object({
+    location: z.string().describe("City and state, e.g., San Francisco, CA"),
+    unit: z.enum(["celsius", "fahrenheit"]).optional(),
+  }),
+  run: async (input) => {
+    // Your implementation here
+    return `72°F and sunny in ${input.location}`;
+  },
+});
+
+// The tool runner handles the agentic loop and returns the final message
+const finalMessage = await client.beta.messages.toolRunner({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  tools: [getWeather],
+  messages: [{ role: "user", content: "What's the weather in Paris?" }],
+});
+
+console.log(finalMessage.content);
+```
+
+**Key benefits of the tool runner:**
+
+- No manual loop — the SDK handles calling tools and feeding results back
+- Type-safe tool inputs via Zod schemas
+- Tool schemas are generated automatically from Zod definitions
+- Iteration stops automatically when Claude has no more tool calls
 
 ---
 
-Tool use lets Claude call functions you define or that Anthropic provides. Claude decides when to call a tool based on the user's request and the tool's description, then returns a structured call that your application executes (client tools) or that Anthropic executes (server tools).
+## Manual Agentic Loop
 
-Here's the simplest example using a server tool, where Anthropic handles execution:
+Use this when you need fine-grained control (custom logging, conditional tool execution, streaming individual iterations, human-in-the-loop approval):
 
 ```typescript
 import Anthropic from "@anthropic-ai/sdk";
 
 const client = new Anthropic();
-const response = await client.messages.create({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
-  tools: [{ type: "web_search_20260209", name: "web_search" }],
-  messages: [{ role: "user", content: "What's the latest on the Mars rover?" }]
-});
-console.log(response.content);
-```
+const tools: Anthropic.Tool[] = [...]; // Your tool definitions
+let messages: Anthropic.MessageParam[] = [{ role: "user", content: userInput }];
 
-```python
-import anthropic
+while (true) {
+  const response = await client.messages.create({
+    model: "{{OPUS_ID}}",
+    max_tokens: 16000,
+    tools: tools,
+    messages: messages,
+  });
 
-client = anthropic.Anthropic()
-response = client.messages.create(
-    model="claude-opus-4-6",
-    max_tokens=1024,
-    tools=[{"type": "web_search_20260209", "name": "web_search"}],
-    messages=[{"role": "user", "content": "What's the latest on the Mars rover?"}],
-)
-print(response.content)
-```
+  if (response.stop_reason === "end_turn") break;
 
-```bash
-curl https://api.anthropic.com/v1/messages \
-  -H "x-api-key: $ANTHROPIC_API_KEY" \
-  -H "anthropic-version: 2023-06-01" \
-  -H "content-type: application/json" \
-  -d '{
-    "model": "claude-opus-4-6",
-    "max_tokens": 1024,
-    "tools": [{"type": "web_search_20260209", "name": "web_search"}],
-    "messages": [{"role": "user", "content": "What'\''s the latest on the Mars rover?"}]
-  }'
-```
+  // Server-side tool hit iteration limit; append assistant turn and re-send to continue
+  if (response.stop_reason === "pause_turn") {
+    messages.push({ role: "assistant", content: response.content });
+    continue;
+  }
 
----
+  const toolUseBlocks = response.content.filter(
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+  );
 
-## How tool use works
+  messages.push({ role: "assistant", content: response.content });
 
-Tools differ primarily by where the code executes. **Client tools** (including user-defined tools and Anthropic-schema tools like bash and text_editor) run in your application: Claude responds with `stop_reason: "tool_use"` and one or more `tool_use` blocks, your code executes the operation, and you send back a `tool_result`. **Server tools** (web_search, code_execution, web_fetch, tool_search) run on Anthropic's infrastructure: you see the results directly without handling execution.
+  const toolResults: Anthropic.ToolResultBlockParam[] = [];
+  for (const tool of toolUseBlocks) {
+    const result = await executeTool(tool.name, tool.input);
+    toolResults.push({
+      type: "tool_result",
+      tool_use_id: tool.id,
+      content: result,
+    });
+  }
 
-For the full conceptual model including the agentic loop and when to choose each approach, see [How tool use works](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works).
-
-For connecting to MCP servers, see the [MCP connector](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector). For building your own MCP client, see [modelcontextprotocol.io](https://modelcontextprotocol.io/docs/develop/build-client).
-
-> **Guarantee schema conformance with strict tool use**
-> Add `strict: true` to your tool definitions to ensure Claude's tool calls always match your schema exactly. See [Strict tool use](https://platform.claude.com/docs/en/agents-and-tools/tool-use/strict-tool-use).
-
-Tool access is one of the highest-leverage primitives you can give an agent. On benchmarks like [LAB-Bench FigQA](https://lab-bench.org/) (scientific figure interpretation) and [SWE-bench](https://www.swebench.com/) (real-world software engineering), adding even basic tools produces outsized capability gains, often surpassing human expert baselines.
-
----
-
-## Tool use examples
-
-For a complete hands-on walkthrough, see the [tutorial](https://platform.claude.com/docs/en/agents-and-tools/tool-use/build-a-tool-using-agent). For reference examples of individual concepts, see [Define tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/define-tools) and [Handle tool calls](https://platform.claude.com/docs/en/agents-and-tools/tool-use/handle-tool-calls).
-
-### What happens when Claude needs more information
-
-If the user's prompt doesn't include enough information to fill all the required parameters for a tool, Claude Opus is much more likely to recognize that a parameter is missing and ask for it. Claude Sonnet may ask, especially when prompted to think before outputting a tool request. But it may also do its best to infer a reasonable value.
-
-For example, given a `get_weather` tool that requires a `location` parameter, if you ask Claude "What's the weather?" without specifying a location, Claude (particularly Claude Sonnet) may make a guess about tool inputs:
-
-```json
-{
-  "type": "tool_use",
-  "id": "toolu_01A09q90qw90lq917835lq9",
-  "name": "get_weather",
-  "input": { "location": "New York, NY", "unit": "fahrenheit" }
+  messages.push({ role: "user", content: toolResults });
 }
 ```
 
-This behavior is not guaranteed, especially for more ambiguous prompts and for less intelligent models. If Claude Opus doesn't have enough context to fill in the required parameters, it is far more likely to respond with a clarifying question instead of making a tool call.
+### Streaming Manual Loop
+
+Use `client.messages.stream()` + `finalMessage()` instead of `.create()` when you need streaming within a manual loop. Text deltas are streamed on each iteration; `finalMessage()` collects the complete `Message` so you can inspect `stop_reason` and extract tool-use blocks:
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+const tools: Anthropic.Tool[] = [...];
+let messages: Anthropic.MessageParam[] = [{ role: "user", content: userInput }];
+
+while (true) {
+  const stream = client.messages.stream({
+    model: "{{OPUS_ID}}",
+    max_tokens: 64000,
+    tools,
+    messages,
+  });
+
+  // Stream text deltas on each iteration
+  stream.on("text", (delta) => {
+    process.stdout.write(delta);
+  });
+
+  // finalMessage() resolves with the complete Message — no need to
+  // manually wire up .on("message") / .on("error") / .on("abort")
+  const message = await stream.finalMessage();
+
+  if (message.stop_reason === "end_turn") break;
+
+  // Server-side tool hit iteration limit; append assistant turn and re-send to continue
+  if (message.stop_reason === "pause_turn") {
+    messages.push({ role: "assistant", content: message.content });
+    continue;
+  }
+
+  const toolUseBlocks = message.content.filter(
+    (b): b is Anthropic.ToolUseBlock => b.type === "tool_use",
+  );
+
+  messages.push({ role: "assistant", content: message.content });
+
+  const toolResults: Anthropic.ToolResultBlockParam[] = [];
+  for (const tool of toolUseBlocks) {
+    const result = await executeTool(tool.name, tool.input);
+    toolResults.push({
+      type: "tool_result",
+      tool_use_id: tool.id,
+      content: result,
+    });
+  }
+
+  messages.push({ role: "user", content: toolResults });
+}
+```
+
+> **Important:** Don't wrap `.on()` events in `new Promise()` to collect the final message — use `stream.finalMessage()` instead. The SDK handles all error/abort/completion states internally.
+
+> **Error handling in the loop:** Use the SDK's typed exceptions (e.g., `Anthropic.RateLimitError`, `Anthropic.APIError`) — see [Error Handling](./README.md#error-handling) for examples. Don't check error messages with string matching.
+
+> **SDK types:** Use `Anthropic.MessageParam`, `Anthropic.Tool`, `Anthropic.ToolUseBlock`, `Anthropic.ToolResultBlockParam`, `Anthropic.Message`, etc. for all API-related data structures. Don't redefine equivalent interfaces.
 
 ---
 
-## Pricing
+## Handling Tool Results
 
-Tool use requests are priced based on:
-1. The total number of input tokens sent to the model (including in the `tools` parameter)
-2. The number of output tokens generated
-3. For server-side tools, additional usage-based pricing (e.g., web search charges per search performed)
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  tools: tools,
+  messages: [{ role: "user", content: "What's the weather in Paris?" }],
+});
 
-Client-side tools are priced the same as any other Claude API request, while server-side tools may incur additional charges based on their specific usage.
+for (const block of response.content) {
+  if (block.type === "tool_use") {
+    const result = await executeTool(block.name, block.input);
 
-The additional tokens from tool use come from:
-
-- The `tools` parameter in API requests (tool names, descriptions, and schemas)
-- `tool_use` content blocks in API requests and responses
-- `tool_result` content blocks in API requests
-
-When you use `tools`, a special system prompt is automatically included for the model which enables tool use. The number of tool use tokens required for each model are listed below (excluding the additional tokens listed above). Note that the table assumes at least 1 tool is provided. If no `tools` are provided, then a tool choice of `none` uses 0 additional system prompt tokens.
-
-| Model                    | Tool choice                          | Tool use system prompt token count |
-|--------------------------|--------------------------------------|------------------------------------|
-| Claude Opus 4.6          | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Opus 4.5          | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Opus 4.1          | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Opus 4            | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Sonnet 4.6        | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Sonnet 4.5        | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Sonnet 4          | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Haiku 4.5         | `auto`, `none` / `any`, `tool`       | 346 tokens / 313 tokens           |
-| Claude Haiku 3.5         | `auto`, `none` / `any`, `tool`       | 264 tokens / 340 tokens           |
-| Claude Sonnet 3          | `auto`, `none` / `any`, `tool`       | 159 tokens / 235 tokens           |
-| Claude Haiku 3           | `auto`, `none` / `any`, `tool`       | 264 tokens / 340 tokens           |
-
-These token counts are added to your normal input and output tokens to calculate the total cost of a request.
-
-When you send a tool use prompt, just like any other API request, the response will output both input and output token counts as part of the reported `usage` metrics.
+    const followup = await client.messages.create({
+      model: "{{OPUS_ID}}",
+      max_tokens: 16000,
+      tools: tools,
+      messages: [
+        { role: "user", content: "What's the weather in Paris?" },
+        { role: "assistant", content: response.content },
+        {
+          role: "user",
+          content: [
+            { type: "tool_result", tool_use_id: block.id, content: result },
+          ],
+        },
+      ],
+    });
+  }
+}
+```
 
 ---
 
-## Next steps
+## Tool Choice
 
-### Choose your path
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  tools: tools,
+  tool_choice: { type: "tool", name: "get_weather" },
+  messages: [{ role: "user", content: "What's the weather in Paris?" }],
+});
+```
 
-- [Understand the concepts](https://platform.claude.com/docs/en/agents-and-tools/tool-use/how-tool-use-works) - Where tools run, how the loop works, and when to use tools.
-- [Build step by step](https://platform.claude.com/docs/en/agents-and-tools/tool-use/build-a-tool-using-agent) - The tutorial: from a single tool call to production.
-- [Browse all tools](https://platform.claude.com/docs/en/agents-and-tools/tool-use/tool-reference) - Directory of Anthropic-provided tools and properties.
+---
+
+## Server-Side Tools
+
+Version-suffixed `type` literals; `name` is fixed per interface. Pass plain object literals — the `ToolUnion` type is satisfied structurally. **The `name`/`type` pair must match the interface**: mixing `str_replace_based_edit_tool` (20250728 name) with `text_editor_20250124` (which expects `str_replace_editor`) is a TS2322.
+
+**Don't type-annotate as `Tool[]`** — `Tool` is just the custom-tool variant. Let structural typing infer from the `tools` param, or annotate as `Anthropic.Messages.ToolUnion[]` if you must:
+
+```typescript
+// ✓ let inference work — no annotation
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  tools: [
+    { type: "text_editor_20250728", name: "str_replace_based_edit_tool" },
+    { type: "bash_20250124", name: "bash" },
+    { type: "web_search_20260209", name: "web_search" },
+    { type: "code_execution_20260120", name: "code_execution" },
+  ],
+  messages: [{ role: "user", content: "..." }],
+});
+
+// ✗ this is a TS2352 — Tool is the CUSTOM tool variant only
+// const tools: Anthropic.Tool[] = [{ type: "text_editor_20250728", ... }]
+```
+
+| Interface | `name` | `type` |
+|---|---|---|
+| `ToolTextEditor20250124` | `str_replace_editor` | `text_editor_20250124` |
+| `ToolTextEditor20250429` | `str_replace_based_edit_tool` | `text_editor_20250429` |
+| `ToolTextEditor20250728` | `str_replace_based_edit_tool` | `text_editor_20250728` |
+| `ToolBash20250124` | `bash` | `bash_20250124` |
+| `WebSearchTool20260209` | `web_search` | `web_search_20260209` |
+| `WebFetchTool20260209` | `web_fetch` | `web_fetch_20260209` |
+| `CodeExecutionTool20260120` | `code_execution` | `code_execution_20260120` |
+
+**Don't mix beta and non-beta types**: if you call `client.beta.messages.create()`, the response `content` is `BetaContentBlock[]` — you cannot pass that to a non-beta `ContentBlockParam[]` without narrowing each element.
+
+---
+
+
+## Code Execution
+
+### Basic Usage
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+
+const client = new Anthropic();
+
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content:
+        "Calculate the mean and standard deviation of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]",
+    },
+  ],
+  tools: [{ type: "code_execution_20260120", name: "code_execution" }],
+});
+```
+
+### Reading Local Files (ESM note)
+
+`__dirname` doesn't exist in ES modules. For script-relative paths use `import.meta.url`:
+
+```typescript
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pdfBytes = readFileSync(join(__dirname, "sample.pdf"));
+```
+
+Or use a CWD-relative path if the script runs from a known directory: `readFileSync("./sample.pdf")`.
+
+### Upload Files for Analysis
+
+```typescript
+import Anthropic, { toFile } from "@anthropic-ai/sdk";
+import { createReadStream } from "fs";
+
+const client = new Anthropic();
+
+// 1. Upload a file
+const uploaded = await client.beta.files.upload({
+  file: await toFile(createReadStream("sales_data.csv"), undefined, {
+    type: "text/csv",
+  }),
+  betas: ["files-api-2025-04-14"],
+});
+
+// 2. Pass to code execution
+// Code execution is GA; Files API is still beta (pass via RequestOptions)
+const response = await client.messages.create(
+  {
+    model: "{{OPUS_ID}}",
+    max_tokens: 16000,
+    messages: [
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "Analyze this sales data. Show trends and create a visualization.",
+          },
+          { type: "container_upload", file_id: uploaded.id },
+        ],
+      },
+    ],
+    tools: [{ type: "code_execution_20260120", name: "code_execution" }],
+  },
+  { headers: { "anthropic-beta": "files-api-2025-04-14" } },
+);
+```
+
+### Retrieve Generated Files
+
+```typescript
+import path from "path";
+import fs from "fs";
+
+const OUTPUT_DIR = "./claude_outputs";
+await fs.promises.mkdir(OUTPUT_DIR, { recursive: true });
+
+for (const block of response.content) {
+  if (block.type === "bash_code_execution_tool_result") {
+    const result = block.content;
+    if (result.type === "bash_code_execution_result" && result.content) {
+      for (const fileRef of result.content) {
+        if (fileRef.type === "bash_code_execution_output") {
+          const metadata = await client.beta.files.retrieveMetadata(
+            fileRef.file_id,
+          );
+          const downloadResponse = await client.beta.files.download(fileRef.file_id);
+          const fileBytes = Buffer.from(await downloadResponse.arrayBuffer());
+          const safeName = path.basename(metadata.filename);
+          if (!safeName || safeName === "." || safeName === "..") {
+            console.warn(`Skipping invalid filename: ${metadata.filename}`);
+            continue;
+          }
+          const outputPath = path.join(OUTPUT_DIR, safeName);
+          await fs.promises.writeFile(outputPath, fileBytes);
+          console.log(`Saved: ${outputPath}`);
+        }
+      }
+    }
+  }
+}
+```
+
+### Container Reuse
+
+```typescript
+// First request: set up environment
+const response1 = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content: "Install tabulate and create data.json with sample user data",
+    },
+  ],
+  tools: [{ type: "code_execution_20260120", name: "code_execution" }],
+});
+
+// Reuse container
+// container is nullable — set only when using server-side code execution
+const containerId = response1.container!.id;
+
+const response2 = await client.messages.create({
+  container: containerId,
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content: "Read data.json and display as a formatted table",
+    },
+  ],
+  tools: [{ type: "code_execution_20260120", name: "code_execution" }],
+});
+```
+
+---
+
+## Memory Tool
+
+### Basic Usage
+
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content: "Remember that my preferred language is TypeScript.",
+    },
+  ],
+  tools: [{ type: "memory_20250818", name: "memory" }],
+});
+```
+
+### SDK Memory Helper
+
+Use `betaMemoryTool` with a `MemoryToolHandlers` implementation:
+
+```typescript
+import {
+  betaMemoryTool,
+  type MemoryToolHandlers,
+} from "@anthropic-ai/sdk/helpers/beta/memory";
+
+const handlers: MemoryToolHandlers = {
+  async view(command) { ... },
+  async create(command) { ... },
+  async str_replace(command) { ... },
+  async insert(command) { ... },
+  async delete(command) { ... },
+  async rename(command) { ... },
+};
+
+const memory = betaMemoryTool(handlers);
+
+const runner = client.beta.messages.toolRunner({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  tools: [memory],
+  messages: [{ role: "user", content: "Remember my preferences" }],
+});
+
+for await (const message of runner) {
+  console.log(message);
+}
+```
+
+For full implementation examples, use WebFetch:
+
+- `https://github.com/anthropics/anthropic-sdk-typescript/blob/main/examples/tools-helpers-memory.ts`
+
+---
+
+## Structured Outputs
+
+### JSON Outputs (Zod — Recommended)
+
+```typescript
+import Anthropic from "@anthropic-ai/sdk";
+import { z } from "zod";
+import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
+
+const ContactInfoSchema = z.object({
+  name: z.string(),
+  email: z.string(),
+  plan: z.string(),
+  interests: z.array(z.string()),
+  demo_requested: z.boolean(),
+});
+
+const client = new Anthropic();
+
+const response = await client.messages.parse({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content:
+        "Extract: Jane Doe (jane@co.com) wants Enterprise, interested in API and SDKs, wants a demo.",
+    },
+  ],
+  output_config: {
+    format: zodOutputFormat(ContactInfoSchema),
+  },
+});
+
+// parsed_output is null if parsing failed — assert or guard
+console.log(response.parsed_output!.name); // "Jane Doe"
+```
+
+### Strict Tool Use
+
+```typescript
+const response = await client.messages.create({
+  model: "{{OPUS_ID}}",
+  max_tokens: 16000,
+  messages: [
+    {
+      role: "user",
+      content: "Book a flight to Tokyo for 2 passengers on March 15",
+    },
+  ],
+  tools: [
+    {
+      name: "book_flight",
+      description: "Book a flight to a destination",
+      strict: true,
+      input_schema: {
+        type: "object",
+        properties: {
+          destination: { type: "string" },
+          date: { type: "string", format: "date" },
+          passengers: {
+            type: "integer",
+            enum: [1, 2, 3, 4, 5, 6, 7, 8],
+          },
+        },
+        required: ["destination", "date", "passengers"],
+        additionalProperties: false,
+      },
+    },
+  ],
+});
+```

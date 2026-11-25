@@ -1,68 +1,119 @@
-# Models overview
+# Claude Model Catalog
 
-Claude is a family of state-of-the-art large language models developed by Anthropic. This guide introduces the available models and compares their performance.
+**Only use exact model IDs listed in this file.** Never guess or construct model IDs — incorrect IDs will cause API errors. Use aliases wherever available. For the latest information, WebFetch the Models Overview URL in `shared/live-sources.md`, or query the Models API directly (see Programmatic Model Discovery below).
 
-## Choosing a model
+## Programmatic Model Discovery
 
-If you're unsure which model to use, consider starting with **Claude Opus 4.6** for the most complex tasks. It is the latest generation model with exceptional performance in coding and reasoning.
+For **live** capability data — context window, max output tokens, feature support (thinking, vision, effort, structured outputs, etc.) — query the Models API instead of relying on the cached tables below. Use this when the user asks "what's the context window for X", "does model X support vision/thinking/effort", "which models support feature Y", or wants to select a model by capability at runtime.
 
-All current Claude models support text and image input, text output, multilingual capabilities, and vision. Models are available via the Claude API, AWS Bedrock, and Google Vertex AI.
+```python
+m = client.models.retrieve("claude-opus-4-6")
+m.id                 # "claude-opus-4-6"
+m.display_name       # "Claude Opus 4.6"
+m.max_input_tokens   # context window (int)
+m.max_tokens         # max output tokens (int)
 
-### Latest models comparison
+# capabilities is an untyped nested dict — bracket access, check ["supported"] at the leaf
+caps = m.capabilities
+caps["image_input"]["supported"]                       # vision
+caps["thinking"]["types"]["adaptive"]["supported"]     # adaptive thinking
+caps["effort"]["max"]["supported"]                     # effort: max (also low/medium/high)
+caps["structured_outputs"]["supported"]
+caps["context_management"]["compact_20260112"]["supported"]
 
-| Feature | Claude Opus 4.6 | Claude Sonnet 4.6 | Claude Haiku 4.5 |
-|:--------|:----------------|:------------------|:-----------------|
-| **Description** | The most intelligent model for building agents and coding | The best combination of speed and intelligence | The fastest model with near-frontier intelligence |
-| **Claude API ID** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-4-5-20251001 |
-| **Claude API alias** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-4-5 |
-| **AWS Bedrock ID** | anthropic.claude-opus-4-6-v1 | anthropic.claude-sonnet-4-6 | anthropic.claude-haiku-4-5-20251001-v1:0 |
-| **GCP Vertex AI ID** | claude-opus-4-6 | claude-sonnet-4-6 | claude-haiku-4-5@20251001 |
-| **Pricing** | $5 / input MTok, $25 / output MTok | $3 / input MTok, $15 / output MTok | $1 / input MTok, $5 / output MTok |
-| **Extended thinking** | Yes | Yes | Yes |
-| **Adaptive thinking** | Yes | Yes | No |
-| **Priority Tier** | Yes | Yes | Yes |
-| **Comparative latency** | Moderate | Fast | Fastest |
-| **Context window** | 1M tokens (~750k words) | 1M tokens (~750k words) | 200k tokens (~150k words) |
-| **Max output** | 128k tokens | 64k tokens | 64k tokens |
-| **Reliable knowledge cutoff** | May 2025 | Aug 2025 | Feb 2025 |
-| **Training data cutoff** | Aug 2025 | Jan 2026 | Jul 2025 |
+# filter across all models — iterate the page object directly (auto-paginates); do NOT use .data
+[m for m in client.models.list()
+ if m.capabilities["thinking"]["types"]["adaptive"]["supported"]
+ and m.max_input_tokens >= 200_000]
+```
 
-> **Notes:**
-> - See the pricing page for complete pricing information including batch API discounts, prompt caching rates, extended thinking costs, and vision processing fees.
-> - **Reliable knowledge cutoff** indicates the date through which a model's knowledge is most extensive and reliable. **Training data cutoff** is the broader date range of training data used.
-> - Models with the same snapshot date (e.g., 20240620) are identical across all platforms and do not change.
-> - You can query model capabilities and token limits programmatically with the Models API. The response includes `max_input_tokens`, `max_tokens`, and a `capabilities` object for every available model.
-> - The Max output values above apply to the synchronous Messages API. On the Message Batches API, Opus 4.6 and Sonnet 4.6 support up to 300k output tokens by using the `output-300k-2026-03-24` beta header.
+Top-level fields (`id`, `display_name`, `max_input_tokens`, `max_tokens`) are typed attributes. `capabilities` is a dict — use bracket access, not attribute access. The API returns the full capability tree for every model with `supported: true/false` at each leaf, so bracket chains are safe without `.get()` guards. TypeScript SDK: same method names, also auto-paginates on iteration.
 
-## Legacy models
+### Raw HTTP
 
-The following models are still available. Consider migrating to current models for improved performance:
+```bash
+curl https://api.anthropic.com/v1/models/claude-opus-4-6 \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "anthropic-version: 2023-06-01"
+```
 
-| Feature | Claude Sonnet 4.5 | Claude Opus 4.5 | Claude Opus 4.1 | Claude Sonnet 4 | Claude Opus 4 | Claude Haiku 3 (deprecated) |
-|:--------|:------------------|:----------------|:----------------|:----------------|:--------------|:----------------------------|
-| **Claude API ID** | claude-sonnet-4-5-20250929 | claude-opus-4-5-20251101 | claude-opus-4-1-20250805 | claude-sonnet-4-20250514 | claude-opus-4-20250514 | claude-3-haiku-20240307 |
-| **Claude API alias** | claude-sonnet-4-5 | claude-opus-4-5 | claude-opus-4-1 | claude-sonnet-4-0 | claude-opus-4-0 | N/A |
-| **AWS Bedrock ID** | anthropic.claude-sonnet-4-5-20250929-v1:0 | anthropic.claude-opus-4-5-20251101-v1:0 | anthropic.claude-opus-4-1-20250805-v1:0 | anthropic.claude-sonnet-4-20250514-v1:0 | anthropic.claude-opus-4-20250514-v1:0 | anthropic.claude-3-haiku-20240307-v1:0 |
-| **GCP Vertex AI ID** | claude-sonnet-4-5@20250929 | claude-opus-4-5@20251101 | claude-opus-4-1@20250805 | claude-sonnet-4@20250514 | claude-opus-4@20250514 | claude-3-haiku@20240307 |
-| **Pricing** | $3 / input MTok, $15 / output MTok | $5 / input MTok, $25 / output MTok | $15 / input MTok, $75 / output MTok | $3 / input MTok, $15 / output MTok | $15 / input MTok, $75 / output MTok | $0.25 / input MTok, $1.25 / output MTok |
-| **Extended thinking** | Yes | Yes | Yes | Yes | Yes | No |
-| **Priority Tier** | Yes | Yes | Yes | Yes | Yes | No |
-| **Comparative latency** | Fast | Moderate | Moderate | Fast | Moderate | Fast |
-| **Context window** | 200k tokens | 200k tokens | 200k tokens | 200k tokens | 200k tokens | 200k tokens |
-| **Max output** | 64k tokens | 64k tokens | 32k tokens | 64k tokens | 32k tokens | 4k tokens |
-| **Reliable knowledge cutoff** | Jan 2025 | May 2025 | Jan 2025 | Jan 2025 | Jan 2025 | N/A |
-| **Training data cutoff** | Jul 2025 | Aug 2025 | Mar 2025 | Mar 2025 | Mar 2025 | Aug 2023 |
+```json
+{
+  "id": "claude-opus-4-6",
+  "display_name": "Claude Opus 4.6",
+  "max_input_tokens": 1000000,
+  "max_tokens": 128000,
+  "capabilities": {
+    "image_input": {"supported": true},
+    "structured_outputs": {"supported": true},
+    "thinking": {"supported": true, "types": {"enabled": {"supported": true}, "adaptive": {"supported": true}}},
+    "effort": {"supported": true, "low": {"supported": true}, …, "max": {"supported": true}},
+    …
+  }
+}
+```
 
-> **Warning:** Claude Haiku 3 (`claude-3-haiku-20240307`) is deprecated and will be retired on April 19, 2026. Migrate to Claude Haiku 4.5 before the retirement date.
+## Current Models (recommended)
 
-## Prompt and output performance
+| Friendly Name     | Alias (use this)    | Full ID                       | Context        | Max Output | Status |
+|-------------------|---------------------|-------------------------------|----------------|------------|--------|
+| Claude Opus 4.6   | `claude-opus-4-6`   | —                             | 200K (1M beta) | 128K       | Active |
+| Claude Sonnet 4.6 | `claude-sonnet-4-6` | -                             | 200K (1M beta) | 64K        | Active |
+| Claude Haiku 4.5  | `claude-haiku-4-5`  | `claude-haiku-4-5-20251001`   | 200K           | 64K        | Active |
 
-Claude 4 models excel in:
+### Model Descriptions
 
-- **Performance**: Top-tier results in reasoning, coding, multilingual tasks, long-context handling, honesty, and image processing.
-- **Engaging responses**: Claude models are ideal for applications that require rich, human-like interactions. If you prefer more concise responses, you can adjust your prompts to guide the model toward the desired output length.
-- **Output quality**: When migrating from previous model generations to Claude 4, you may notice larger improvements in overall performance.
+- **Claude Opus 4.6** — Our most intelligent model for building agents and coding. Supports adaptive thinking (recommended), 128K max output tokens (requires streaming for large outputs). 1M context window available in beta via `context-1m-2025-08-07` header.
+- **Claude Sonnet 4.6** — Our best combination of speed and intelligence. Supports adaptive thinking (recommended). 1M context window available in beta via `context-1m-2025-08-07` header. 64K max output tokens.
+- **Claude Haiku 4.5** — Fastest and most cost-effective model for simple tasks.
 
-## Migrating to Claude 4.6
+## Legacy Models (still active)
 
-If you're currently using older Claude models, consider migrating to Claude Opus 4.6 to take advantage of improved intelligence and enhanced capabilities.
+| Friendly Name     | Alias (use this)    | Full ID                       | Status |
+|-------------------|---------------------|-------------------------------|--------|
+| Claude Opus 4.5   | `claude-opus-4-5`   | `claude-opus-4-5-20251101`    | Active |
+| Claude Opus 4.1   | `claude-opus-4-1`   | `claude-opus-4-1-20250805`    | Active |
+| Claude Sonnet 4.5 | `claude-sonnet-4-5` | `claude-sonnet-4-5-20250929`  | Active |
+| Claude Sonnet 4   | `claude-sonnet-4-0` | `claude-sonnet-4-20250514`    | Active |
+| Claude Opus 4     | `claude-opus-4-0`   | `claude-opus-4-20250514`      | Active |
+
+## Deprecated Models (retiring soon)
+
+| Friendly Name     | Alias (use this)    | Full ID                       | Status     | Retires      |
+|-------------------|---------------------|-------------------------------|------------|--------------|
+| Claude Haiku 3    | —                   | `claude-3-haiku-20240307`     | Deprecated | Apr 19, 2026 |
+
+## Retired Models (no longer available)
+
+| Friendly Name     | Full ID                       | Retired     |
+|-------------------|-------------------------------|-------------|
+| Claude Sonnet 3.7 | `claude-3-7-sonnet-20250219`  | Feb 19, 2026 |
+| Claude Haiku 3.5  | `claude-3-5-haiku-20241022`   | Feb 19, 2026 |
+| Claude Opus 3     | `claude-3-opus-20240229`      | Jan 5, 2026 |
+| Claude Sonnet 3.5 | `claude-3-5-sonnet-20241022`  | Oct 28, 2025 |
+| Claude Sonnet 3.5 | `claude-3-5-sonnet-20240620`  | Oct 28, 2025 |
+| Claude Sonnet 3   | `claude-3-sonnet-20240229`    | Jul 21, 2025 |
+| Claude 2.1        | `claude-2.1`                  | Jul 21, 2025 |
+| Claude 2.0        | `claude-2.0`                  | Jul 21, 2025 |
+
+## Resolving User Requests
+
+When a user asks for a model by name, use this table to find the correct model ID:
+
+| User says...                              | Use this model ID              |
+|-------------------------------------------|--------------------------------|
+| "opus", "most powerful"                   | `claude-opus-4-6`              |
+| "opus 4.6"                                | `claude-opus-4-6`              |
+| "opus 4.5"                                | `claude-opus-4-5`              |
+| "opus 4.1"                                | `claude-opus-4-1`              |
+| "opus 4", "opus 4.0"                      | `claude-opus-4-0`              |
+| "sonnet", "balanced"                      | `claude-sonnet-4-6`            |
+| "sonnet 4.6"                              | `claude-sonnet-4-6`            |
+| "sonnet 4.5"                              | `claude-sonnet-4-5`            |
+| "sonnet 4", "sonnet 4.0"                  | `claude-sonnet-4-0`            |
+| "sonnet 3.7"                              | Retired — suggest `claude-sonnet-4-5` |
+| "sonnet 3.5"                              | Retired — suggest `claude-sonnet-4-5` |
+| "haiku", "fast", "cheap"                  | `claude-haiku-4-5`             |
+| "haiku 4.5"                               | `claude-haiku-4-5`             |
+| "haiku 3.5"                               | Retired — suggest `claude-haiku-4-5` |
+| "haiku 3"                                 | Deprecated — suggest `claude-haiku-4-5` |

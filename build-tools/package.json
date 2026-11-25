@@ -1,0 +1,9 @@
+{
+  "name": "claude-code-rebuild-build-tools",
+  "private": true,
+  "description": "Build-time toolchain, isolated from the app dependency tree so its overrides and layout pins don't touch it. Versions match the official 2.1.88 pipeline: its compiled .tsx sourcesContent (inline maps included) is reproduced byte-for-byte by these.",
+  "dependencies": {
+    "@babel/core": "7.29.0",
+    "babel-plugin-react-compiler": "1.0.0"
+  }
+}

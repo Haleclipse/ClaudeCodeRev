@@ -1,14 +1,6 @@
-# PHP SDK
+# Claude API — PHP
 
-Install and configure the Anthropic PHP SDK with value objects and builder patterns
-
----
-
-The Anthropic PHP library provides convenient access to the Anthropic REST API from any PHP 8.1.0+ application.
-
-> **Note:** The PHP SDK is currently in beta. APIs may change between versions.
-
-> **Note:** For API feature documentation with code examples, see the [API reference](/docs/en/api/overview). This page covers PHP-specific SDK features and configuration.
+> **Note:** The PHP SDK is the official Anthropic SDK for PHP. A beta tool runner is available via `$client->beta->messages->toolRunner()`. Structured output helpers are supported via `StructuredOutputModel` classes. Agent SDK is not available. Bedrock, Vertex AI, and Foundry clients are supported.
 
 ## Installation
 
@@ -16,225 +8,368 @@ The Anthropic PHP library provides convenient access to the Anthropic REST API f
 composer require "anthropic-ai/sdk"
 ```
 
-## Requirements
-
-PHP 8.1.0 or higher.
-
-## Usage
-
-This library uses named parameters to specify optional arguments. Parameters with a default value must be set by name.
+## Client Initialization
 
 ```php
-<?php
-
 use Anthropic\Client;
 
-$client = new Client(
-  apiKey: getenv("ANTHROPIC_API_KEY") ?: "my-anthropic-api-key"
-);
-
-$message = $client->messages->create(
-  maxTokens: 1024,
-  messages: [['role' => 'user', 'content' => 'Hello, Claude']],
-  model: 'claude-opus-4-6',
-);
-
-var_dump($message->content);
+// Using API key from environment variable
+$client = new Client(apiKey: getenv("ANTHROPIC_API_KEY"));
 ```
 
-## Value objects
+### Amazon Bedrock
 
-It is recommended to use the static `with` constructor `Base64ImageSource::with(data: "U3RhaW5sZXNzIHJvY2tz", ...)` and named parameters to initialize value objects.
+```php
+use Anthropic\Bedrock;
 
-However, builders are also provided `(new Base64ImageSource)->withData("U3RhaW5sZXNzIHJvY2tz")`.
+// Constructor is private — use the static factory. Reads AWS credentials from env.
+$client = Bedrock\Client::fromEnvironment(region: 'us-east-1');
+```
+
+### Google Vertex AI
+
+```php
+use Anthropic\Vertex;
+
+// Constructor is private. Parameter is `location`, not `region`.
+$client = Vertex\Client::fromEnvironment(
+    location: 'us-east5',
+    projectId: 'my-project-id',
+);
+```
+
+### Anthropic Foundry
+
+```php
+use Anthropic\Foundry;
+
+// Constructor is private. baseUrl or resource is required.
+$client = Foundry\Client::withCredentials(
+    authToken: getenv('ANTHROPIC_FOUNDRY_AUTH_TOKEN'),
+    baseUrl: 'https://<resource>.services.ai.azure.com/anthropic',
+);
+```
+
+---
+
+## Basic Message Request
+
+```php
+$message = $client->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    messages: [
+        ['role' => 'user', 'content' => 'What is the capital of France?'],
+    ],
+);
+
+// content is an array of polymorphic blocks (TextBlock, ToolUseBlock,
+// ThinkingBlock). Accessing ->text on content[0] without checking the block
+// type will throw if the first block is not a TextBlock (e.g., when extended
+// thinking is enabled and a ThinkingBlock comes first). Always guard:
+foreach ($message->content as $block) {
+    if ($block->type === 'text') {
+        echo $block->text;
+    }
+}
+```
+
+If you only want the first text block:
+
+```php
+foreach ($message->content as $block) {
+    if ($block->type === 'text') {
+        echo $block->text;
+        break;
+    }
+}
+```
+
+---
 
 ## Streaming
 
-The SDK provides support for streaming responses using Server-Sent Events (SSE).
+> **Requires SDK v0.5.0+.** v0.4.0 and earlier used a single `$params` array; calling with named parameters throws `Unknown named parameter $model`. Upgrade: `composer require "anthropic-ai/sdk:^0.7"`
 
 ```php
-<?php
-
-use Anthropic\Client;
-
-$client = new Client(
-  apiKey: getenv("ANTHROPIC_API_KEY") ?: "my-anthropic-api-key"
-);
+use Anthropic\Messages\RawContentBlockDeltaEvent;
+use Anthropic\Messages\TextDelta;
 
 $stream = $client->messages->createStream(
-  maxTokens: 1024,
-  messages: [['role' => 'user', 'content' => 'Hello, Claude']],
-  model: 'claude-opus-4-6',
+    model: '{{OPUS_ID}}',
+    maxTokens: 64000,
+    messages: [
+        ['role' => 'user', 'content' => 'Write a haiku'],
+    ],
 );
 
-foreach ($stream as $message) {
-  var_dump($message);
+foreach ($stream as $event) {
+    if ($event instanceof RawContentBlockDeltaEvent && $event->delta instanceof TextDelta) {
+        echo $event->delta->text;
+    }
 }
 ```
 
-## Error handling
+---
 
-When the library is unable to connect to the API, or if the API returns a non-success status code (i.e., 4xx or 5xx response), a subclass of `Anthropic\Core\Exceptions\APIException` is thrown:
+## Tool Use
 
-```php
-<?php
+### Tool Runner (Beta)
 
-use Anthropic\Client;
-use Anthropic\Core\Exceptions\APIConnectionException;
-use Anthropic\Core\Exceptions\APIStatusException;
-use Anthropic\Core\Exceptions\RateLimitException;
-
-$client = new Client();
-
-try {
-  $message = $client->messages->create(
-    maxTokens: 1024,
-    messages: [['role' => 'user', 'content' => 'Hello, Claude']],
-    model: 'claude-opus-4-6',
-  );
-} catch (APIConnectionException $e) {
-  echo "The server could not be reached", PHP_EOL;
-  var_dump($e->getPrevious());
-} catch (RateLimitException $_) {
-  echo "A 429 status code was received; we should back off a bit.", PHP_EOL;
-} catch (APIStatusException $e) {
-  echo "Another non-200-range status code was received", PHP_EOL;
-  echo $e->getMessage();
-}
-```
-
-Error codes are as follows:
-
-| Cause            | Error Type                     |
-| ---------------- | ------------------------------ |
-| HTTP 400         | `BadRequestException`          |
-| HTTP 401         | `AuthenticationException`      |
-| HTTP 403         | `PermissionDeniedException`    |
-| HTTP 404         | `NotFoundException`            |
-| HTTP 409         | `ConflictException`            |
-| HTTP 422         | `UnprocessableEntityException` |
-| HTTP 429         | `RateLimitException`           |
-| HTTP >= 500      | `InternalServerException`      |
-| Other HTTP error | `APIStatusException`           |
-| Timeout          | `APITimeoutException`          |
-| Network error    | `APIConnectionException`       |
-
-## Retries
-
-Certain errors are automatically retried 2 times by default, with a short exponential backoff.
-
-Connection errors (for example, due to a network connectivity problem), 408 Request Timeout, 409 Conflict, 429 Rate Limit, >=500 Internal errors, and timeouts are all retried by default.
-
-You can use the `maxRetries` option to configure or disable this:
+**Beta:** The PHP SDK provides a tool runner via `$client->beta->messages->toolRunner()`. Define tools with `BetaRunnableTool` — a definition array plus a `run` closure:
 
 ```php
-<?php
+use Anthropic\Lib\Tools\BetaRunnableTool;
 
-use Anthropic\Client;
-use Anthropic\RequestOptions;
-
-// Configure the default for all requests:
-$client = new Client(requestOptions: RequestOptions::with(maxRetries: 0));
-
-// Or, configure per-request:
-$result = $client->messages->create(
-  maxTokens: 1024,
-  messages: [['role' => 'user', 'content' => 'Hello, Claude']],
-  model: 'claude-opus-4-6',
-  requestOptions: RequestOptions::with(maxRetries: 5),
-);
-```
-
-## Pagination
-
-List methods in the Claude API are paginated.
-
-This library provides auto-paginating iterators with each list response, so you do not have to request successive pages manually:
-
-```php
-<?php
-
-use Anthropic\Client;
-
-$client = new Client(
-  apiKey: getenv("ANTHROPIC_API_KEY") ?: "my-anthropic-api-key"
+$weatherTool = new BetaRunnableTool(
+    definition: [
+        'name' => 'get_weather',
+        'description' => 'Get the current weather for a location.',
+        'input_schema' => [
+            'type' => 'object',
+            'properties' => [
+                'location' => ['type' => 'string', 'description' => 'City and state'],
+            ],
+            'required' => ['location'],
+        ],
+    ],
+    run: function (array $input): string {
+        return "The weather in {$input['location']} is sunny and 72°F.";
+    },
 );
 
-$page = $client->beta->messages->batches->list(limit: 20);
+$runner = $client->beta->messages->toolRunner(
+    maxTokens: 16000,
+    messages: [['role' => 'user', 'content' => 'What is the weather in Paris?']],
+    model: '{{OPUS_ID}}',
+    tools: [$weatherTool],
+);
 
-var_dump($page);
-
-// fetch items from the current page
-foreach ($page->getItems() as $item) {
-  var_dump($item->id);
-}
-// make additional network requests to fetch items from all pages, including and after the current page
-foreach ($page->pagingEachItem() as $item) {
-  var_dump($item->id);
+foreach ($runner as $message) {
+    foreach ($message->content as $block) {
+        if ($block->type === 'text') {
+            echo $block->text;
+        }
+    }
 }
 ```
 
-## Advanced usage
+### Manual Loop
 
-### Undocumented properties
-
-You can send undocumented parameters to any endpoint, and read undocumented response properties, like so:
-
-> **Note:** The `extra*` parameters of the same name override the documented parameters.
+Tools are passed as arrays. **The SDK uses camelCase keys** (`inputSchema`, `toolUseID`, `stopReason`) and auto-maps to the API's snake_case on the wire — since v0.5.0. See [shared tool use concepts](../shared/tool-use-concepts.md) for the loop pattern.
 
 ```php
-<?php
+use Anthropic\Messages\ToolUseBlock;
 
-use Anthropic\Client;
-use Anthropic\RequestOptions;
+$tools = [
+    [
+        'name' => 'get_weather',
+        'description' => 'Get the current weather in a given location',
+        'inputSchema' => [  // camelCase, not input_schema
+            'type' => 'object',
+            'properties' => [
+                'location' => ['type' => 'string', 'description' => 'City and state'],
+            ],
+            'required' => ['location'],
+        ],
+    ],
+];
 
-$client = new Client();
+$messages = [['role' => 'user', 'content' => 'What is the weather in SF?']];
+
+$response = $client->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    tools: $tools,
+    messages: $messages,
+);
+
+while ($response->stopReason === 'tool_use') {  // camelCase property
+    $toolResults = [];
+    foreach ($response->content as $block) {
+        if ($block instanceof ToolUseBlock) {
+            // $block->name  : string               — tool name to dispatch on
+            // $block->input : array<string,mixed>  — parsed JSON input
+            // $block->id    : string               — pass back as toolUseID
+            $result = executeYourTool($block->name, $block->input);
+            $toolResults[] = [
+                'type' => 'tool_result',
+                'toolUseID' => $block->id,  // camelCase, not tool_use_id
+                'content' => $result,
+            ];
+        }
+    }
+
+    // Append assistant turn + user turn with tool results
+    $messages[] = ['role' => 'assistant', 'content' => $response->content];
+    $messages[] = ['role' => 'user', 'content' => $toolResults];
+
+    $response = $client->messages->create(
+        model: '{{OPUS_ID}}',
+        maxTokens: 16000,
+        tools: $tools,
+        messages: $messages,
+    );
+}
+
+// Final text response
+foreach ($response->content as $block) {
+    if ($block->type === 'text') {
+        echo $block->text;
+    }
+}
+```
+
+`$block->type === 'tool_use'` also works; `instanceof ToolUseBlock` narrows for PHPStan.
+
+
+---
+
+## Extended Thinking
+
+**Adaptive thinking is the recommended mode for Claude 4.6+ models.** Claude decides dynamically when and how much to think.
+
+```php
+use Anthropic\Messages\ThinkingBlock;
 
 $message = $client->messages->create(
-  maxTokens: 1024,
-  messages: [['role' => 'user', 'content' => 'Hello, Claude']],
-  model: 'claude-opus-4-6',
-  requestOptions: RequestOptions::with(
-    extraQueryParams: ['my_query_parameter' => 'value'],
-    extraBodyParams: ['my_body_parameter' => 'value'],
-    extraHeaders: ['my-header' => 'value'],
-  ),
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    thinking: ['type' => 'adaptive'],
+    messages: [
+        ['role' => 'user', 'content' => 'Solve: 27 * 453'],
+    ],
 );
+
+// ThinkingBlock(s) precede TextBlock in content
+foreach ($message->content as $block) {
+    if ($block instanceof ThinkingBlock) {
+        echo "Thinking:\n{$block->thinking}\n\n";
+        // $block->signature is an opaque string — preserve verbatim if
+        // passing thinking blocks back in multi-turn conversations
+    } elseif ($block->type === 'text') {
+        echo "Answer: {$block->text}\n";
+    }
+}
 ```
 
-### Undocumented request params
+> **Deprecated:** `['type' => 'enabled', 'budgetTokens' => N]` (fixed-budget extended thinking) still works on Claude 4.6 but is deprecated. Use adaptive thinking above.
 
-If you want to explicitly send an extra param, you can do so with the `extraQueryParams`, `extraBodyParams`, and `extraHeaders` options under `RequestOptions::with()` when making a request, as seen in the example above.
+`$block->type === 'thinking'` also works for the check; `instanceof` narrows for PHPStan.
 
-### Undocumented endpoints
+---
 
-To make requests to undocumented endpoints while retaining the benefit of auth, retries, and so on, you can make requests using `client->request`, like so:
+## Prompt Caching
+
+`system:` takes an array of text blocks; set `cacheControl` on the last block. Array-shape syntax (camelCase keys) is idiomatic. For placement patterns and the silent-invalidator audit checklist, see `shared/prompt-caching.md`.
 
 ```php
-<?php
-
-use Anthropic\Client;
-
-$client = new Client();
-
-$response = $client->request(
-  method: "post",
-  path: '/undocumented/endpoint',
-  query: ['dog' => 'woof'],
-  headers: ['useful-header' => 'interesting-value'],
-  body: ['hello' => 'world']
+$message = $client->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    system: [
+        ['type' => 'text', 'text' => $longSystemPrompt, 'cacheControl' => ['type' => 'ephemeral']],
+    ],
+    messages: [['role' => 'user', 'content' => 'Summarize the key points']],
 );
 ```
 
-## Semantic versioning
+For 1-hour TTL: `'cacheControl' => ['type' => 'ephemeral', 'ttl' => '1h']`. There's also a top-level `cacheControl:` on `messages->create(...)` that auto-places on the last cacheable block.
 
-This package follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions. As the library is in initial development and has a major version of `0`, APIs may change at any time.
+Verify hits via `$message->usage->cacheCreationInputTokens` / `$message->usage->cacheReadInputTokens`.
 
-This package considers improvements to the (non-runtime) PHPDoc type definitions to be non-breaking changes.
+---
 
-## Additional resources
+## Structured Outputs
 
-- [GitHub repository](https://github.com/anthropics/anthropic-sdk-php)
-- [Packagist](https://packagist.org/packages/anthropic-ai/sdk)
-- [API reference](/docs/en/api/overview)
-- [Streaming guide](/docs/en/build-with-claude/streaming)
+### Using StructuredOutputModel (Recommended)
+
+Define a PHP class implementing `StructuredOutputModel` and pass it as `outputConfig`:
+
+```php
+use Anthropic\Lib\Contracts\StructuredOutputModel;
+use Anthropic\Lib\Concerns\StructuredOutputModelTrait;
+use Anthropic\Lib\Attributes\Constrained;
+
+class Person implements StructuredOutputModel
+{
+    use StructuredOutputModelTrait;
+
+    #[Constrained(description: 'Full name')]
+    public string $name;
+
+    public int $age;
+
+    public ?string $email = null;  // nullable = optional field
+}
+
+$message = $client->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    messages: [['role' => 'user', 'content' => 'Generate a profile for Alice, age 30']],
+    outputConfig: ['format' => Person::class],
+);
+
+$person = $message->parsedOutput();  // Person instance
+echo $person->name;
+```
+
+Types are inferred from PHP type hints. Use `#[Constrained(description: '...')]` to add descriptions. Nullable properties (`?string`) become optional fields.
+
+### Raw Schema
+
+```php
+$message = $client->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    messages: [['role' => 'user', 'content' => 'Extract: John (john@co.com), Enterprise plan']],
+    outputConfig: [
+        'format' => [
+            'type' => 'json_schema',
+            'schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'name' => ['type' => 'string'],
+                    'email' => ['type' => 'string'],
+                    'plan' => ['type' => 'string'],
+                ],
+                'required' => ['name', 'email', 'plan'],
+                'additionalProperties' => false,
+            ],
+        ],
+    ],
+);
+
+// First text block contains valid JSON
+foreach ($message->content as $block) {
+    if ($block->type === 'text') {
+        $data = json_decode($block->text, true);
+        break;
+    }
+}
+```
+
+---
+
+## Beta Features & Server-Side Tools
+
+**`betas:` is NOT a param on `$client->messages->create()`** — it only exists on the beta namespace. Use it for features that need an explicit opt-in header:
+
+```php
+use Anthropic\Beta\Messages\BetaRequestMCPServerURLDefinition;
+
+$response = $client->beta->messages->create(
+    model: '{{OPUS_ID}}',
+    maxTokens: 16000,
+    mcpServers: [
+        BetaRequestMCPServerURLDefinition::with(
+            name: 'my-server',
+            url: 'https://example.com/mcp',
+        ),
+    ],
+    betas: ['mcp-client-2025-11-20'],  // only valid on ->beta->messages
+    messages: [['role' => 'user', 'content' => 'Use the MCP tools']],
+);
+```
+
+**Server-side tools** (bash, web_search, text_editor, code_execution) are GA and work on both paths — `Anthropic\Messages\ToolBash20250124` / `WebSearchTool20260209` / `ToolTextEditor20250728` / `CodeExecutionTool20260120` for non-beta, `Anthropic\Beta\Messages\BetaToolBash20250124` / `BetaWebSearchTool20260209` / `BetaToolTextEditor20250728` / `BetaCodeExecutionTool20260120` for beta. No `betas:` header needed for these.

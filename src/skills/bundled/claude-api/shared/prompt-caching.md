@@ -1,155 +1,128 @@
-# Prompt Caching
+# Prompt Caching — Design & Optimization
 
-Prompt caching optimizes your API usage by allowing you to resume from specific prefixes in your prompts, significantly reducing processing time and costs for repetitive tasks or prompts with consistent elements.
+This file covers how to design prompt-building code for effective caching. For language-specific syntax, see the `## Prompt Caching` section in each language's README or single-file doc.
 
-## How It Works
+## The one invariant everything follows from
 
-When you send a request with prompt caching enabled:
+**Prompt caching is a prefix match. Any change anywhere in the prefix invalidates everything after it.**
 
-1. The system checks if a prompt prefix (up to a specified cache breakpoint) is already cached from a recent query
-2. If found, it uses the cached version, reducing processing time and costs
-3. Otherwise, it processes the full prompt and caches the prefix once the response begins
+The cache key is derived from the exact bytes of the rendered prompt up to each `cache_control` breakpoint. A single byte difference at position N — a timestamp, a reordered JSON key, a different tool in the list — invalidates the cache for all breakpoints at positions ≥ N.
 
-By default, the cache has a **5-minute lifetime**. The cache is refreshed at no additional cost each time the cached content is used. A 1-hour cache duration is also available at 2x the base input token price.
+Render order is: `tools` → `system` → `messages`. A breakpoint on the last system block caches both tools and system together.
 
-## Two Ways to Enable Caching
+Design the prompt-building path around this constraint. Get the ordering right and most caching works for free. Get it wrong and no amount of `cache_control` markers will help.
 
-### 1. Automatic Caching (Simplest)
+---
 
-Add a single `cache_control` field at the top level of your request:
+## Workflow for optimizing existing code
 
-```python
-import anthropic
+When asked to add or optimize caching:
 
-client = anthropic.Anthropic()
+1. **Trace the prompt assembly path.** Find where `system`, `tools`, and `messages` are constructed. Identify every input that flows into them.
+2. **Classify each input by stability:**
+   - Never changes → belongs early in the prompt, before any breakpoint
+   - Changes per-session → belongs after the global prefix, cache per-session
+   - Changes per-turn → belongs at the end, after the last breakpoint
+   - Changes per-request (timestamps, UUIDs, random IDs) → **eliminate or move to the very end**
+3. **Check rendered order matches stability order.** Stable content must physically precede volatile content. If a timestamp is interpolated into the system prompt header, everything after it is uncacheable regardless of markers.
+4. **Place breakpoints at stability boundaries.** See placement patterns below.
+5. **Audit for silent invalidators.** See anti-patterns table.
 
-response = client.messages.create(
-    model="claude-opus-4-6",
-    max_tokens=1024,
-    cache_control={"type": "ephemeral"},
-    system="You are an AI assistant tasked with analyzing literary works.",
-    messages=[
-        {
-            "role": "user",
-            "content": "Analyze the major themes in 'Pride and Prejudice'.",
-        }
-    ],
-)
-print(response.usage.model_dump_json())
-```
+---
 
-The system automatically applies the cache breakpoint to the last cacheable block and moves it forward as conversations grow. Best for multi-turn conversations.
+## Placement patterns
 
-### 2. Explicit Cache Breakpoints
+### Large system prompt shared across many requests
 
-Place `cache_control` directly on individual content blocks for fine-grained control:
-
-```python
-response = client.messages.create(
-    model="claude-opus-4-6",
-    max_tokens=1024,
-    system=[
-        {
-            "type": "text",
-            "text": "You are a helpful assistant.",
-            "cache_control": {"type": "ephemeral"}
-        }
-    ],
-    messages=[
-        {
-            "role": "user",
-            "content": "What are the key terms?"
-        }
-    ]
-)
-```
-
-You can define up to **4 cache breakpoints** for different sections that change at different frequencies.
-
-## Pricing
-
-Cache introduces a new pricing structure (per million tokens):
-
-| Model | Base Input | 5m Cache Write | 1h Cache Write | Cache Hits | Output |
-|-------|-----------|---|---|---|---|
-| Claude Opus 4.6 | $5 | $6.25 | $10 | $0.50 | $25 |
-| Claude Sonnet 4.6 | $3 | $3.75 | $6 | $0.30 | $15 |
-| Claude Haiku 4.5 | $1 | $1.25 | $2 | $0.10 | $5 |
-
-**Key multipliers:**
-- 5-minute cache writes: 1.25x base input price
-- 1-hour cache writes: 2x base input price
-- Cache reads: 0.1x base input price
-
-## Cache Limitations
-
-Minimum cacheable prompt length:
-- 4096 tokens: Claude Opus 4.6, 4.5 & Claude Haiku 4.5
-- 2048 tokens: Claude Sonnet 4.6 & Claude Haiku 3.5
-- 1024 tokens: Claude Sonnet 4.5, Opus 4.1, 4 & Haiku 3
-
-Shorter prompts cannot be cached. To verify if caching worked, check the response usage fields -- if both `cache_creation_input_tokens` and `cache_read_input_tokens` are 0, the prompt wasn't cached.
-
-## What Can Be Cached
-
-**Cacheable:**
-- Tool definitions
-- System messages
-- Text messages
-- Images & documents
-- Tool use and tool results
-
-**Cannot be cached directly:**
-- Thinking blocks (though they cache with other content)
-- Sub-content blocks like citations
-- Empty text blocks
-
-## Tracking Cache Performance
-
-Monitor cache using these API response fields:
-
-- `cache_creation_input_tokens`: Tokens written to cache
-- `cache_read_input_tokens`: Tokens retrieved from cache
-- `input_tokens`: Tokens after the last cache breakpoint (not cached)
-
-```
-total_input_tokens = cache_read_input_tokens + cache_creation_input_tokens + input_tokens
-```
-
-## Best Practices
-
-1. **Start with automatic caching** for multi-turn conversations
-2. **Place cached content at the prompt's beginning** for best performance
-3. **Put the breakpoint on the last block that stays identical** across requests
-4. **Cache stable, reusable content** like system instructions, background information, large contexts
-5. **Avoid placing breakpoints on changing content** (timestamps, per-request context) -- this defeats caching
-
-## Use Cases
-
-- **Conversational agents**: Reduce cost and latency for extended conversations
-- **Coding assistants**: Keep codebases or relevant sections in the prompt
-- **Large document processing**: Incorporate complete long-form material without increasing latency
-- **Detailed instruction sets**: Share 20+ diverse examples for fine-tuning responses
-- **Agentic tool use**: Enhance performance for multiple tool calls and iterative changes
-
-## 1-Hour Cache Duration
-
-Use extended cache when prompts are used less frequently than every 5 minutes but more frequently than every hour:
+Put a breakpoint on the last system text block. If there are tools, they render before system — the marker on the last system block caches tools + system together.
 
 ```json
-{
-  "cache_control": {
-    "type": "ephemeral",
-    "ttl": "1h"
-  }
-}
+"system": [
+  {"type": "text", "text": "<large shared prompt>", "cache_control": {"type": "ephemeral"}}
+]
 ```
 
-You can mix TTLs in the same request, but longer TTLs must appear before shorter ones.
+### Multi-turn conversations
 
-## Supported Models
+Put a breakpoint on the last content block of the most-recently-appended turn. Each subsequent request reuses the entire prior conversation prefix. Earlier breakpoints remain valid read points, so hits accrue incrementally as the conversation grows.
 
-Prompt caching is currently supported on:
-- Claude Opus 4.6, 4.5, 4.1, 4
-- Claude Sonnet 4.6, 4.5, 4
-- Claude Haiku 4.5, 3.5, 3
+```json
+// Last content block of the last user turn
+messages[-1].content[-1].cache_control = {"type": "ephemeral"}
+```
+
+### Shared prefix, varying suffix
+
+Many requests share a large fixed preamble (few-shot examples, retrieved docs, instructions) but differ in the final question. Put the breakpoint at the end of the **shared** portion, not at the end of the whole prompt — otherwise every request writes a distinct cache entry and nothing is ever read.
+
+```json
+"messages": [{"role": "user", "content": [
+  {"type": "text", "text": "<shared context>", "cache_control": {"type": "ephemeral"}},
+  {"type": "text", "text": "<varying question>"}  // no marker — differs every time
+]}]
+```
+
+### Prompts that change from the beginning every time
+
+Don't cache. If the first 1K tokens differ per request, there is no reusable prefix. Adding `cache_control` only pays the cache-write premium with zero reads. Leave it off.
+
+---
+
+## Architectural guidance
+
+These are the decisions that matter more than marker placement. Fix these first.
+
+**Keep the system prompt frozen.** Don't interpolate "current date: X", "mode: Y", "user name: Z" into the system prompt — those sit at the front of the prefix and invalidate everything downstream. Inject dynamic context as a user or assistant message later in `messages`. A message at turn 5 invalidates nothing before turn 5.
+
+**Don't change tools or model mid-conversation.** Tools render at position 0; adding, removing, or reordering a tool invalidates the entire cache. Same for switching models (caches are model-scoped). If you need "modes", don't swap the tool set — give Claude a tool that records the mode transition, or pass the mode as message content. Serialize tools deterministically (sort by name).
+
+**Fork operations must reuse the parent's exact prefix.** Side computations (summarization, compaction, sub-agents) often spin up a separate API call. If the fork rebuilds `system` / `tools` / `model` with any difference, it misses the parent's cache entirely. Copy the parent's `system`, `tools`, and `model` verbatim, then append fork-specific content at the end.
+
+---
+
+## Silent invalidators
+
+When reviewing code, grep for these inside anything that feeds the prompt prefix:
+
+| Pattern | Why it breaks caching |
+|---|---|
+| `datetime.now()` / `Date.now()` / `time.time()` in system prompt | Prefix changes every request |
+| `uuid4()` / `crypto.randomUUID()` / request IDs early in content | Same — every request is unique |
+| `json.dumps(d)` without `sort_keys=True` / iterating a `set` | Non-deterministic serialization → prefix bytes differ |
+| f-string interpolating session/user ID into system prompt | Per-user prefix; no cross-user sharing |
+| Conditional system sections (`if flag: system += ...`) | Every flag combination is a distinct prefix |
+| `tools=build_tools(user)` where set varies per user | Tools render at position 0; nothing caches across users |
+
+Fix by moving the dynamic piece after the last breakpoint, making it deterministic, or deleting it if it's not load-bearing.
+
+---
+
+## API reference
+
+```json
+"cache_control": {"type": "ephemeral"}              // 5-minute TTL (default)
+"cache_control": {"type": "ephemeral", "ttl": "1h"} // 1-hour TTL
+```
+
+- Max **4** `cache_control` breakpoints per request.
+- Goes on any content block: system text blocks, tool definitions, message content blocks (`text`, `image`, `tool_use`, `tool_result`, `document`).
+- Top-level `cache_control` on `messages.create()` auto-places on the last cacheable block — simplest option when you don't need fine-grained placement.
+- Minimum cacheable prefix is model-dependent (typically 1024–2048 tokens). Shorter prefixes silently won't cache even with a marker.
+
+**Economics:** Cache writes cost ~1.25× base input price; reads cost ~0.1×. A prefix must be used in at least two requests within TTL to break even (one writes the cache, subsequent ones read it). For bursty traffic, the 1-hour TTL keeps entries alive across gaps.
+
+---
+
+## Verifying cache hits
+
+The response `usage` object reports cache activity:
+
+| Field | Meaning |
+|---|---|
+| `cache_creation_input_tokens` | Tokens written to cache this request (you paid the ~1.25× write premium) |
+| `cache_read_input_tokens` | Tokens served from cache this request (you paid ~0.1×) |
+| `input_tokens` | Tokens processed at full price (not cached) |
+
+If `cache_read_input_tokens` is zero across repeated requests with identical prefixes, a silent invalidator is at work — diff the rendered prompt bytes between two requests to find it.
+
+Language-specific access: `response.usage.cache_read_input_tokens` (Python/TS/Ruby), `$message->usage->cacheReadInputTokens` (PHP), `resp.Usage.CacheReadInputTokens` (Go/C#), `.usage().cacheReadInputTokens()` (Java).
