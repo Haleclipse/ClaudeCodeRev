@@ -15,7 +15,6 @@ import {
   access,
   chmod,
   copyFile,
-  lstat,
   mkdir,
   readdir,
   readlink,
@@ -140,11 +139,11 @@ async function isPossibleClaudeBinary(filePath: string): Promise<boolean> {
       return false
     }
 
-    // Check if file is executable. Note: On Windows, this relies on file extensions
-    // (.exe, .bat, .cmd) and ACL permissions rather than Unix permission bits,
-    // so it may not work perfectly for all executable files on Windows.
-    await access(filePath, fsConstants.X_OK)
-    return true
+    // Windows has no exec bit — executability comes from the extension
+    if (process.platform === 'win32') return true
+    // Check the owner exec bit from the stat we already have (no extra
+    // access() syscall)
+    return (stats.mode & fsConstants.S_IXUSR) !== 0
   } catch {
     return false
   }
@@ -163,11 +162,12 @@ async function getVersionPaths(version: string) {
 
   const installPath = join(dirs.versions, version)
 
-  // Create an empty file if it doesn't exist
+  // Create an empty file if it doesn't exist. Exclusive create instead of
+  // stat-then-write: no TOCTOU race with a concurrent installer.
   try {
-    await stat(installPath)
-  } catch {
-    await writeFile(installPath, '', { encoding: 'utf8' })
+    await writeFile(installPath, '', { encoding: 'utf8', flag: 'wx' })
+  } catch (e) {
+    if (getErrnoCode(e) !== 'EEXIST') throw e
   }
 
   return {
@@ -467,10 +467,10 @@ async function performVersionUpdate(
 
   // Create direct symlink from ~/.local/bin/claude to the version binary
   await removeDirectoryIfEmpty(executablePath)
-  await updateSymlink(executablePath, installPath)
+  const symlinkUpdated = await updateSymlink(executablePath, installPath)
 
-  // Verify the executable was actually created/updated
-  if (!(await isPossibleClaudeBinary(executablePath))) {
+  // Verify the executable exists when the link wasn't (re)created
+  if (!symlinkUpdated && !(await isPossibleClaudeBinary(executablePath))) {
     let installPathExists = false
     try {
       await stat(installPath)
@@ -733,39 +733,6 @@ async function updateSymlink(
       new Error(`Failed to create directory ${parentDir}: ${mkdirError}`),
     )
     return false
-  }
-
-  // Check if symlink already exists and points to the correct target
-  try {
-    let symlinkExists = false
-    try {
-      await stat(symlinkPath)
-      symlinkExists = true
-    } catch {
-      // symlinkPath doesn't exist
-    }
-
-    if (symlinkExists) {
-      try {
-        const currentTarget = await readlink(symlinkPath)
-        const resolvedCurrentTarget = resolve(
-          dirname(symlinkPath),
-          currentTarget,
-        )
-        const resolvedTargetPath = resolve(targetPath)
-
-        if (resolvedCurrentTarget === resolvedTargetPath) {
-          return false
-        }
-      } catch {
-        // Path exists but is not a symlink - will remove it below
-      }
-
-      // Remove existing file/symlink before creating new one
-      await unlink(symlinkPath)
-    }
-  } catch (error) {
-    logError(new Error(`Failed to check/remove existing symlink: ${error}`))
   }
 
   // Use atomic rename to avoid race conditions. Create symlink with temporary name
@@ -1444,12 +1411,9 @@ export async function cleanupOldVersions(): Promise<void> {
  * @returns true if the path is npm-managed, false otherwise
  */
 async function isNpmSymlink(executablePath: string): Promise<boolean> {
-  // Resolve symlink to its target if applicable
-  let targetPath = executablePath
-  const stats = await lstat(executablePath)
-  if (stats.isSymbolicLink()) {
-    targetPath = await realpath(executablePath)
-  }
+  // Resolve symlink to its target if applicable (realpath of a regular
+  // file is the file itself)
+  const targetPath = await realpath(executablePath)
 
   // checking npm prefix isn't guaranteed to work, as prefix can change
   // and users may set --prefix manually when installing

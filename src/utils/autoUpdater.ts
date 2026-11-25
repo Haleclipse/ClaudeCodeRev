@@ -493,10 +493,8 @@ To fix this issue:
       return 'install_failed'
     }
 
-    const { hasPermissions } = await checkGlobalInstallPermissions()
-    if (!hasPermissions) {
-      return 'no_permissions'
-    }
+    // No upfront `npm prefix -g` + access() probe; permission failures are
+    // detected from npm's own output below instead.
 
     // Use specific version if provided, otherwise use latest
     const packageSpec = specificVersion
@@ -512,8 +510,15 @@ To fix this issue:
       { cwd: homedir() },
     )
     if (installResult.code !== 0) {
+      const output = `${installResult.stdout} ${installResult.stderr}`
+      if (/\b(EACCES|EPERM|permission denied)\b/i.test(output)) {
+        logError(
+          new AutoUpdaterError('Insufficient permissions for global npm install.'),
+        )
+        return 'no_permissions'
+      }
       const error = new AutoUpdaterError(
-        `Failed to install new version of claude: ${installResult.stdout} ${installResult.stderr}`,
+        `Failed to install new version of claude: ${output}`,
       )
       logError(error)
       return 'install_failed'
