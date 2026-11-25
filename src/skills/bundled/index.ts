@@ -1,5 +1,6 @@
 import { feature } from 'bun:bundle'
 import { shouldAutoEnableClaudeInChrome } from 'src/utils/claudeInChrome/setup.js'
+import { isEnvTruthy } from 'src/utils/envUtils.js'
 import { registerBatchSkill } from './batch.js'
 import { registerClaudeInChromeSkill } from './claudeInChrome.js'
 import { registerDebugSkill } from './debug.js'
@@ -61,7 +62,10 @@ export function initBundledSkills(): void {
     /* eslint-enable @typescript-eslint/no-require-imports */
     registerScheduleRemoteAgentsSkill()
   }
-  if (feature('BUILDING_CLAUDE_APPS')) {
+  if (
+    feature('BUILDING_CLAUDE_APPS') &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_CLAUDE_API_SKILL)
+  ) {
     /* eslint-disable @typescript-eslint/no-require-imports */
     const { registerClaudeApiSkill } = require('./claudeApi.js')
     /* eslint-enable @typescript-eslint/no-require-imports */
