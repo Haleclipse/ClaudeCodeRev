@@ -52,7 +52,8 @@ import { validateInputForSettingsFileEdit } from '../../utils/settings/validateE
 import { NOTEBOOK_EDIT_TOOL_NAME } from '../NotebookEditTool/constants.js'
 import {
   FILE_EDIT_TOOL_NAME,
-  FILE_UNEXPECTEDLY_MODIFIED_ERROR,
+  FILE_MODIFIED_SINCE_READ_ERROR,
+  FILE_NOT_READ_ERROR,
 } from './constants.js'
 import { getEditToolDescription } from './prompt.js'
 import {
@@ -449,20 +450,21 @@ export const FileEditTool = buildTool({
     } = readFileForEdit(absoluteFilePath)
 
     if (fileExists) {
-      const lastWriteTime = getFileModificationTime(absoluteFilePath)
       const lastRead = readFileState.get(absoluteFilePath)
-      if (!lastRead || lastWriteTime > lastRead.timestamp) {
+      if (!lastRead) {
+        throw new Error(FILE_NOT_READ_ERROR)
+      }
+      const lastWriteTime = getFileModificationTime(absoluteFilePath)
+      if (lastWriteTime > lastRead.timestamp) {
         // Timestamp indicates modification, but on Windows timestamps can change
         // without content changes (cloud sync, antivirus, etc.). For full reads,
         // compare content as a fallback to avoid false positives.
         const isFullRead =
-          lastRead &&
-          lastRead.offset === undefined &&
-          lastRead.limit === undefined
+          lastRead.offset === undefined && lastRead.limit === undefined
         const contentUnchanged =
           isFullRead && originalFileContents === lastRead.content
         if (!contentUnchanged) {
-          throw new Error(FILE_UNEXPECTEDLY_MODIFIED_ERROR)
+          throw new Error(FILE_MODIFIED_SINCE_READ_ERROR)
         }
       }
     }
