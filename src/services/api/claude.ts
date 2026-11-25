@@ -1377,6 +1377,17 @@ async function* queryModel(
     skipGlobalCacheForSystemPrompt: needsToolBasedCacheMarker,
     querySource: options.querySource,
   })
+  // No system blocks to carry a cache breakpoint (e.g. side queries that skip
+  // the system prompt prefix): mark the last tool schema instead so the tool
+  // definitions still hit the prompt cache.
+  if (enablePromptCaching && system.length === 0 && toolSchemas.length > 0) {
+    const lastTool = toolSchemas.at(-1)
+    if (lastTool && !('cache_control' in lastTool)) {
+      lastTool.cache_control = getCacheControl({
+        querySource: options.querySource,
+      })
+    }
+  }
   const useBetas = betas.length > 0
 
   // Build minimal context for detailed tracing (when beta tracing is enabled)
