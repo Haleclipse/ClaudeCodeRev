@@ -176,6 +176,8 @@ import {
 } from './mcpInstructionsDelta.js'
 import { CLAUDE_IN_CHROME_MCP_SERVER_NAME } from './claudeInChrome/common.js'
 import { CHROME_TOOL_SEARCH_INSTRUCTIONS } from './claudeInChrome/prompt.js'
+import { COMPUTER_USE_MCP_SERVER_NAME } from './computerUse/common.js'
+import { COMPUTER_USE_MCP_INSTRUCTIONS } from './computerUse/prompt.js'
 import type { MCPServerConnection } from '../services/mcp/types.js'
 import type {
   HookEvent,
@@ -1599,6 +1601,14 @@ export function getMcpInstructionsDeltaAttachment(
     clientSide.push({
       serverName: CLAUDE_IN_CHROME_MCP_SERVER_NAME,
       block: CHROME_TOOL_SEARCH_INSTRUCTIONS,
+    })
+  }
+  // Computer-use guidance (tool tiers, access flow, link/financial safety).
+  // Only surfaces when the computer-use server is actually connected.
+  if (feature('CHICAGO_MCP')) {
+    clientSide.push({
+      serverName: COMPUTER_USE_MCP_SERVER_NAME,
+      block: COMPUTER_USE_MCP_INSTRUCTIONS,
     })
   }
 

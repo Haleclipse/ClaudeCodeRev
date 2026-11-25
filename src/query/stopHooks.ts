@@ -17,6 +17,7 @@ import type {
   ToolUseSummaryMessage,
 } from '../types/message.js'
 import { createAttachmentMessage } from '../utils/attachments.js'
+import { cleanupComputerUseAfterTurn } from '../utils/computerUse/cleanup.js'
 import { logForDebugging } from '../utils/debug.js'
 import { errorMessage } from '../utils/errors.js'
 import type { REPLHookContext } from '../utils/hooks/postSamplingHooks.js'
@@ -162,14 +163,8 @@ export async function* handleStopHooks(
   // seeing isLockHeldLocally()===false → no exit notification, and unhides
   // mid-turn. Subagents don't start CU sessions so this is a pure skip.
   if (feature('CHICAGO_MCP') && !toolUseContext.agentId) {
-    try {
-      const { cleanupComputerUseAfterTurn } = await import(
-        '../utils/computerUse/cleanup.js'
-      )
-      await cleanupComputerUseAfterTurn(toolUseContext)
-    } catch {
-      // Failures are silent — this is dogfooding cleanup, not critical path
-    }
+    // Failures are silent — this is dogfooding cleanup, not critical path
+    await cleanupComputerUseAfterTurn(toolUseContext).catch(() => {})
   }
 
   try {

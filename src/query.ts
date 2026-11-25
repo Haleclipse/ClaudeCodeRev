@@ -71,6 +71,7 @@ const jobClassifier = feature('TEMPLATES')
   ? (require('./jobs/classifier.js') as typeof import('./jobs/classifier.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
+import { cleanupComputerUseAfterTurn } from './utils/computerUse/cleanup.js'
 import {
   remove as removeFromQueue,
   getCommandsByMaxPriority,
@@ -1055,14 +1056,8 @@ async function* queryLoop(
       // as the natural turn-end path in stopHooks.ts. Main thread only —
       // see stopHooks.ts for the subagent-releasing-main's-lock rationale.
       if (feature('CHICAGO_MCP') && !toolUseContext.agentId) {
-        try {
-          const { cleanupComputerUseAfterTurn } = await import(
-            './utils/computerUse/cleanup.js'
-          )
-          await cleanupComputerUseAfterTurn(toolUseContext)
-        } catch {
-          // Failures are silent — this is dogfooding cleanup, not critical path
-        }
+        // Failures are silent — this is dogfooding cleanup, not critical path
+        await cleanupComputerUseAfterTurn(toolUseContext).catch(() => {})
       }
 
       // Skip the interruption message for submit-interrupts — the queued
@@ -1520,14 +1515,8 @@ async function* queryLoop(
       // This is the most likely Ctrl+C path for CU (e.g. slow screenshot).
       // Main thread only — see stopHooks.ts for the subagent rationale.
       if (feature('CHICAGO_MCP') && !toolUseContext.agentId) {
-        try {
-          const { cleanupComputerUseAfterTurn } = await import(
-            './utils/computerUse/cleanup.js'
-          )
-          await cleanupComputerUseAfterTurn(toolUseContext)
-        } catch {
-          // Failures are silent — this is dogfooding cleanup, not critical path
-        }
+        // Failures are silent — this is dogfooding cleanup, not critical path
+        await cleanupComputerUseAfterTurn(toolUseContext).catch(() => {})
       }
       // Skip the interruption message for submit-interrupts — the queued
       // user message that follows provides sufficient context.

@@ -8,6 +8,7 @@ import figures from 'figures'
 import * as React from 'react'
 import { useMemo, useState } from 'react'
 import { Box, Text } from '../../../ink.js'
+import { requireComputerUseSwift } from '../../../utils/computerUse/swiftLoader.js'
 import { execFileNoThrow } from '../../../utils/execFileNoThrow.js'
 import { plural } from '../../../utils/stringUtils.js'
 import type { OptionWithDescription } from '../../CustomSelect/select.js'
@@ -75,8 +76,13 @@ function ComputerUseTccPanel({
   }, [tccState.accessibility, tccState.screenRecording])
 
   function onChange(value: TccOption): void {
+    // Request the permission natively first: that registers this process in
+    // the TCC list (and shows the system prompt), so the user actually finds
+    // an entry to toggle when System Settings opens.
+    const cu = requireComputerUseSwift()
     switch (value) {
       case 'open_accessibility':
+        cu.tcc.requestAccessibility()
         void execFileNoThrow(
           'open',
           [
@@ -86,6 +92,7 @@ function ComputerUseTccPanel({
         )
         return
       case 'open_screen_recording':
+        cu.tcc.requestScreenRecording()
         void execFileNoThrow(
           'open',
           [

@@ -63,6 +63,7 @@ import {
   parseFileSpecs,
 } from './services/api/filesApi.js'
 import { prefetchPassesEligibility } from './services/api/referral.js'
+import { parseAutoCompactWindow } from './services/compact/autoCompact.js'
 import { prefetchOfficialMcpUrls } from './services/mcp/officialRegistry.js'
 import type {
   McpSdkServerConfig,
@@ -331,6 +332,11 @@ import {
 import { registerCleanup } from 'src/utils/cleanupRegistry.js'
 import { eagerParseCliFlag } from 'src/utils/cliArgs.js'
 import { createEmptyAttributionState } from 'src/utils/commitAttribution.js'
+import {
+  COMPUTER_USE_MCP_SERVER_NAME,
+  isComputerUseMCPServer,
+} from 'src/utils/computerUse/common.js'
+import { getChicagoEnabled } from 'src/utils/computerUse/gates.js'
 import {
   countConcurrentSessions,
   registerSession,
@@ -2291,12 +2297,11 @@ async function run(): Promise<CommanderCommand> {
           let reservedNameError: string | null = null
           if (nonSdkConfigNames.some(isClaudeInChromeMCPServer)) {
             reservedNameError = `Invalid MCP configuration: "${CLAUDE_IN_CHROME_MCP_SERVER_NAME}" is a reserved MCP name.`
-          } else if (feature('CHICAGO_MCP')) {
-            const { isComputerUseMCPServer, COMPUTER_USE_MCP_SERVER_NAME } =
-              await import('src/utils/computerUse/common.js')
-            if (nonSdkConfigNames.some(isComputerUseMCPServer)) {
-              reservedNameError = `Invalid MCP configuration: "${COMPUTER_USE_MCP_SERVER_NAME}" is a reserved MCP name.`
-            }
+          } else if (
+            feature('CHICAGO_MCP') &&
+            nonSdkConfigNames.some(isComputerUseMCPServer)
+          ) {
+            reservedNameError = `Invalid MCP configuration: "${COMPUTER_USE_MCP_SERVER_NAME}" is a reserved MCP name.`
           }
           if (reservedNameError) {
             // stderr+exit(1) — a throw here becomes a silent unhandled
@@ -2434,23 +2439,22 @@ async function run(): Promise<CommanderCommand> {
       // `type: 'stdio'`. An enterprise-config ant with the GB gate on would
       // otherwise process.exit(1). Chrome has the same latent issue but has
       // shipped without incident; chicago places itself correctly.
+      // The official 2.1.89 bundle has `(!getIsNonInteractiveSession() || !1)`
+      // here: an extra condition that folds to false in external builds —
+      // reconstructed as the ant-only allowance for print mode.
       if (
         feature('CHICAGO_MCP') &&
         getPlatform() === 'macos' &&
-        !getIsNonInteractiveSession()
+        (!getIsNonInteractiveSession() || "external" === 'ant') &&
+        getChicagoEnabled()
       ) {
         try {
-          const { getChicagoEnabled } = await import(
-            'src/utils/computerUse/gates.js'
+          const { setupComputerUseMCP } = await import(
+            'src/utils/computerUse/setup.js'
           )
-          if (getChicagoEnabled()) {
-            const { setupComputerUseMCP } = await import(
-              'src/utils/computerUse/setup.js'
-            )
-            const { mcpConfig, allowedTools: cuTools } = setupComputerUseMCP()
-            dynamicMcpConfig = { ...dynamicMcpConfig, ...mcpConfig }
-            allowedTools.push(...cuTools)
-          }
+          const { mcpConfig, allowedTools: cuTools } = setupComputerUseMCP()
+          dynamicMcpConfig = { ...dynamicMcpConfig, ...mcpConfig }
+          allowedTools.push(...cuTools)
         } catch (error) {
           logForDebugging(
             `[Computer Use MCP] Setup failed: ${errorMessage(error)}`,
@@ -3712,9 +3716,8 @@ async function run(): Promise<CommanderCommand> {
           toolPermissionContext,
           effortValue:
             parseEffortValue(options.effort) ?? getInitialEffortSetting(),
-          // options.autocompact: no such flag is registered in external
-          // builds (the official 2.1.89 bundle has no "--autocompact"), so
-          // this resolves to settings.autoCompactWindow there.
+          // options.autocompact is an ANT-ONLY flag; external builds fall
+          // through to settings.autoCompactWindow.
           autoCompactWindow:
             (options as { autocompact?: number }).autocompact ??
             getInitialSettings().autoCompactWindow,
@@ -5276,6 +5279,25 @@ async function run(): Promise<CommanderCommand> {
       '--agent-teams',
       '[ANT-ONLY] Force Claude to use multi-agent mode for solving problems',
       () => true,
+    )
+    // Inferred from the official 2.1.89 bundle: main.tsx imports autoCompact
+    // and seeds AppState.autoCompactWindow from options.autocompact, but no
+    // such flag is registered in the external build — so it lives here.
+    program.addOption(
+      new Option(
+        '--autocompact <tokens>',
+        '[ANT-ONLY] Auto-compact window for this session (100k–1M, e.g. 500k)',
+      )
+        .argParser(value => {
+          const tokens = parseAutoCompactWindow(value)
+          if (tokens === undefined) {
+            throw new InvalidArgumentError(
+              'Expected 100k–1M tokens (e.g. 500k, 200000, or 200)',
+            )
+          }
+          return tokens
+        })
+        .hideHelp(),
     )
   }
 
