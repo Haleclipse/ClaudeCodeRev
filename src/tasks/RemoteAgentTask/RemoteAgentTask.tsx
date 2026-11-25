@@ -1054,6 +1054,7 @@ export const RemoteAgentTask: Task = {
     let toolUseId: string | undefined
     let description: string | undefined
     let sessionId: string | undefined
+    let isUltraplan = false
     let killed = false
     updateTaskState<RemoteAgentTaskState>(taskId, setAppState, task => {
       if (task.status !== 'running') {
@@ -1062,6 +1063,7 @@ export const RemoteAgentTask: Task = {
       toolUseId = task.toolUseId
       description = task.description
       sessionId = task.sessionId
+      isUltraplan = task.isUltraplan ?? false
       killed = true
       return {
         ...task,
@@ -1082,6 +1084,20 @@ export const RemoteAgentTask: Task = {
       if (sessionId) {
         void archiveRemoteSession(sessionId).catch(e =>
           logForDebugging(`RemoteAgentTask archive failed: ${String(e)}`),
+        )
+      }
+      // Killing an ultraplan task from anywhere (task list, /tasks) must also
+      // drop its session URL / pending choice, or the "already polling" guard
+      // keeps blocking new launches.
+      if (isUltraplan) {
+        setAppState(prev =>
+          prev.ultraplanSessionUrl || prev.ultraplanPendingChoice
+            ? {
+                ...prev,
+                ultraplanSessionUrl: undefined,
+                ultraplanPendingChoice: undefined,
+              }
+            : prev,
         )
       }
     }

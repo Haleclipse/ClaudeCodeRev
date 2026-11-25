@@ -1,4 +1,3 @@
-import { readFileSync } from 'fs'
 import { REMOTE_CONTROL_DISCONNECTED_MSG } from '../bridge/types.js'
 import type { Command } from '../commands.js'
 import { DIAMOND_OPEN } from '../constants/figures.js'
@@ -16,7 +15,6 @@ import {
   type RemoteAgentTaskState,
   registerRemoteAgentTask,
 } from '../tasks/RemoteAgentTask/RemoteAgentTask.js'
-import type { LocalJSXCommandCall } from '../types/command.js'
 import { logForDebugging } from '../utils/debug.js'
 import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
@@ -50,8 +48,8 @@ function getUltraplanModel(): string {
   )
 }
 
-// prompt.txt is wrapped in <system-reminder> so the CCR browser hides
-// scaffolding (CLI_BLOCK_TAGS dropped by stripSystemNotifications)
+// The prompt variants are wrapped in <system-reminder> so the CCR browser
+// hides scaffolding (CLI_BLOCK_TAGS dropped by stripSystemNotifications)
 // while the model still sees full text.
 // Phrasing deliberately avoids the feature name because
 // the remote CCR CLI runs keyword detection on raw input before
@@ -60,34 +58,115 @@ function getUltraplanModel(): string {
 //
 // Bundler inlines .txt as a string; the test runner wraps it as {default}.
 /* eslint-disable @typescript-eslint/no-require-imports */
-const _rawPrompt = require('../utils/ultraplan/prompt.txt')
+const ULTRAPLAN_PROMPTS = {
+  // Lightweight: plan directly, no subagents
+  simple_plan: require('../utils/ultraplan/prompt-simple_plan.txt'),
+  // simple_plan + mermaid diagrams / tables for reviewability
+  visual_plan: require('../utils/ultraplan/prompt-visual_plan.txt'),
+  // The original multi-agent explore → critique prompt
+  three_subagents_with_critique: require('../utils/ultraplan/prompt.txt'),
+} as Record<string, string | { default: string }>
 /* eslint-enable @typescript-eslint/no-require-imports */
-const DEFAULT_INSTRUCTIONS: string = (
-  typeof _rawPrompt === 'string' ? _rawPrompt : _rawPrompt.default
-).trimEnd()
 
-// Dev-only prompt override resolved eagerly at module load.
-// Gated to ant builds (USER_TYPE is a build-time define,
-// so the override path is DCE'd from external builds).
-// Shell-set env only, so top-level process.env read is fine
-// — settings.env never injects this.
-/* eslint-disable custom-rules/no-process-env-top-level, custom-rules/no-sync-fs -- ant-only dev override; eager top-level read is the point (crash at startup, not silently inside the slash-command try/catch) */
-const ULTRAPLAN_INSTRUCTIONS: string =
-  "external" === 'ant' && process.env.ULTRAPLAN_PROMPT_FILE
-    ? readFileSync(process.env.ULTRAPLAN_PROMPT_FILE, 'utf8').trimEnd()
-    : DEFAULT_INSTRUCTIONS
-/* eslint-enable custom-rules/no-process-env-top-level, custom-rules/no-sync-fs */
+export type UltraplanPromptIdentifier =
+  | 'simple_plan'
+  | 'visual_plan'
+  | 'three_subagents_with_critique'
+
+const DEFAULT_PROMPT_IDENTIFIER: UltraplanPromptIdentifier = 'simple_plan'
+
+export const ULTRAPLAN_PROMPT_IDENTIFIERS = Object.keys(
+  ULTRAPLAN_PROMPTS,
+) as UltraplanPromptIdentifier[]
+
+function readPromptAsset(raw: string | { default: string }): string {
+  return (typeof raw === 'string' ? raw : raw.default).trimEnd()
+}
+
+function isUltraplanPromptIdentifier(
+  value: string,
+): value is UltraplanPromptIdentifier {
+  return value in ULTRAPLAN_PROMPTS
+}
+
+/** Prompt variant for this launch (GrowthBook tengu_ultraplan_prompt_identifier). */
+export function getUltraplanPromptIdentifier(): UltraplanPromptIdentifier {
+  const identifier = getFeatureValue_CACHED_MAY_BE_STALE<string>(
+    'tengu_ultraplan_prompt_identifier',
+    DEFAULT_PROMPT_IDENTIFIER,
+  )
+  return isUltraplanPromptIdentifier(identifier)
+    ? identifier
+    : DEFAULT_PROMPT_IDENTIFIER
+}
+
+type UltraplanPromptCopy = {
+  timeEstimate: string
+  dialogBody: string
+  dialogPipeline: string
+  usageBlurb: string[]
+}
+
+const LIGHTWEIGHT_PLAN_COPY: UltraplanPromptCopy = {
+  timeEstimate: 'a few minutes',
+  dialogBody:
+    'Claude explores your codebase directly and produces a plan you can review and refine.',
+  dialogPipeline: 'Plan → Edit → Execute',
+  usageBlurb: [
+    'Remote plan mode with our most powerful model (Opus).',
+    'Runs in Claude Code on the web. When the plan is ready,',
+    'you can execute it in the web session or send it back here.',
+    'You can continue to work while the plan is generated remotely.',
+  ],
+}
+
+// User-facing copy (launch dialog, /ultraplan usage) per prompt variant
+const ULTRAPLAN_PROMPT_COPY: Record<
+  UltraplanPromptIdentifier,
+  UltraplanPromptCopy
+> = {
+  simple_plan: LIGHTWEIGHT_PLAN_COPY,
+  visual_plan: LIGHTWEIGHT_PLAN_COPY,
+  three_subagents_with_critique: {
+    timeEstimate: '~10–30 min',
+    dialogBody:
+      'Claude explores your codebase with subagents and produces an ultraplan you can review and refine.',
+    dialogPipeline: 'Scope → Critique → Edit → Execute',
+    usageBlurb: [
+      'Advanced multi-agent plan mode with our most powerful model',
+      '(Opus). Runs in Claude Code on the web. When the plan is ready,',
+      'you can execute it in the web session or send it back here.',
+      'You can continue to work while the plan is generated remotely.',
+    ],
+  },
+}
+
+export function getUltraplanPromptCopy(
+  identifier?: UltraplanPromptIdentifier,
+): UltraplanPromptCopy {
+  return ULTRAPLAN_PROMPT_COPY[identifier ?? getUltraplanPromptIdentifier()]
+}
+
+function getUltraplanInstructions(
+  identifier: UltraplanPromptIdentifier,
+): string {
+  return readPromptAsset(ULTRAPLAN_PROMPTS[identifier]!)
+}
 
 /**
  * Assemble the initial CCR user message. seedPlan and blurb stay outside the
  * system-reminder so the browser renders them; scaffolding is hidden.
  */
-export function buildUltraplanPrompt(blurb: string, seedPlan?: string): string {
+export function buildUltraplanPrompt(
+  blurb: string,
+  seedPlan: string | undefined,
+  promptIdentifier: UltraplanPromptIdentifier,
+): string {
   const parts: string[] = []
   if (seedPlan) {
     parts.push('Here is a draft plan to refine:', '', seedPlan, '')
   }
-  parts.push(ULTRAPLAN_INSTRUCTIONS)
+  parts.push(getUltraplanInstructions(promptIdentifier))
   if (blurb) {
     parts.push('', blurb)
   }
@@ -229,7 +308,7 @@ function buildSessionReadyMessage(url: string): string {
   return `${DIAMOND_OPEN} ultraplan · Monitor progress in Claude Code on the web ${url}\nYou can continue working — when the ${DIAMOND_OPEN} fills, press ↓ to view results`
 }
 
-function buildAlreadyActiveMessage(url: string | undefined): string {
+export function buildAlreadyActiveMessage(url: string | undefined): string {
   return url
     ? `ultraplan: already polling. Open ${url} to check status, or wait for the plan to land here.`
     : 'ultraplan: already launching. Please wait for the session to start.'
@@ -287,6 +366,8 @@ export async function stopUltraplan(
 export async function launchUltraplan(opts: {
   blurb: string
   seedPlan?: string
+  /** Prompt variant; defaults to getUltraplanPromptIdentifier() at launch. */
+  promptIdentifier?: UltraplanPromptIdentifier
   getAppState: () => AppState
   setAppState: (f: (prev: AppState) => AppState) => void
   signal: AbortSignal
@@ -304,6 +385,7 @@ export async function launchUltraplan(opts: {
   const {
     blurb,
     seedPlan,
+    promptIdentifier,
     getAppState,
     setAppState,
     signal,
@@ -329,11 +411,7 @@ export async function launchUltraplan(opts: {
       'Usage: /ultraplan \\<prompt\\>, or include "ultraplan" anywhere',
       'in your prompt',
       '',
-      'Advanced multi-agent plan mode with our most powerful model',
-      '(Opus). Runs in Claude Code on the web. When the plan is ready,',
-      'you can execute it in the web session or send it back here.',
-      'Terminal stays free while the remote plans.',
-      'Requires /login.',
+      ...getUltraplanPromptCopy().usageBlurb,
       '',
       `Terms: ${CCR_TERMS_URL}`,
     ].join('\n')
@@ -347,6 +425,7 @@ export async function launchUltraplan(opts: {
   void launchDetached({
     blurb,
     seedPlan,
+    promptIdentifier,
     getAppState,
     setAppState,
     signal,
@@ -358,6 +437,7 @@ export async function launchUltraplan(opts: {
 async function launchDetached(opts: {
   blurb: string
   seedPlan?: string
+  promptIdentifier?: UltraplanPromptIdentifier
   getAppState: () => AppState
   setAppState: (f: (prev: AppState) => AppState) => void
   signal: AbortSignal
@@ -390,7 +470,9 @@ async function launchDetached(opts: {
       return
     }
 
-    const prompt = buildUltraplanPrompt(blurb, seedPlan)
+    const promptIdentifier =
+      opts.promptIdentifier ?? getUltraplanPromptIdentifier()
+    const prompt = buildUltraplanPrompt(blurb, seedPlan, promptIdentifier)
     let bundleFailMsg: string | undefined
     const session = await teleportToRemote({
       initialMessage: prompt,
@@ -429,6 +511,8 @@ async function launchDetached(opts: {
       has_seed_plan: Boolean(seedPlan),
       model:
         model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      prompt_identifier:
+        promptIdentifier as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
     // TODO(#23985): replace registerRemoteAgentTask + startDetachedPoll with
     // ExitPlanModeScanner inside startRemoteSessionPolling.
@@ -477,52 +561,3 @@ async function launchDetached(opts: {
     )
   }
 }
-
-const call: LocalJSXCommandCall = async (onDone, context, args) => {
-  const blurb = args.trim()
-
-  // Bare /ultraplan (no args, no seed plan) just shows usage — no dialog.
-  if (!blurb) {
-    const msg = await launchUltraplan({
-      blurb,
-      getAppState: context.getAppState,
-      setAppState: context.setAppState,
-      signal: context.abortController.signal,
-    })
-    onDone(msg, { display: 'system' })
-    return null
-  }
-
-  // Guard matches launchUltraplan's own check — showing the dialog when a
-  // session is already active or launching would waste the user's click and set
-  // hasSeenUltraplanTerms before the launch fails.
-  const { ultraplanSessionUrl: active, ultraplanLaunching } =
-    context.getAppState()
-  if (active || ultraplanLaunching) {
-    logEvent('tengu_ultraplan_create_failed', {
-      reason: (active
-        ? 'already_polling'
-        : 'already_launching') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-    })
-    onDone(buildAlreadyActiveMessage(active), { display: 'system' })
-    return null
-  }
-
-  // Mount the pre-launch dialog via focusedInputDialog (bottom region, like
-  // permission dialogs) rather than returning JSX (transcript area, anchors
-  // at top of scrollback). REPL.tsx handles launch/clear/cancel on choice.
-  context.setAppState(prev => ({ ...prev, ultraplanLaunchPending: { blurb } }))
-  // 'skip' suppresses the (no content) echo — the dialog's choice handler
-  // adds the real /ultraplan echo + launch confirmation.
-  onDone(undefined, { display: 'skip' })
-  return null
-}
-
-export default {
-  type: 'local-jsx',
-  name: 'ultraplan',
-  description: `~10–30 min · Claude Code on the web drafts an advanced plan you can edit and approve. See ${CCR_TERMS_URL}`,
-  argumentHint: '<prompt>',
-  isEnabled: () => "external" === 'ant',
-  load: () => Promise.resolve({ call }),
-} satisfies Command
