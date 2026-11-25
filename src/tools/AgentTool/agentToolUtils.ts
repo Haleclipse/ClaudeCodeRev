@@ -57,6 +57,11 @@ import { emitTaskProgress as emitTaskProgressEvent } from '../../utils/task/sdkP
 import { isInProcessTeammate } from '../../utils/teammateContext.js'
 import { getTokenCountFromUsage } from '../../utils/tokens.js'
 import { EXIT_PLAN_MODE_V2_TOOL_NAME } from '../ExitPlanModeTool/constants.js'
+import {
+  isReplModeEnabled,
+  REPL_ONLY_TOOLS,
+  REPL_TOOL_NAME,
+} from '../REPLTool/constants.js'
 import { AGENT_TOOL_NAME, LEGACY_AGENT_TOOL_NAME } from './constants.js'
 import type { AgentDefinition } from './loadAgentsDir.js'
 export type ResolvedAgentTools = {
@@ -177,6 +182,12 @@ export function resolveAgentTools(
     availableToolMap.set(tool.name, tool)
   }
 
+  // REPL mode hides the primitive tools behind REPL. An agent that lists
+  // e.g. Read/Bash gets REPL instead (unless REPL itself is disallowed).
+  const replTool =
+    isReplModeEnabled() && !disallowedToolSet.has(REPL_TOOL_NAME)
+      ? availableToolMap.get(REPL_TOOL_NAME)
+      : undefined
   const validTools: string[] = []
   const invalidTools: string[] = []
   const resolved: Tool[] = []
@@ -209,6 +220,12 @@ export function resolveAgentTools(
       if (!resolvedToolsSet.has(tool)) {
         resolved.push(tool)
         resolvedToolsSet.add(tool)
+      }
+    } else if (replTool && REPL_ONLY_TOOLS.has(toolName)) {
+      validTools.push(toolSpec)
+      if (!resolvedToolsSet.has(replTool)) {
+        resolved.push(replTool)
+        resolvedToolsSet.add(replTool)
       }
     } else {
       invalidTools.push(toolSpec)

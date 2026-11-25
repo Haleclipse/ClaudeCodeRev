@@ -841,6 +841,17 @@ export async function* runAgent({
       const { [agentId]: _removed, ...todos } = prev.todos
       return { ...prev, todos }
     })
+    // Same for the agent's REPL VM context — and stop its pending timers so
+    // setTimeout/setInterval callbacks don't fire after the agent is gone.
+    const replContext = toolUseContext.getAppState().replContexts[agentId]
+    if (replContext) {
+      replContext.clearAllTimers()
+      rootSetAppState(prev => {
+        if (!(agentId in prev.replContexts)) return prev
+        const { [agentId]: _removed, ...replContexts } = prev.replContexts
+        return { ...prev, replContexts }
+      })
+    }
     // Kill any background bash tasks this agent spawned. Without this, a
     // `run_in_background` shell loop (e.g. test fixture fake-logs.sh) outlives
     // the agent as a PPID=1 zombie once the main session eventually exits.

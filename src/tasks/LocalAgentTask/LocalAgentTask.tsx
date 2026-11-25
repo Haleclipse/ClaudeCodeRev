@@ -113,26 +113,21 @@ export function updateProgressFromMessage(
     (usage.cache_read_input_tokens ?? 0)
   tracker.cumulativeOutputTokens += usage.output_tokens
   for (const content of message.message.content) {
-    if (content.type === 'tool_use') {
-      tracker.toolUseCount++
-      // Omit StructuredOutput from preview - it's an internal tool
-      if (content.name !== SYNTHETIC_OUTPUT_TOOL_NAME) {
-        const input = content.input as Record<string, unknown>
-        const classification = tools
-          ? getToolSearchOrReadInfo(content.name, input, tools)
-          : undefined
-        tracker.recentActivities.push({
-          toolName: content.name,
-          input,
-          activityDescription: resolveActivityDescription?.(
-            content.name,
-            input,
-          ),
-          isSearch: classification?.isSearch,
-          isRead: classification?.isRead,
-        })
-      }
-    }
+    if (content.type !== 'tool_use') continue
+    tracker.toolUseCount++
+    // Omit StructuredOutput from preview - it's an internal tool
+    if (content.name === SYNTHETIC_OUTPUT_TOOL_NAME) continue
+    const input = content.input as Record<string, unknown>
+    const classification = tools
+      ? getToolSearchOrReadInfo(content.name, input, tools)
+      : undefined
+    tracker.recentActivities.push({
+      toolName: content.name,
+      input,
+      activityDescription: resolveActivityDescription?.(content.name, input),
+      isSearch: classification?.isSearch,
+      isRead: classification?.isRead,
+    })
   }
   while (tracker.recentActivities.length > MAX_RECENT_ACTIVITIES) {
     tracker.recentActivities.shift()
@@ -143,10 +138,7 @@ export function getProgressUpdate(tracker: ProgressTracker): AgentProgress {
   return {
     toolUseCount: tracker.toolUseCount,
     tokenCount: getTokenCountFromTracker(tracker),
-    lastActivity:
-      tracker.recentActivities.length > 0
-        ? tracker.recentActivities[tracker.recentActivities.length - 1]
-        : undefined,
+    lastActivity: tracker.recentActivities.at(-1),
     recentActivities: [...tracker.recentActivities],
   }
 }

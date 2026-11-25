@@ -326,6 +326,8 @@ import { getTools, assembleToolPool } from '../tools.js'
 import type { AgentDefinition } from '../tools/AgentTool/loadAgentsDir.js'
 import { resolveAgentTools } from '../tools/AgentTool/agentToolUtils.js'
 import { resumeAgentBackground } from '../tools/AgentTool/resumeAgent.js'
+import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
+import { getReplPrimitiveTools } from '../tools/REPLTool/primitiveTools.js'
 import { useMainLoopModel } from '../hooks/useMainLoopModel.js'
 import {
   useAppState,
@@ -1222,6 +1224,16 @@ export function REPL({
       allowedAgentTypes: resolved.allowedAgentTypes,
     }
   }, [mainThreadAgentDefinition, mergedTools])
+
+  // Tools for rendering/export only. In REPL mode the primitives (Read,
+  // Bash, …) are hidden from the model but still appear as tool_use blocks
+  // inside REPL calls — their renderers must be resolvable.
+  const renderTools = useMemo(() => {
+    if (!isReplModeEnabled()) return tools
+    const names = new Set(tools.map(t => t.name))
+    const extra = getReplPrimitiveTools().filter(t => !names.has(t.name))
+    return extra.length > 0 ? [...tools, ...extra] : tools
+  }, [tools])
 
   // Merge commands from local state, plugins, and MCP
   const commandsWithPlugins = useMergedCommands(
@@ -5717,7 +5729,7 @@ export function REPL({
             const w = Math.max(80, (process.stdout.columns ?? 80) - 6)
             const raw = await renderMessagesToPlainText(
               deferredMessages,
-              tools,
+              renderTools,
               w,
             )
             const text = raw.replace(/[ \t]+$/gm, '')
@@ -5825,7 +5837,7 @@ export function REPL({
       <MessageRatingProvider>
       <Messages
         messages={transcriptMessages}
-        tools={tools}
+        tools={renderTools}
         commands={commands}
         verbose={true}
         toolJSX={null}
@@ -6168,7 +6180,7 @@ export function REPL({
               <MessageRatingProvider>
               <Messages
                 messages={displayedMessages}
-                tools={tools}
+                tools={renderTools}
                 commands={commands}
                 verbose={verbose}
                 toolJSX={toolJSX}

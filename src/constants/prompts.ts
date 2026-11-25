@@ -44,7 +44,10 @@ import {
   getScratchpadDir,
 } from '../utils/permissions/filesystem.js'
 import { isEnvTruthy } from '../utils/envUtils.js'
-import { isReplModeEnabled } from '../tools/REPLTool/constants.js'
+import {
+  isReplModeEnabled,
+  REPL_TOOL_NAME,
+} from '../tools/REPLTool/constants.js'
 import { feature } from 'bun:bundle'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { shouldUseGlobalCacheScope } from '../utils/betas.js'
@@ -356,7 +359,10 @@ function getSessionSpecificGuidanceSection(
   const hasAskUserQuestionTool = enabledTools.has(ASK_USER_QUESTION_TOOL_NAME)
   const hasSkills =
     skillToolCommands.length > 0 && enabledTools.has(SKILL_TOOL_NAME)
-  const hasAgentTool = enabledTools.has(AGENT_TOOL_NAME)
+  // In REPL mode Agent is REPL-only (called from inside REPL), so the REPL
+  // tool's presence also means agents are available.
+  const hasAgentTool =
+    enabledTools.has(AGENT_TOOL_NAME) || enabledTools.has(REPL_TOOL_NAME)
   const searchTools = hasEmbeddedSearchTools()
     ? `\`find\` or \`grep\` via the ${BASH_TOOL_NAME} tool`
     : `the ${GLOB_TOOL_NAME} or ${GREP_TOOL_NAME}`

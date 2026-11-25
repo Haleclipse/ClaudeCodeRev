@@ -4149,6 +4149,7 @@ async function run(): Promise<CommanderCommand> {
           queue: [],
         },
         todos: {},
+        replContexts: {},
         remoteAgentTaskSuggestions: [],
         fileHistory: {
           snapshots: [],

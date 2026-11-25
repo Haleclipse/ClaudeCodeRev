@@ -86,6 +86,32 @@ export type FooterItem =
   | 'bridge'
   | 'companion'
 
+/** REPL tool VM context — persists across REPL calls for state sharing */
+export type ReplContext = {
+  vmContext: import('vm').Context
+  registeredTools: Map<
+    string,
+    {
+      name: string
+      description: string
+      schema: Record<string, unknown>
+      handler: (args: Record<string, unknown>) => Promise<unknown>
+    }
+  >
+  console: {
+    log: (...args: unknown[]) => void
+    error: (...args: unknown[]) => void
+    warn: (...args: unknown[]) => void
+    info: (...args: unknown[]) => void
+    debug: (...args: unknown[]) => void
+    getStdout: () => string
+    getStderr: () => string
+    clear: () => void
+  }
+  // Cancels timers scheduled from inside the VM (agent teardown)
+  clearAllTimers: () => void
+}
+
 export type AppState = DeepImmutable<{
   settings: SettingsJson
   verbose: boolean
@@ -218,6 +244,9 @@ export type AppState = DeepImmutable<{
   fileHistory: FileHistoryState
   attribution: AttributionState
   todos: { [agentId: string]: TodoList }
+  // Per-agent REPL tool VM contexts (main thread + subagents); released by
+  // runAgent when a subagent finishes
+  replContexts: { [agentId: string]: ReplContext }
   remoteAgentTaskSuggestions: { summary: string; task: string }[]
   notifications: {
     current: Notification | null
@@ -298,28 +327,7 @@ export type AppState = DeepImmutable<{
     displayResolvedForApps?: string
   }
   // REPL tool VM context - persists across REPL calls for state sharing
-  replContext?: {
-    vmContext: import('vm').Context
-    registeredTools: Map<
-      string,
-      {
-        name: string
-        description: string
-        schema: Record<string, unknown>
-        handler: (args: Record<string, unknown>) => Promise<unknown>
-      }
-    >
-    console: {
-      log: (...args: unknown[]) => void
-      error: (...args: unknown[]) => void
-      warn: (...args: unknown[]) => void
-      info: (...args: unknown[]) => void
-      debug: (...args: unknown[]) => void
-      getStdout: () => string
-      getStderr: () => string
-      clear: () => void
-    }
-  }
+  replContext?: ReplContext
   teamContext?: {
     teamName: string
     teamFilePath: string
@@ -531,6 +539,7 @@ export function getDefaultAppState(): AppState {
       needsRefresh: false,
     },
     todos: {},
+    replContexts: {},
     remoteAgentTaskSuggestions: [],
     notifications: {
       current: null,
