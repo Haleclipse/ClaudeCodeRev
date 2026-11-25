@@ -5,6 +5,7 @@ import { logEvent } from '../services/analytics/index.js'
 import { CACHE_PATHS } from './cachePaths.js'
 import { logForDebugging } from './debug.js'
 import { getClaudeConfigHomeDir } from './envUtils.js'
+import { isENOENT } from './errors.js'
 import { type FsOperations, getFsImplementation } from './fsOperations.js'
 import { cleanupOldImageCaches } from './imageStore.js'
 import * as lockfile from './lockfile.js'
@@ -22,10 +23,16 @@ import { cleanupStaleAgentWorktrees } from './worktree.js'
 
 const DEFAULT_CLEANUP_PERIOD_DAYS = 30
 
-function getCutoffDate(): Date {
+// Returns null (skip cleanup) for cleanupPeriodDays 0. The schema now requires
+// >= 1; this is the defensive side — 0 used to compute a cutoff of "now",
+// i.e. treat every transcript as expired.
+function getCutoffDate(): Date | null {
   const settings = getSettings_DEPRECATED() || {}
   const cleanupPeriodDays =
     settings.cleanupPeriodDays ?? DEFAULT_CLEANUP_PERIOD_DAYS
+  if (cleanupPeriodDays === 0) {
+    return null
+  }
   const cleanupPeriodMs = cleanupPeriodDays * 24 * 60 * 60 * 1000
   return new Date(Date.now() - cleanupPeriodMs)
 }
@@ -82,7 +89,7 @@ async function cleanupOldFilesInDirectory(
     }
   } catch (error: unknown) {
     // Ignore if directory doesn't exist
-    if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
+    if (error instanceof Error && !isENOENT(error)) {
       logError(error)
     }
   }
@@ -93,6 +100,9 @@ async function cleanupOldFilesInDirectory(
 export async function cleanupOldMessageFiles(): Promise<CleanupResult> {
   const fsImpl = getFsImplementation()
   const cutoffDate = getCutoffDate()
+  if (cutoffDate === null) {
+    return { messages: 0, errors: 0 }
+  }
   const errorPath = CACHE_PATHS.errors()
   const baseCachePath = CACHE_PATHS.baseLogs()
 
@@ -123,7 +133,7 @@ export async function cleanupOldMessageFiles(): Promise<CleanupResult> {
       await tryRmdir(mcpLogDir, fsImpl)
     }
   } catch (error: unknown) {
-    if (error instanceof Error && 'code' in error && error.code !== 'ENOENT') {
+    if (error instanceof Error && !isENOENT(error)) {
       logError(error)
     }
   }
@@ -155,6 +165,9 @@ async function tryRmdir(dirPath: string, fsImpl: FsOperations): Promise<void> {
 export async function cleanupOldSessionFiles(): Promise<CleanupResult> {
   const cutoffDate = getCutoffDate()
   const result: CleanupResult = { messages: 0, errors: 0 }
+  if (cutoffDate === null) {
+    return result
+  }
   const projectsDir = getProjectsDir()
   const fsImpl = getFsImplementation()
 
@@ -270,6 +283,9 @@ async function cleanupSingleDirectory(
 ): Promise<CleanupResult> {
   const cutoffDate = getCutoffDate()
   const result: CleanupResult = { messages: 0, errors: 0 }
+  if (cutoffDate === null) {
+    return result
+  }
   const fsImpl = getFsImplementation()
 
   let dirents
@@ -305,6 +321,9 @@ export function cleanupOldPlanFiles(): Promise<CleanupResult> {
 export async function cleanupOldFileHistoryBackups(): Promise<CleanupResult> {
   const cutoffDate = getCutoffDate()
   const result: CleanupResult = { messages: 0, errors: 0 }
+  if (cutoffDate === null) {
+    return result
+  }
   const fsImpl = getFsImplementation()
 
   try {
@@ -350,6 +369,9 @@ export async function cleanupOldFileHistoryBackups(): Promise<CleanupResult> {
 export async function cleanupOldSessionEnvDirs(): Promise<CleanupResult> {
   const cutoffDate = getCutoffDate()
   const result: CleanupResult = { messages: 0, errors: 0 }
+  if (cutoffDate === null) {
+    return result
+  }
   const fsImpl = getFsImplementation()
 
   try {
@@ -396,6 +418,9 @@ export async function cleanupOldSessionEnvDirs(): Promise<CleanupResult> {
 export async function cleanupOldDebugLogs(): Promise<CleanupResult> {
   const cutoffDate = getCutoffDate()
   const result: CleanupResult = { messages: 0, errors: 0 }
+  if (cutoffDate === null) {
+    return result
+  }
   const fsImpl = getFsImplementation()
   const debugDir = join(getClaudeConfigHomeDir(), 'debug')
 
@@ -591,10 +616,13 @@ export async function cleanupOldMessageFilesInBackground(): Promise<void> {
   await cleanupOldSessionEnvDirs()
   await cleanupOldDebugLogs()
   await cleanupOldImageCaches()
-  await cleanupOldPastes(getCutoffDate())
-  const removedWorktrees = await cleanupStaleAgentWorktrees(getCutoffDate())
-  if (removedWorktrees > 0) {
-    logEvent('tengu_worktree_cleanup', { removed: removedWorktrees })
+  const cutoffDate = getCutoffDate()
+  if (cutoffDate !== null) {
+    await cleanupOldPastes(cutoffDate)
+    const removedWorktrees = await cleanupStaleAgentWorktrees(cutoffDate)
+    if (removedWorktrees > 0) {
+      logEvent('tengu_worktree_cleanup', { removed: removedWorktrees })
+    }
   }
   if (process.env.USER_TYPE === 'ant') {
     await cleanupNpmCacheForAnthropicPackages()

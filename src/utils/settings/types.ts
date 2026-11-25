@@ -324,11 +324,11 @@ export const SettingsSchema = lazySchema(() =>
         ),
       cleanupPeriodDays: z
         .number()
-        .nonnegative()
         .int()
+        .positive()
         .optional()
         .describe(
-          'Number of days to retain chat transcripts (default: 30). Setting to 0 disables session persistence entirely: no transcripts are written and existing transcripts are deleted at startup.',
+          'Number of days to retain chat transcripts before automatic cleanup (default: 30). Minimum 1. Use a large value for long retention; use --no-session-persistence to disable transcript writes entirely.',
         ),
       env: EnvironmentVariablesSchema()
         .optional()

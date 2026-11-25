@@ -81,7 +81,6 @@ import {
   saveAgentName,
   saveCustomTitle,
 } from '../../../utils/sessionStorage.js'
-import { getSettings_DEPRECATED } from '../../../utils/settings/settings.js'
 import { type OptionWithDescription, Select } from '../../CustomSelect/index.js'
 import { Markdown } from '../../Markdown.js'
 import { PermissionDialog } from '../PermissionDialog.js'
@@ -159,10 +158,7 @@ export function autoNameSessionFromPlan(
   setAppState: (updater: (prev: AppState) => AppState) => void,
   isClearContext: boolean,
 ): void {
-  if (
-    isSessionPersistenceDisabled() ||
-    getSettings_DEPRECATED()?.cleanupPeriodDays === 0
-  ) {
+  if (isSessionPersistenceDisabled()) {
     return
   }
   // On clear-context, the current session is about to be abandoned — its

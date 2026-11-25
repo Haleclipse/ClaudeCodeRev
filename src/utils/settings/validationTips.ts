@@ -45,12 +45,10 @@ const TIP_MATCHERS: TipMatcher[] = [
   },
   {
     matches: (ctx): boolean =>
-      ctx.path === 'cleanupPeriodDays' &&
-      ctx.code === 'too_small' &&
-      ctx.expected === '0',
+      ctx.path === 'cleanupPeriodDays' && ctx.code === 'too_small',
     tip: {
       suggestion:
-        'Must be 0 or greater. Set a positive number for days to retain transcripts (default is 30). Setting 0 disables session persistence entirely: no transcripts are written and existing transcripts are deleted at startup.',
+        'cleanupPeriodDays must be at least 1. To keep transcripts for a long time, set a large number (e.g. 3650 for ~10 years). To disable transcript writes entirely, remove this setting and use the --no-session-persistence CLI flag or the SDK persistSession:false option instead. (0 is rejected because it previously silently disabled all transcript writes, which users setting it to mean "never clean up" did not expect.)',
     },
   },
   {

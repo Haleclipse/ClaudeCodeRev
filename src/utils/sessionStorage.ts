@@ -90,7 +90,6 @@ import {
   readTranscriptForLoad,
   SKIP_PRECOMPACT_THRESHOLD,
 } from './sessionStoragePortable.js'
-import { getSettings_DEPRECATED } from './settings/settings.js'
 import { jsonParse, jsonStringify } from './slowOperations.js'
 import type { ContentReplacementRecord } from './toolResultStorage.js'
 import { validateUuid } from './uuid.js'
@@ -952,8 +951,9 @@ class Project {
   }
 
   /**
-   * True when test env / cleanupPeriodDays=0 / --no-session-persistence /
+   * True when test env / --no-session-persistence /
    * CLAUDE_CODE_SKIP_PROMPT_HISTORY should suppress all transcript writes.
+   * (cleanupPeriodDays=0 no longer does: the schema now requires >= 1.)
    * Shared guard for appendEntry and materializeSessionFile so both skip
    * consistently. The env var is set by tmuxSocket.ts so Tungsten-spawned
    * test sessions don't pollute the user's --resume list.
@@ -964,7 +964,6 @@ class Project {
     )
     return (
       (getNodeEnv() === 'test' && !allowTestPersistence) ||
-      getSettings_DEPRECATED()?.cleanupPeriodDays === 0 ||
       isSessionPersistenceDisabled() ||
       isEnvTruthy(process.env.CLAUDE_CODE_SKIP_PROMPT_HISTORY)
     )
