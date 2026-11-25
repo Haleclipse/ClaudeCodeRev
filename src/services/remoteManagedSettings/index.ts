@@ -40,6 +40,7 @@ import {
 import { isRemoteManagedSettingsEligible, resetSyncCache } from './syncCache.js'
 import {
   getRemoteManagedSettingsSyncFromCache,
+  getRemoteSettingsOverridePath,
   getSettingsPath,
   setSessionCache,
 } from './syncCacheState.js'
@@ -399,6 +400,9 @@ export async function clearRemoteManagedSettingsCache(): Promise<void> {
   loadingCompletePromise = null
   loadingCompleteResolve = null
 
+  // Never delete a user-provided override file
+  if (getRemoteSettingsOverridePath()) return
+
   try {
     const path = getSettingsPath()
     await unlink(path)
@@ -415,6 +419,14 @@ export async function clearRemoteManagedSettingsCache(): Promise<void> {
 async function fetchAndLoadRemoteManagedSettings(): Promise<SettingsJson | null> {
   if (!isRemoteManagedSettingsEligible()) {
     return null
+  }
+
+  const overridePath = getRemoteSettingsOverridePath()
+  if (overridePath) {
+    logForDebugging(
+      `Remote settings: Using override file ${overridePath} (CLAUDE_CODE_REMOTE_SETTINGS_PATH), skipping API fetch`,
+    )
+    return getRemoteManagedSettingsSyncFromCache()
   }
 
   // Load cached settings from file
@@ -535,7 +547,8 @@ export async function loadRemoteManagedSettings(): Promise<void> {
     const settings = await fetchAndLoadRemoteManagedSettings()
 
     // Start background polling to pick up settings changes mid-session
-    if (isRemoteManagedSettingsEligible()) {
+    // (nothing to poll when settings come from an override file)
+    if (isRemoteManagedSettingsEligible() && !getRemoteSettingsOverridePath()) {
       startBackgroundPolling()
     }
 

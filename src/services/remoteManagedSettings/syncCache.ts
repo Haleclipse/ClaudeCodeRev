@@ -18,6 +18,7 @@ import {
 } from '../../utils/model/providers.js'
 
 import {
+  getRemoteSettingsOverridePath,
   resetSyncCache as resetLeafCache,
   setEligibility,
 } from './syncCacheState.js'
@@ -48,6 +49,11 @@ export function resetSyncCache(): void {
  */
 export function isRemoteManagedSettingsEligible(): boolean {
   if (cached !== undefined) return cached
+
+  // A local override file stands in for the API — always eligible
+  if (getRemoteSettingsOverridePath()) {
+    return (cached = setEligibility(true))
+  }
 
   // 3p provider users should not hit the settings endpoint
   if (getAPIProvider() !== 'firstParty') {

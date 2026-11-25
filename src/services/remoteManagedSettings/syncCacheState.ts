@@ -48,8 +48,25 @@ export function setEligibility(v: boolean): boolean {
   return v
 }
 
+/**
+ * CLAUDE_CODE_REMOTE_SETTINGS_PATH: use this local file as the remote
+ * managed settings — no API fetch, no background polling, and the
+ * eligibility check is bypassed. For testing managed-settings payloads
+ * without a server round-trip; ant-only so the env read is DCE'd from
+ * external builds.
+ */
+export function getRemoteSettingsOverridePath(): string | undefined {
+  if (process.env.USER_TYPE === 'ant') {
+    return process.env.CLAUDE_CODE_REMOTE_SETTINGS_PATH || undefined
+  }
+  return undefined
+}
+
 export function getSettingsPath(): string {
-  return join(getClaudeConfigHomeDir(), SETTINGS_FILENAME)
+  return (
+    getRemoteSettingsOverridePath() ??
+    join(getClaudeConfigHomeDir(), SETTINGS_FILENAME)
+  )
 }
 
 // sync IO — settings pipeline is sync. fileRead and jsonRead are leaves;
@@ -68,7 +85,7 @@ function loadSettings(): SettingsJson | null {
 }
 
 export function getRemoteManagedSettingsSyncFromCache(): SettingsJson | null {
-  if (eligible !== true) return null
+  if (!getRemoteSettingsOverridePath() && eligible !== true) return null
   if (sessionCache) return sessionCache
   const cachedSettings = loadSettings()
   if (cachedSettings) {
