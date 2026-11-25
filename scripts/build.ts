@@ -39,55 +39,55 @@ mkdirSync(DIST, { recursive: true })
 const FEATURE_FLAGS: Record<string, boolean> = {
   // === Generally available (ON in production) ===
   BRIDGE_MODE: true,
-  BG_SESSIONS: true,
-  TEMPLATES: true,
+  BG_SESSIONS: false, // official 2.1.88: gated modules absent from its sourcemap
+  TEMPLATES: false, // official 2.1.88: gated modules absent from its sourcemap
   BUILTIN_EXPLORE_PLAN_AGENTS: true,
-  FORK_SUBAGENT: true,
-  SLOW_OPERATION_LOGGING: true,
-  COMPACTION_REMINDERS: true,
+  FORK_SUBAGENT: false, // official 2.1.88: gated modules absent from its sourcemap
+  SLOW_OPERATION_LOGGING: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  COMPACTION_REMINDERS: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   EXTRACT_MEMORIES: true,
-  HISTORY_PICKER: true,
-  HISTORY_SNIP: true,
-  CONTEXT_COLLAPSE: true,
-  AUTO_THEME: true,
-  REACTIVE_COMPACT: true,
-  CACHED_MICROCOMPACT: true,
-  TOKEN_BUDGET: true,
-  STREAMLINED_OUTPUT: true,
-  FILE_PERSISTENCE: true,
-  CONNECTOR_TEXT: true,
-  MCP_RICH_OUTPUT: true,
-  MCP_SKILLS: true,
-  HOOK_PROMPTS: true,
-  PROACTIVE: true,
+  HISTORY_PICKER: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  HISTORY_SNIP: false, // official 2.1.88: gated modules absent from its sourcemap
+  CONTEXT_COLLAPSE: false, // official 2.1.88: gated modules absent from its sourcemap
+  AUTO_THEME: false, // official 2.1.88: gated modules absent from its sourcemap
+  REACTIVE_COMPACT: false, // official 2.1.88: gated modules absent from its sourcemap
+  CACHED_MICROCOMPACT: false, // official 2.1.88: gated modules absent from its sourcemap
+  TOKEN_BUDGET: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  STREAMLINED_OUTPUT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  FILE_PERSISTENCE: false, // official 2.1.88: with it on, utils/filePersistence/types.ts gets bundled; official tree-shakes it
+  CONNECTOR_TEXT: false, // official 2.1.88: with it on, types/connectorText.ts gets bundled; official tree-shakes it
+  MCP_RICH_OUTPUT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  MCP_SKILLS: false, // official 2.1.88: gated modules absent from its sourcemap
+  HOOK_PROMPTS: false, // official 2.1.88: REPL getToolUseContext passes requestPrompt: void 0
+  PROACTIVE: false, // official 2.1.88: gated modules absent from its sourcemap
   BUILDING_CLAUDE_APPS: true,
-  UNATTENDED_RETRY: true,
-  COMMIT_ATTRIBUTION: true,
-  PROMPT_CACHE_BREAK_DETECTION: true,
-  DOWNLOAD_USER_SETTINGS: true,
-  UPLOAD_USER_SETTINGS: true,
-  SKIP_DETECTION_WHEN_AUTOUPDATES_DISABLED: true,
-  QUICK_SEARCH: true,
-  MESSAGE_ACTIONS: true,
-  SKILL_IMPROVEMENT: true,
-  EXPERIMENTAL_SKILL_SEARCH: true,
-  RUN_SKILL_GENERATOR: true,
-  BASH_CLASSIFIER: true,
+  UNATTENDED_RETRY: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  COMMIT_ATTRIBUTION: false, // official 2.1.88: gated modules absent from its sourcemap
+  PROMPT_CACHE_BREAK_DETECTION: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  DOWNLOAD_USER_SETTINGS: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  UPLOAD_USER_SETTINGS: false, // official 2.1.88: bundle token-distance search; module-presence evidence was a false positive
+  SKIP_DETECTION_WHEN_AUTOUPDATES_DISABLED: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  QUICK_SEARCH: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  MESSAGE_ACTIONS: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  SKILL_IMPROVEMENT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  EXPERIMENTAL_SKILL_SEARCH: false, // official 2.1.88: gated modules absent from its sourcemap
+  RUN_SKILL_GENERATOR: false, // official 2.1.88: gated modules absent from its sourcemap
+  BASH_CLASSIFIER: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   TRANSCRIPT_CLASSIFIER: true,
-  WORKFLOW_SCRIPTS: true,
-  AGENT_MEMORY_SNAPSHOT: true,
-  AWAY_SUMMARY: true,
+  WORKFLOW_SCRIPTS: false, // official 2.1.88: gated modules absent from its sourcemap
+  AGENT_MEMORY_SNAPSHOT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  AWAY_SUMMARY: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   AGENT_TRIGGERS: true,
   AGENT_TRIGGERS_REMOTE: true,
-  POWERSHELL_AUTO_MODE: true,
+  POWERSHELL_AUTO_MODE: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   TEAMMEM: true,
-  REVIEW_ARTIFACT: true,
-  ULTRAPLAN: true,
+  REVIEW_ARTIFACT: false, // official 2.1.88: gated modules absent from its sourcemap
+  ULTRAPLAN: false, // official 2.1.88: bundle token-distance search; module-presence evidence was a false positive
   ULTRATHINK: true,
-  TORCH: true,
-  VERIFICATION_AGENT: true,
+  TORCH: false, // official 2.1.88: gated modules absent from its sourcemap
+  VERIFICATION_AGENT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   NEW_INIT: true,
-  HARD_FAIL: true,
+  HARD_FAIL: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
 
   // === Platform-specific (detected at build time) ===
   IS_LIBC_GLIBC: process.platform === 'linux',
@@ -99,30 +99,30 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   DAEMON: isDev,
   SELF_HOSTED_RUNNER: isDev,
   BYOC_ENVIRONMENT_RUNNER: isDev,
-  CHICAGO_MCP: isDev,
+  CHICAGO_MCP: true, // official 2.1.88: gated modules present in its sourcemap
   WEB_BROWSER_TOOL: isDev,
-  VOICE_MODE: isDev,
+  VOICE_MODE: true, // official 2.1.88: gated modules present in its sourcemap
   BUDDY: isDev,
   KAIROS: isDev,
-  KAIROS_BRIEF: isDev,
-  KAIROS_CHANNELS: isDev,
+  KAIROS_BRIEF: true, // official 2.1.88: gates commands/brief.ts, present in its sourcemap (KAIROS itself is off)
+  KAIROS_CHANNELS: true, // official 2.1.88: gates the channel components present in its sourcemap
   KAIROS_DREAM: isDev,
   KAIROS_GITHUB_WEBHOOKS: isDev,
   KAIROS_PUSH_NOTIFICATION: isDev,
-  LODESTONE: isDev,
+  LODESTONE: true, // official 2.1.88: gated modules present in its sourcemap
   MONITOR_TOOL: isDev,
   COORDINATOR_MODE: isDev,
   SSH_REMOTE: isDev,
   DIRECT_CONNECT: isDev,
-  NATIVE_CLIENT_ATTESTATION: isDev,
-  NATIVE_CLIPBOARD_IMAGE: isDev,
+  NATIVE_CLIENT_ATTESTATION: true, // official 2.1.88: system prompt carries the " cch=00000;" placeholder
+  NATIVE_CLIPBOARD_IMAGE: true, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   UDS_INBOX: isDev,
   TERMINAL_PANEL: isDev,
   SHOT_STATS: isDev,
-  CCR_AUTO_CONNECT: isDev,
+  CCR_AUTO_CONNECT: false, // official 2.1.88: bundle token-distance search; module-presence evidence was a false positive
   CCR_MIRROR: isDev,
-  CCR_REMOTE_SETUP: isDev,
-  ENHANCED_TELEMETRY_BETA: isDev,
+  CCR_REMOTE_SETUP: true, // official 2.1.88: gated modules present in its sourcemap
+  ENHANCED_TELEMETRY_BETA: true, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   COWORKER_TYPE_TELEMETRY: isDev,
   MEMORY_SHAPE_TELEMETRY: isDev,
   PERFETTO_TRACING: isDev,
@@ -131,7 +131,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   BREAK_CACHE_COMMAND: isDev,
   OVERFLOW_TEST_TOOL: isDev,
   TREE_SITTER_BASH: isDev,
-  TREE_SITTER_BASH_SHADOW: isDev,
+  TREE_SITTER_BASH_SHADOW: true, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
 }
 
 // Env overrides: FEATURE_DAEMON=true
@@ -156,38 +156,24 @@ const MACROS: Record<string, string> = {
 }
 
 // ---------------------------------------------------------------------------
-// bun:bundle shim — replace `import { feature } from 'bun:bundle'` and
-// `feature('FLAG')` calls with compile-time boolean literals.
+// bun:bundle feature flags — native compile-time folding.
+//
+// `import { feature } from 'bun:bundle'` is a Bun built-in: `Bun.build({ features })`
+// folds each `feature('FLAG')` to a boolean literal and drops the dead branch
+// *before* resolving its imports, so `feature('X') ? require('./gated.js') : null`
+// never tries to resolve a module that the public build doesn't ship. Bun >= 1.3
+// handles `bun:bundle` itself: the earlier shim plugin was never invoked and the
+// regex post-process had nothing to replace, so every flag folded to false.
 // ---------------------------------------------------------------------------
-
-/**
- * Bun plugin that intercepts `bun:bundle` imports and replaces feature()
- * calls with boolean literals for dead code elimination.
- */
-const bunBundlePlugin: import('bun').BunPlugin = {
-  name: 'bun-bundle-shim',
-  setup(build) {
-    // Provide a virtual module for `bun:bundle`
-    build.onResolve({ filter: /^bun:bundle$/ }, () => ({
-      path: 'bun:bundle',
-      namespace: 'bun-bundle-shim',
-    }))
-
-    build.onLoad({ filter: /.*/, namespace: 'bun-bundle-shim' }, () => ({
-      contents: `export function feature(name) { return false; }`,
-      loader: 'js',
-    }))
-  },
-}
+const ENABLED_FEATURES = Object.entries(FEATURE_FLAGS)
+  .filter(([_, on]) => on)
+  .map(([name]) => name)
 
 // ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
-// Build define map: feature('FLAG') → true/false
-// Bun's `define` replaces identifiers, but feature() is a function call.
-// We handle it via the plugin above + post-process.
-// For MACRO.*, we use `define` directly.
+// Build define map: MACRO.* constants (feature() is folded via `features` above).
 const define: Record<string, string> = {}
 for (const [key, val] of Object.entries(MACROS)) {
   define[key] = val
@@ -205,7 +191,7 @@ async function main() {
   console.log(`Building Claude Code v${VERSION}`)
   console.log(`  Mode: ${isDev ? 'development' : 'production'}`)
   console.log(`  Sourcemap: ${withSourcemap}`)
-  console.log(`  Features ON: ${Object.entries(FEATURE_FLAGS).filter(([_, v]) => v).length}/${Object.keys(FEATURE_FLAGS).length}`)
+  console.log(`  Features ON: ${ENABLED_FEATURES.length}/${Object.keys(FEATURE_FLAGS).length}`)
 
   const result = await Bun.build({
     entrypoints: [join(ROOT, 'src/entrypoints/cli.tsx')],
@@ -215,7 +201,8 @@ async function main() {
     minify: !isDev,
     sourcemap: withSourcemap ? 'external' : 'none',
     define,
-    plugins: [bunBundlePlugin],
+    // `features` is not in older bun-types; it is honored by Bun >= 1.3.
+    ...({ features: ENABLED_FEATURES } as Record<string, unknown>),
     // .md must load as raw text: Bun's default renders Markdown to HTML, while the
     // official bundle embeds the skill docs verbatim ("# Claude API — Java", not "<h1>").
     loader: { '.md': 'text', '.txt': 'text' },
@@ -233,27 +220,8 @@ async function main() {
     process.exit(1)
   }
 
-  // ---------------------------------------------------------------------------
-  // Post-process: replace feature() calls with boolean literals
-  //
-  // The bun:bundle shim provides a fallback, but Bun's bundler may inline
-  // the virtual module. To ensure DCE works, we do a regex pass on the output.
-  // ---------------------------------------------------------------------------
   const outFile = join(DIST, 'cli.js')
   let code = readFileSync(outFile, 'utf8')
-
-  // Replace feature("FLAG") / feature('FLAG') with true/false
-  code = code.replace(
-    /\bfeature\(["']([^"']+)["']\)/g,
-    (match, flag) => {
-      const value = FEATURE_FLAGS[flag]
-      if (value === undefined) {
-        console.warn(`  Warning: unknown feature flag "${flag}", defaulting to false`)
-        return 'false'
-      }
-      return String(value)
-    },
-  )
 
   // Prepend shebang
   if (!code.startsWith('#!')) {
