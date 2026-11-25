@@ -1932,9 +1932,25 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
 
   const requiredOrgUuid =
     getSettingsForSource('policySettings')?.forceLoginOrgUUID
-  if (!requiredOrgUuid) {
+  if (requiredOrgUuid === undefined) {
     return { valid: true }
   }
+  // A single UUID or a list of permitted ones (any one matches)
+  const allowedOrgUuids =
+    typeof requiredOrgUuid === 'string' ? [requiredOrgUuid] : requiredOrgUuid
+  if (allowedOrgUuids.length === 0) {
+    return {
+      valid: false,
+      message:
+        `forceLoginOrgUUID in managed settings is set to an empty array.\n` +
+        `No organizations are permitted. This is almost certainly a misconfiguration.\n` +
+        `Contact your administrator.`,
+    }
+  }
+  const requiredOrgDescription =
+    allowedOrgUuids.length === 1
+      ? `organization ${allowedOrgUuids[0]}`
+      : `one of these organizations: ${allowedOrgUuids.join(', ')}`
 
   // Ensure the access token is fresh before hitting the profile endpoint.
   // No-op for env-var tokens (refreshToken is null).
@@ -1960,7 +1976,7 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
       valid: false,
       message:
         `Unable to verify organization for the current authentication token.\n` +
-        `This machine requires organization ${requiredOrgUuid} but the profile could not be fetched.\n` +
+        `This machine requires ${requiredOrgDescription} but the profile could not be fetched.\n` +
         `This may be a network error, or the token may lack the user:profile scope required for\n` +
         `verification (tokens from 'claude setup-token' do not include this scope).\n` +
         `Try again, or obtain a full-scope token via 'claude auth login'.`,
@@ -1968,7 +1984,7 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
   }
 
   const tokenOrgUuid = profile.organization.uuid
-  if (tokenOrgUuid === requiredOrgUuid) {
+  if (allowedOrgUuids.includes(tokenOrgUuid)) {
     return { valid: true }
   }
 
@@ -1982,9 +1998,9 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
       message:
         `The ${envVarName} environment variable provides a token for a\n` +
         `different organization than required by this machine's managed settings.\n\n` +
-        `Required organization: ${requiredOrgUuid}\n` +
-        `Token organization:   ${tokenOrgUuid}\n\n` +
-        `Remove the environment variable or obtain a token for the correct organization.`,
+        `Required: ${requiredOrgDescription}\n` +
+        `Token organization: ${tokenOrgUuid}\n\n` +
+        `Remove the environment variable or obtain a token for a permitted organization.`,
     }
   }
 
@@ -1992,8 +2008,8 @@ export async function validateForceLoginOrg(): Promise<OrgValidationResult> {
     valid: false,
     message:
       `Your authentication token belongs to organization ${tokenOrgUuid},\n` +
-      `but this machine requires organization ${requiredOrgUuid}.\n\n` +
-      `Please log in with the correct organization: claude auth login`,
+      `but this machine requires ${requiredOrgDescription}.\n\n` +
+      `Please log in with a permitted organization: claude auth login`,
   }
 }
 

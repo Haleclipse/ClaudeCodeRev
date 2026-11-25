@@ -13,6 +13,7 @@ import { getSSLErrorHint } from '../services/api/errorUtils.js'
 import { sendNotification } from '../services/notifier.js'
 import { OAuthService } from '../services/oauth/index.js'
 import { getOauthAccountInfo, validateForceLoginOrg } from '../utils/auth.js'
+import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
 import { getSettings_DEPRECATED } from '../utils/settings/settings.js'
 import { Select } from './CustomSelect/select.js'
@@ -51,7 +52,12 @@ export function ConsoleOAuthFlow({
 }: Props): React.ReactNode {
   const settings = getSettings_DEPRECATED() || {}
   const forceLoginMethod = forceLoginMethodProp ?? settings.forceLoginMethod
-  const orgUUID = settings.forceLoginOrgUUID
+  // Only a single required org can be pre-selected for login; a list of
+  // permitted orgs is enforced afterwards by validateForceLoginOrg
+  const orgUUID =
+    typeof settings.forceLoginOrgUUID === 'string'
+      ? settings.forceLoginOrgUUID
+      : undefined
   const forcedMethodMessage =
     forceLoginMethod === 'claudeai'
       ? 'Login method pre-selected: Subscription Plan (Claude Pro/Max)'
@@ -186,7 +192,7 @@ export function ConsoleOAuthFlow({
       logError(err)
       setOAuthStatus({
         state: 'error',
-        message: (err as Error).message,
+        message: errorMessage(err),
         toRetry: { state: 'waiting_for_login', url },
       })
     }
@@ -258,18 +264,18 @@ export function ConsoleOAuthFlow({
         )
       }
     } catch (err) {
-      const errorMessage = (err as Error).message
+      const message = errorMessage(err)
       const sslHint = getSSLErrorHint(err)
       setOAuthStatus({
         state: 'error',
-        message: sslHint ?? errorMessage,
+        message: sslHint ?? message,
         toRetry: {
           state: mode === 'setup-token' ? 'ready_to_start' : 'idle',
         },
       })
       logEvent('tengu_oauth_error', {
         error:
-          errorMessage as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          message as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         ssl_error: sslHint !== null,
       })
     }

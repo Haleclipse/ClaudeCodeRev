@@ -281,33 +281,31 @@ export const SettingsSchema = lazySchema(() =>
       // doesn't surface this in GlobalClaudeSettings. Read via getXaaIdpSettings().
       // .passthrough() on the outer object keeps an existing settings.json key
       // alive across env-var-off sessions — it's just not schema-validated then.
-      ...(isEnvTruthy(process.env.CLAUDE_CODE_ENABLE_XAA)
-        ? {
-            xaaIdp: z
-              .object({
-                issuer: z
-                  .string()
-                  .url()
-                  .describe('IdP issuer URL for OIDC discovery'),
-                clientId: z
-                  .string()
-                  .describe("Claude Code's client_id registered at the IdP"),
-                callbackPort: z
-                  .number()
-                  .int()
-                  .positive()
-                  .optional()
-                  .describe(
-                    'Fixed loopback callback port for the IdP OIDC login. ' +
-                      'Only needed if the IdP does not honor RFC 8252 port-any matching.',
-                  ),
-              })
+      ...(isEnvTruthy(process.env.CLAUDE_CODE_ENABLE_XAA) && {
+        xaaIdp: z
+          .object({
+            issuer: z
+              .string()
+              .url()
+              .describe('IdP issuer URL for OIDC discovery'),
+            clientId: z
+              .string()
+              .describe("Claude Code's client_id registered at the IdP"),
+            callbackPort: z
+              .number()
+              .int()
+              .positive()
               .optional()
               .describe(
-                'XAA (SEP-990) IdP connection. Configure once; all XAA-enabled MCP servers reuse this.',
+                'Fixed loopback callback port for the IdP OIDC login. ' +
+                  'Only needed if the IdP does not honor RFC 8252 port-any matching.',
               ),
-          }
-        : {}),
+          })
+          .optional()
+          .describe(
+            'XAA (SEP-990) IdP connection. Configure once; all XAA-enabled MCP servers reuse this.',
+          ),
+      }),
       fileSuggestion: z
         .object({
           type: z.literal('command'),
@@ -629,9 +627,12 @@ export const SettingsSchema = lazySchema(() =>
         ),
       // Organization UUID to use for OAuth login (will be added as URL param to authorization URL)
       forceLoginOrgUUID: z
-        .string()
+        .union([z.string(), z.array(z.string())])
         .optional()
-        .describe('Organization UUID to use for OAuth login'),
+        .describe(
+          'Organization UUID to require for OAuth login. Accepts a single UUID string or an array of UUIDs (any one is permitted). ' +
+            'When set in managed settings, login fails if the authenticated account does not belong to a listed organization.',
+        ),
       otelHeadersHelper: z
         .string()
         .optional()
@@ -838,16 +839,14 @@ export const SettingsSchema = lazySchema(() =>
           'Custom directory for plan files, relative to project root. ' +
             'If not set, defaults to ~/.claude/plans/',
         ),
-      ...(process.env.USER_TYPE === 'ant'
-        ? {
-            classifierPermissionsEnabled: z
-              .boolean()
-              .optional()
-              .describe(
-                'Enable AI-based classification for Bash(prompt:...) permission rules',
-              ),
-          }
-        : {}),
+      ...(process.env.USER_TYPE === 'ant' && {
+        classifierPermissionsEnabled: z
+          .boolean()
+          .optional()
+          .describe(
+            'Enable AI-based classification for Bash(prompt:...) permission rules',
+          ),
+      }),
       ...(feature('PROACTIVE') || feature('KAIROS')
         ? {
             minSleepDurationMs: z
@@ -999,12 +998,10 @@ export const SettingsSchema = lazySchema(() =>
                   .array(z.string())
                   .optional()
                   .describe('Rules for the auto mode classifier deny section'),
-                ...(process.env.USER_TYPE === 'ant'
-                  ? {
-                      // Back-compat alias for ant users; external users use soft_deny
-                      deny: z.array(z.string()).optional(),
-                    }
-                  : {}),
+                ...(process.env.USER_TYPE === 'ant' && {
+                  // Back-compat alias for ant users; external users use soft_deny
+                  deny: z.array(z.string()).optional(),
+                }),
                 environment: z
                   .array(z.string())
                   .optional()
