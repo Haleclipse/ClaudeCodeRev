@@ -1428,6 +1428,23 @@ export function isAllowlistedCommand(
 
   const canonical = resolveToCanonical(cmd.name)
 
+  // Windows PowerShell 5.1 re-quotes arguments for native executables by
+  // its own rules: an argument containing both `"` and whitespace can be
+  // split differently than it was validated here, smuggling extra args past
+  // the allowlist. Don't auto-allow those for external programs.
+  if (
+    getPlatform() === 'windows' &&
+    (cmd.nameType === 'application' ||
+      canonical === 'git' ||
+      canonical === 'gh' ||
+      canonical === 'docker' ||
+      canonical === 'dotnet')
+  ) {
+    for (const arg of cmd.args) {
+      if (arg.includes('"') && /\s/.test(arg)) return false
+    }
+  }
+
   // Handle external commands via shared validation
   if (
     canonical === 'git' ||
