@@ -184,7 +184,7 @@ export async function* handleStopHooks(
       stopHookActive ?? false,
       toolUseContext.agentId,
       toolUseContext,
-      [...messagesForQuery, ...assistantMessages],
+      toolUseContext.messages,
       toolUseContext.agentType,
     )
 

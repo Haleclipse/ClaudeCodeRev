@@ -71,9 +71,10 @@ import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
 import { getClaudeConfigHomeDir, isEnvTruthy } from './envUtils.js'
 import { isFsInaccessible } from './errors.js'
+import type { HookDeferredToolAttachment } from './attachments.js'
 import type { FileHistorySnapshot } from './fileHistory.js'
 import { formatFileSize } from './format.js'
-import { getFsImplementation } from './fsOperations.js'
+import { getFsImplementation, tailFile } from './fsOperations.js'
 import { getWorktreePaths } from './getWorktreePaths.js'
 import { getBranch } from './git.js'
 import { gracefulShutdownSync, isShuttingDown } from './gracefulShutdown.js'
@@ -4361,6 +4362,11 @@ export function isLoggableMessage(m: Message): boolean {
     ) {
       return true
     }
+    // Deferred-tool markers must reach the transcript so `-p --resume` can
+    // find them.
+    if (m.attachment.type === 'hook_deferred_tool') {
+      return true
+    }
     return false
   }
   return true
@@ -4513,6 +4519,58 @@ export async function findUnresolvedToolUse(
     }
 
     return toolUseMessage
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Finds the most recent hook_deferred_tool marker in a transcript whose tool
+ * call is still pending (no tool_result for it after the marker). Only the
+ * last 1MB of the file is scanned — the marker is written at the very end of
+ * the deferring session.
+ */
+export async function findDeferredToolMarkerInTranscript(
+  transcriptPath: string,
+): Promise<HookDeferredToolAttachment | null> {
+  try {
+    const { content, bytesRead, bytesTotal } = await tailFile(
+      transcriptPath,
+      1024 * 1024,
+    )
+    const lines = content.split('\n')
+    // The first line is likely cut mid-entry when we didn't read the whole file
+    if (bytesRead < bytesTotal) {
+      lines.shift()
+    }
+
+    let marker: HookDeferredToolAttachment | null = null
+    let markerLine = -1
+    for (let i = lines.length - 1; i >= 0; i--) {
+      const line = lines[i]!.trim()
+      if (!line.includes('"hook_deferred_tool"')) continue
+      const entry = jsonParse(line)
+      if (
+        entry?.type === 'attachment' &&
+        entry.attachment?.type === 'hook_deferred_tool'
+      ) {
+        marker = entry.attachment
+        markerLine = i
+        break
+      }
+    }
+    if (!marker) {
+      return null
+    }
+
+    // Already resolved if a tool_result for this tool call follows the marker
+    const resultNeedle = `"tool_use_id":"${marker.toolUseID}"`
+    for (let i = markerLine + 1; i < lines.length; i++) {
+      if (lines[i]!.includes(resultNeedle)) {
+        return null
+      }
+    }
+    return marker
   } catch {
     return null
   }

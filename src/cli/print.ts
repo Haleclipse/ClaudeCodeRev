@@ -70,6 +70,7 @@ import {
   loadConversationForResume,
   type TurnInterruptionState,
 } from 'src/utils/conversationRecovery.js'
+import type { HookDeferredToolAttachment } from 'src/utils/attachments.js'
 import type {
   MCPServerConnection,
   McpSdkServerConfig,
@@ -138,7 +139,10 @@ import type { ReplBridgeHandle } from 'src/bridge/replBridge.js'
 import { getRemoteSessionUrl } from 'src/constants/product.js'
 import { buildBridgeConnectUrl } from 'src/bridge/bridgeStatusUtil.js'
 import { extractInboundMessageFields } from 'src/bridge/inboundMessages.js'
-import { resolveAndPrepend } from 'src/bridge/inboundAttachments.js'
+import {
+  extractInboundAttachments,
+  resolveAndPrepend,
+} from 'src/bridge/inboundAttachments.js'
 import type { CanUseToolFn } from 'src/hooks/useCanUseTool.js'
 import { hasPermissionsToUseTool } from 'src/utils/permissions/permissions.js'
 import { safeParseJSON } from 'src/utils/json.js'
@@ -206,6 +210,7 @@ import {
   hydrateRemoteSession,
   hydrateFromCCRv2InternalEvents,
   resetSessionFilePointer,
+  adoptResumedSessionFile,
   doesMessageExistInSession,
   findUnresolvedToolUse,
   recordAttributionSnapshot,
@@ -682,6 +687,7 @@ export async function runHeadless(
   const {
     messages: initialMessages,
     turnInterruptionState,
+    deferredToolUse,
     agentSetting: resumedAgentSetting,
   } = await loadInitialMessages(setAppState, {
     continue: options.continue,
@@ -770,15 +776,24 @@ export async function runHeadless(
     return
   }
 
-  // Check if we need input prompt - skip if we're resuming with a valid session ID/JSONL file or using SDK URL
+  // Check if we need input prompt - skip if using SDK URL, if the resumed
+  // session ended on a deferred tool call (auto-resumed below), or if a
+  // SessionStart hook supplied the first user message
   const hasValidResumeSessionId =
     typeof options.resume === 'string' &&
     (Boolean(validateUuid(options.resume)) || options.resume.endsWith('.jsonl'))
   const isUsingSdkUrl = Boolean(options.sdkUrl)
 
-  if (!inputPrompt && !hasValidResumeSessionId && !isUsingSdkUrl) {
+  if (
+    !inputPrompt &&
+    !isUsingSdkUrl &&
+    !deferredToolUse &&
+    !hookInitialUserMessage
+  ) {
     process.stderr.write(
-      `Error: Input must be provided either through stdin or as a prompt argument when using --print\n`,
+      hasValidResumeSessionId || options.continue
+        ? `Error: No deferred tool marker found in the resumed session. Either the session was not deferred, the marker is stale (tool already ran), or it exceeds the tail-scan window. Provide a prompt to continue the conversation.\n`
+        : `Error: Input must be provided either through stdin or as a prompt argument when using --print\n`,
     )
     gracefulShutdownSync(1)
     return
@@ -874,6 +889,7 @@ export async function runHeadless(
     agents,
     options,
     turnInterruptionState,
+    deferredToolUse,
   )) {
     if (transformToStreamlined) {
       // Streamlined mode: transform messages and stream immediately
@@ -1006,8 +1022,11 @@ function runHeadlessStreaming(
     workload?: string | undefined
   },
   turnInterruptionState?: TurnInterruptionState,
+  deferredToolUse?: HookDeferredToolAttachment,
 ): AsyncIterable<StdoutMessage> {
   let running = false
+  // Handed to the first ask() only; QueryEngine re-runs it through PreToolUse
+  let pendingDeferredToolUse = deferredToolUse
   let runPhase:
     | 'draining_commands'
     | 'waiting_for_agents'
@@ -1956,6 +1975,7 @@ function runHeadlessStreaming(
                 ...command,
                 value: joinPromptValues(batch.map(c => c.value)),
                 uuid: batch.findLast(c => c.uuid)?.uuid ?? command.uuid,
+                fileAttachments: batch.flatMap(c => c.fileAttachments ?? []),
               }
             }
           }
@@ -1976,6 +1996,9 @@ function runHeadlessStreaming(
                   parent_tool_use_id: null,
                   uuid: c.uuid,
                   isReplay: true,
+                  ...(c.fileAttachments?.length && {
+                    file_attachments: c.fileAttachments,
+                  }),
                 } satisfies SDKUserMessageReplay)
               }
             }
@@ -2152,6 +2175,7 @@ function runHeadlessStreaming(
               prompt: input,
               promptUuid: cmd.uuid,
               isMeta: cmd.isMeta,
+              fileAttachments: cmd.fileAttachments,
               cwd: cwd(),
               tools: allTools,
               verbose: options.verbose,
@@ -2198,6 +2222,7 @@ function runHeadlessStreaming(
                 ),
               agents: currentAgents,
               orphanedPermission: cmd.orphanedPermission,
+              deferredToolUse: pendingDeferredToolUse,
               setSDKStatus: status => {
                 output.enqueue({
                   type: 'system',
@@ -2208,6 +2233,7 @@ function runHeadlessStreaming(
                 })
               },
             })) {
+              pendingDeferredToolUse = undefined
               // Forward messages to bridge incrementally (mid-turn) so
               // claude.ai sees progress and the connection stays alive
               // while blocked on permission requests.
@@ -2691,6 +2717,22 @@ function runHeadlessStreaming(
         void run()
       }
     })
+  }
+
+  // The resumed session ended on a tool call deferred by a PreToolUse hook.
+  // Kick off a turn without user input: QueryEngine re-runs the deferred tool
+  // first, then the model continues from its result.
+  if (deferredToolUse) {
+    logForDebugging(
+      `[print.ts] Auto-resuming deferred tool: ${deferredToolUse.toolName} (${deferredToolUse.toolUseID})`,
+    )
+    enqueue({
+      mode: 'prompt',
+      value: 'Continue from where you left off.',
+      uuid: randomUUID(),
+      isMeta: true,
+    })
+    void run()
   }
 
   // Cron scheduler: runs scheduled_tasks.json tasks in SDK/-p mode.
@@ -4075,6 +4117,7 @@ function runHeadlessStreaming(
             logForDebugging(
               `Sending acknowledgment for duplicate user message: ${message.uuid}`,
             )
+            const fileAttachments = extractInboundAttachments(message)
             output.enqueue({
               type: 'user',
               message: message.message,
@@ -4083,6 +4126,9 @@ function runHeadlessStreaming(
               uuid: message.uuid,
               timestamp: message.timestamp,
               isReplay: true,
+              ...(fileAttachments.length > 0 && {
+                file_attachments: fileAttachments,
+              }),
             } as SDKUserMessageReplay)
           }
           // Historical dup = transcript already has this turn's output, so it
@@ -4099,6 +4145,7 @@ function runHeadlessStreaming(
         trackReceivedMessageUuid(message.uuid)
       }
 
+      const fileAttachments = extractInboundAttachments(message)
       enqueue({
         mode: 'prompt' as const,
         // file_attachments rides the protobuf catchall from the web composer.
@@ -4106,6 +4153,8 @@ function runHeadlessStreaming(
         value: await resolveAndPrepend(message, message.message.content),
         uuid: message.uuid,
         priority: message.priority,
+        // Kept so the replayed user message can echo them back
+        ...(fileAttachments.length > 0 && { fileAttachments }),
       })
       // Increment prompt count for attribution tracking and save snapshot
       // The snapshot persists promptCount so it survives compaction
@@ -4887,6 +4936,7 @@ export function removeInterruptedMessage(
 type LoadInitialMessagesResult = {
   messages: Message[]
   turnInterruptionState?: TurnInterruptionState
+  deferredToolUse?: HookDeferredToolAttachment
   agentSetting?: string
 }
 
@@ -4962,6 +5012,12 @@ async function loadInitialMessages(
             ? { ...result, worktreeSession: undefined }
             : result,
         )
+        // Keep writing to the resumed transcript (resetSessionFilePointer
+        // above nulled the pointer), so a deferred tool's result and any
+        // later turns land in the same session file
+        if (!options.forkSession && persistSession && result.sessionId) {
+          adoptResumedSessionFile()
+        }
 
         // Write mode entry for the resumed session
         if (feature('COORDINATOR_MODE') && coordinatorModeModule) {
@@ -4975,6 +5031,7 @@ async function loadInitialMessages(
         return {
           messages: result.messages,
           turnInterruptionState: result.turnInterruptionState,
+          deferredToolUse: result.deferredToolUse,
           agentSetting: result.agentSetting,
         }
       }
@@ -5162,6 +5219,10 @@ async function loadInitialMessages(
           ? { ...result, worktreeSession: undefined }
           : result,
       )
+      // Same as --continue above: keep writing to the resumed transcript
+      if (!options.forkSession && persistSession && result.sessionId) {
+        adoptResumedSessionFile()
+      }
 
       // Write mode entry for the resumed session
       if (feature('COORDINATOR_MODE') && coordinatorModeModule) {
@@ -5173,6 +5234,7 @@ async function loadInitialMessages(
       return {
         messages: result.messages,
         turnInterruptionState: result.turnInterruptionState,
+        deferredToolUse: result.deferredToolUse,
         agentSetting: result.agentSetting,
       }
     } catch (error) {

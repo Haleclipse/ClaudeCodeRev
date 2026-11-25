@@ -86,6 +86,8 @@ import { getProjectRoot } from '../bootstrap/state.js'
 import { formatCommandsWithinBudget } from '../tools/SkillTool/prompt.js'
 import { getContextWindowForModel } from './context.js'
 import type { DiscoverySignal } from '../services/skillSearch/signals.js'
+import type { InboundAttachment } from '../bridge/inboundAttachments.js'
+import type { PermissionMode } from '../types/permissions.js'
 // Conditional require for DCE. All skill-search string literals that would
 // otherwise leak into external builds live inside these modules. The only
 // surfaces in THIS file are: the maybe() call (gated via spread below) and
@@ -377,6 +379,23 @@ export type HookAttachment =
     }
   | HookSystemMessageAttachment
   | HookPermissionDecisionAttachment
+  | HookDeferredToolAttachment
+
+/**
+ * Marker written when a PreToolUse hook returns permissionDecision "defer"
+ * (print mode only). The session stops before running the tool; a later
+ * `-p --resume` finds this marker in the transcript tail and re-runs the
+ * tool call through PreToolUse.
+ */
+export type HookDeferredToolAttachment = {
+  type: 'hook_deferred_tool'
+  toolUseID: string
+  toolName: string
+  toolInput: Record<string, unknown>
+  hookName: string
+  hookEvent: HookEvent
+  permissionMode: PermissionMode
+}
 
 export type HookPermissionDecisionAttachment = {
   type: 'hook_permission_decision'
@@ -545,6 +564,8 @@ export type Attachment =
       prompt: string | Array<ContentBlockParam>
       source_uuid?: UUID
       imagePasteIds?: number[]
+      /** SDK file attachments carried from the QueuedCommand (replayed as file_attachments) */
+      fileAttachments?: InboundAttachment[]
       /** Original queue mode — 'prompt' for user messages, 'task-notification' for system events */
       commandMode?: string
       /** Provenance carried from QueuedCommand so mid-turn drains preserve it */
@@ -1074,6 +1095,7 @@ export async function getQueuedCommandAttachments(
         prompt,
         source_uuid: _.uuid,
         imagePasteIds: getImagePasteIds(_.pastedContents),
+        fileAttachments: _.fileAttachments,
         commandMode: _.mode,
         origin: _.origin,
         isMeta: _.isMeta,

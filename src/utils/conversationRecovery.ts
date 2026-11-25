@@ -18,7 +18,10 @@ import type {
   NormalizedUserMessage,
 } from '../types/message.js'
 import { PERMISSION_MODES } from '../types/permissions.js'
-import { suppressNextSkillListing } from './attachments.js'
+import {
+  type HookDeferredToolAttachment,
+  suppressNextSkillListing,
+} from './attachments.js'
 import {
   copyFileHistoryForResume,
   type FileHistorySnapshot,
@@ -39,6 +42,7 @@ import { processSessionStartHooks } from './sessionStart.js'
 import {
   buildConversationChain,
   checkResumeConsistency,
+  findDeferredToolMarkerInTranscript,
   getLastSessionLog,
   getSessionIdFromLog,
   isLiteLog,
@@ -163,6 +167,9 @@ export function deserializeMessages(serializedMessages: Message[]): Message[] {
  */
 export function deserializeMessagesWithInterruptDetection(
   serializedMessages: Message[],
+  // tool_use IDs that intentionally have no tool_result yet (deferred by a
+  // PreToolUse hook) — kept in place and not treated as an interruption
+  preserveToolUseIds?: ReadonlySet<string>,
 ): DeserializeResult {
   try {
     // Transform legacy attachment types before processing
@@ -186,6 +193,7 @@ export function deserializeMessagesWithInterruptDetection(
     // Filter out unresolved tool uses and any synthetic messages that follow them
     const filteredToolUses = filterUnresolvedToolUses(
       migratedMessages,
+      preserveToolUseIds,
     ) as NormalizedMessage[]
 
     // Filter out orphaned thinking-only assistant messages that can cause API errors
@@ -201,7 +209,11 @@ export function deserializeMessagesWithInterruptDetection(
       filteredThinking,
     ) as NormalizedMessage[]
 
-    const internalState = detectTurnInterruption(filteredMessages)
+    // A deferred tool call ends the session on purpose; resuming re-runs it
+    // instead of auto-continuing an "interrupted" turn.
+    const internalState: InternalInterruptionState = preserveToolUseIds?.size
+      ? { kind: 'none' }
+      : detectTurnInterruption(filteredMessages)
 
     // Transform mid-turn interruptions into interrupted_prompt by appending
     // a synthetic continuation message. This unifies both interruption kinds
@@ -459,6 +471,8 @@ export async function loadConversationForResume(
 ): Promise<{
   messages: Message[]
   turnInterruptionState: TurnInterruptionState
+  // Pending tool call deferred by a PreToolUse hook (print mode), if any
+  deferredToolUse?: HookDeferredToolAttachment
   fileHistorySnapshots?: FileHistorySnapshot[]
   attributionSnapshots?: AttributionSnapshotMessage[]
   contentReplacements?: ContentReplacementRecord[]
@@ -557,8 +571,19 @@ export async function loadConversationForResume(
     // This ensures skills survive multiple compaction cycles after resume.
     restoreSkillStateFromMessages(messages!)
 
+    // A session that ended on a deferred tool call keeps that tool_use so it
+    // can be re-run (see findDeferredToolMarkerInTranscript)
+    const transcriptPath = log?.fullPath ?? sourceJsonlFile
+    const deferredToolUse = transcriptPath
+      ? ((await findDeferredToolMarkerInTranscript(transcriptPath)) ??
+        undefined)
+      : undefined
+
     // Deserialize messages to handle unresolved tool uses and ensure proper format
-    const deserialized = deserializeMessagesWithInterruptDetection(messages!)
+    const deserialized = deserializeMessagesWithInterruptDetection(
+      messages!,
+      deferredToolUse ? new Set([deferredToolUse.toolUseID]) : undefined,
+    )
     messages = deserialized.messages
 
     // Process session start hooks for resume
@@ -570,6 +595,7 @@ export async function loadConversationForResume(
     return {
       messages,
       turnInterruptionState: deserialized.turnInterruptionState,
+      deferredToolUse,
       fileHistorySnapshots: log?.fileHistorySnapshots,
       attributionSnapshots: log?.attributionSnapshots,
       contentReplacements: log?.contentReplacements,

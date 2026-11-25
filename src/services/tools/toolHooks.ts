@@ -161,18 +161,14 @@ export async function* runPostToolUseHooks<Input extends AnyObject, Output>(
           queryChainId: toolUseContext.queryTracking
             ?.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           queryDepth: toolUseContext.queryTracking?.depth,
-          ...(mcpServerType
-            ? {
-                mcpServerType:
-                  mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
-          ...(requestId
-            ? {
-                requestId:
-                  requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
+          ...(mcpServerType && {
+            mcpServerType:
+              mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
+          ...(requestId && {
+            requestId:
+              requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
         })
         yield {
           message: createAttachmentMessage({
@@ -289,18 +285,14 @@ export async function* runPostToolUseFailureHooks<Input extends AnyObject>(
           queryChainId: toolUseContext.queryTracking
             ?.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           queryDepth: toolUseContext.queryTracking?.depth,
-          ...(mcpServerType
-            ? {
-                mcpServerType:
-                  mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
-          ...(requestId
-            ? {
-                requestId:
-                  requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
+          ...(mcpServerType && {
+            mcpServerType:
+              mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
+          ...(requestId && {
+            requestId:
+              requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
         })
         yield {
           message: createAttachmentMessage({
@@ -458,8 +450,12 @@ export async function* runPreToolUseHooks(
     }
   // stop execution
   | { type: 'stop' }
+  // a hook asked to defer this tool call (emitted last, only if nothing denied)
+  | { type: 'defer'; hookName: string }
 > {
   const hookStartTime = Date.now()
+  let deferHookName: string | undefined
+  let denied = false
   try {
     const appState = toolUseContext.getAppState()
 
@@ -479,6 +475,7 @@ export async function* runPreToolUseHooks(
           yield { type: 'message', message: { message: result.message } }
         }
         if (result.blockingError) {
+          denied = true
           const denialMessage = getPreToolHookBlockingMessage(
             `PreToolUse:${tool.name}`,
             result.blockingError,
@@ -511,6 +508,15 @@ export async function* runPreToolUseHooks(
           logForDebugging(
             `Hook result has permissionBehavior=${result.permissionBehavior}`,
           )
+          // defer is not a permission result: remember it and decide after
+          // all hooks have run (any deny wins over defer)
+          if (result.permissionBehavior === 'defer') {
+            deferHookName = result.hookSource || `PreToolUse:${tool.name}`
+            continue
+          }
+          if (result.permissionBehavior === 'deny') {
+            denied = true
+          }
           const decisionReason: PermissionDecisionReason = {
             type: 'hook',
             hookName: `PreToolUse:${tool.name}`,
@@ -614,18 +620,14 @@ export async function* runPreToolUseHooks(
           queryChainId: toolUseContext.queryTracking
             ?.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
           queryDepth: toolUseContext.queryTracking?.depth,
-          ...(mcpServerType
-            ? {
-                mcpServerType:
-                  mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
-          ...(requestId
-            ? {
-                requestId:
-                  requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
+          ...(mcpServerType && {
+            mcpServerType:
+              mcpServerType as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
+          ...(requestId && {
+            requestId:
+              requestId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
         })
         yield {
           type: 'message',
@@ -646,5 +648,8 @@ export async function* runPreToolUseHooks(
     logError(error)
     yield { type: 'stop' }
     return
+  }
+  if (deferHookName && !denied) {
+    yield { type: 'defer', hookName: deferHookName }
   }
 }

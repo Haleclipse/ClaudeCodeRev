@@ -54,3 +54,10 @@ export const MAX_TOOL_RESULTS_PER_MESSAGE_CHARS = 200_000
  * for display in grouped agent rendering.
  */
 export const TOOL_SUMMARY_MAX_LENGTH = 50
+
+/**
+ * Hook output (stdout, systemMessage, additionalContext, initialUserMessage)
+ * longer than this is persisted to disk and replaced with a file reference
+ * plus preview, the same way oversized tool results are handled.
+ */
+export const MAX_HOOK_OUTPUT_LENGTH = 10_000

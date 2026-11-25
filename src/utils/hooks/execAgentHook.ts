@@ -14,6 +14,7 @@ import { createAttachmentMessage } from '../attachments.js'
 import { createCombinedAbortSignal } from '../combinedAbortSignal.js'
 import { logForDebugging } from '../debug.js'
 import { errorMessage } from '../errors.js'
+import { getFsImplementation, safeResolvePath } from '../fsOperations.js'
 import type { HookResult } from '../hooks.js'
 import { createUserMessage, handleMessageFromStream } from '../messages.js'
 import { getSmallFastModel } from '../model/model.js'
@@ -51,9 +52,15 @@ export async function execAgentHook(
   const effectiveToolUseID = toolUseID || `hook-${randomUUID()}`
 
   // Get transcript path from context
-  const transcriptPath = toolUseContext.agentId
+  const rawTranscriptPath = toolUseContext.agentId
     ? getAgentTranscriptPath(toolUseContext.agentId)
     : getTranscriptPath()
+  // Resolved through symlinks so the path we hand to the agent matches what
+  // its Read permission checks see
+  const transcriptPath = safeResolvePath(
+    getFsImplementation(),
+    rawTranscriptPath,
+  ).resolvedPath
   const hookStartTime = Date.now()
   try {
     // Replace $ARGUMENTS with the JSON input
