@@ -23,7 +23,14 @@
     /* Path aliases — Bun resolves `from 'src/...'` as root-relative */
     "baseUrl": ".",
     "paths": {
-      "src/*": ["./src/*"]
+      "src/*": ["./src/*"],
+      // Native-module facades resolve to source, as in the official build (its sourcemap
+      // lists ../vendor/*-src/index.ts and ../src/native-ts/color-diff/index.ts, not node_modules).
+      "color-diff-napi": ["./src/native-ts/color-diff/index.ts"],
+      "modifiers-napi": ["./vendor/modifiers-napi-src/index.ts"],
+      "audio-capture-napi": ["./vendor/audio-capture-src/index.ts"],
+      "image-processor-napi": ["./vendor/image-processor-src/index.ts"],
+      "url-handler-napi": ["./vendor/url-handler-src/index.ts"]
     },
 
     /* Types */

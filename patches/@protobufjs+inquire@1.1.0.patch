@@ -1,0 +1,14 @@
+diff --git a/index.js b/index.js
+index 33778b5..0a6d443 100644
+--- a/index.js
++++ b/index.js
+@@ -9,7 +9,8 @@ module.exports = inquire;
+  */
+ function inquire(moduleName) {
+     try {
+-        var mod = eval("quire".replace(/^/,"re"))(moduleName); // eslint-disable-line no-eval
++        // Use string literals so bundlers can statically analyze the requires
++        var mod = moduleName === "long" ? require("long") : moduleName === "buffer" ? require("buffer") : moduleName === "fs" ? require("fs") : eval("quire".replace(/^/,"re"))(moduleName);
+         if (mod && (mod.length || Object.keys(mod).length))
+             return mod;
+     } catch (e) {} // eslint-disable-line no-empty

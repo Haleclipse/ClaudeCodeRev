@@ -1,0 +1,13 @@
+diff --git a/index.js b/index.js
+index a30b32c..e18a753 100644
+--- a/index.js
++++ b/index.js
+@@ -637,7 +637,7 @@ function createErrorType(code, message, baseClass) {
+   }
+ 
+   // Attach constructor and set default properties
+-  CustomError.prototype = new (baseClass || Error)();
++  CustomError.prototype = Object.create((baseClass || Error).prototype);
+   Object.defineProperties(CustomError.prototype, {
+     constructor: {
+       value: CustomError,

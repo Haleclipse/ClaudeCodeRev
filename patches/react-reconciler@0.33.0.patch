@@ -1,0 +1,72 @@
+diff --git a/cjs/react-reconciler.production.js b/cjs/react-reconciler.production.js
+index e849613..edc0c07 100644
+--- a/cjs/react-reconciler.production.js
++++ b/cjs/react-reconciler.production.js
+@@ -9720,7 +9720,8 @@ module.exports = function ($$$config) {
+       0 !== (finishedWork.subtreeFlags & 10256) ||
+       0 !== (finishedWork.flags & 10256)
+         ? (pendingEffectsStatus = 5)
+-        : ((pendingEffectsStatus = 0),
++        : (releaseStaleAlternateFields(finishedWork),
++          (pendingEffectsStatus = 0),
+           (pendingFinishedWork = pendingEffectsRoot = null),
+           releaseRootPooledCache(root, root.pendingLanes));
+       var remainingLanes = root.pendingLanes;
+@@ -9820,6 +9821,7 @@ module.exports = function ($$$config) {
+         try {
+           injectedHook.onPostCommitFiberRoot(rendererID, root$jscomp$0);
+         } catch (err) {}
++      releaseStaleAlternateFields(root$jscomp$0.current);
+       return !0;
+     } finally {
+       setCurrentUpdatePriority(previousPriority),
+@@ -9827,6 +9829,49 @@ module.exports = function ($$$config) {
+         releaseRootPooledCache(root, remainingLanes);
+     }
+   }
++  // Post-commit cleanup: null stale data fields on every alternate so GC can
++  // reclaim old hook lists / props / context deps before the next render.
++  // createWorkInProgress re-derives these from current, so they're pure
++  // garbage between commits. See facebook/react#31705, extends #33161.
++  // Intentionally skips updateQueue (class component hiddenCallbacks).
++  //
++  // Subtree-skip: React renders from root via beginWork. A bailout that
++  // returns null leaves descendants' alternates untouched (still clean from
++  // the previous walk). So if a node's alternate is already clean, skip its
++  // subtree entirely. This makes the walk O(rendered) not O(total).
++  function releaseStaleAlternateFields(finishedWork) {
++    var node = finishedWork;
++    for (;;) {
++      var alt = node.alternate;
++      var dirty = false;
++      if (null !== alt) {
++        if (
++          null !== alt.memoizedProps ||
++          null !== alt.memoizedState ||
++          null !== alt.pendingProps ||
++          null !== alt.dependencies
++        ) {
++          alt.memoizedState = null;
++          alt.memoizedProps = null;
++          alt.dependencies = null;
++          alt.pendingProps = null;
++          dirty = true;
++        }
++      }
++      if ((dirty || node === finishedWork) && null !== node.child) {
++        node.child.return = node;
++        node = node.child;
++        continue;
++      }
++      if (node === finishedWork) return;
++      for (; null === node.sibling; ) {
++        if (null === node.return || node.return === finishedWork) return;
++        node = node.return;
++      }
++      node.sibling.return = node.return;
++      node = node.sibling;
++    }
++  }
+   function captureCommitPhaseErrorOnRoot(rootFiber, sourceFiber, error) {
+     sourceFiber = createCapturedValueAtFiber(error, sourceFiber);
+     sourceFiber = createRootErrorUpdate(rootFiber.stateNode, sourceFiber, 2);
