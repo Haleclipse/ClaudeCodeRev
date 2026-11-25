@@ -1,132 +1,206 @@
-# Errors
+# HTTP Error Codes Reference
 
-## HTTP errors
+This file documents HTTP error codes returned by the Claude API, their common causes, and how to handle them. For language-specific error handling examples, see the `python/` or `typescript/` folders.
 
-The API follows a predictable HTTP error code format:
+## Error Code Summary
 
-* **400** - `invalid_request_error`: There was an issue with the format or content of your request. This error type may also be used for other 4XX status codes not listed below.
-* **401** - `authentication_error`: There's an issue with your API key.
-* **402** - `billing_error`: There's an issue with your billing or payment information. Check your payment details in the Console.
-* **403** - `permission_error`: Your API key does not have permission to use the specified resource.
-* **404** - `not_found_error`: The requested resource was not found.
-* **413** - `request_too_large`: Request exceeds the maximum allowed number of bytes. The maximum request size is 32 MB for standard API endpoints.
-* **429** - `rate_limit_error`: Your account has hit a rate limit.
-* **500** - `api_error`: An unexpected error has occurred internal to Anthropic's systems.
-* **529** - `overloaded_error`: The API is temporarily overloaded.
+| Code | Error Type              | Retryable | Common Cause                         |
+| ---- | ----------------------- | --------- | ------------------------------------ |
+| 400  | `invalid_request_error` | No        | Invalid request format or parameters |
+| 401  | `authentication_error`  | No        | Invalid or missing API key           |
+| 403  | `permission_error`      | No        | API key lacks permission             |
+| 404  | `not_found_error`       | No        | Invalid endpoint or model ID         |
+| 413  | `request_too_large`     | No        | Request exceeds size limits          |
+| 429  | `rate_limit_error`      | Yes       | Too many requests                    |
+| 500  | `api_error`             | Yes       | Anthropic service issue              |
+| 529  | `overloaded_error`      | Yes       | API is temporarily overloaded        |
 
-> **Warning:** 529 errors can occur when APIs experience high traffic across all users. In rare cases, if your organization has a sharp increase in usage, you might see 429 errors due to acceleration limits on the API. To avoid hitting acceleration limits, ramp up your traffic gradually and maintain consistent usage patterns.
+## Detailed Error Information
 
-When receiving a streaming response via SSE, it's possible that an error can occur after returning a 200 response, in which case error handling wouldn't follow these standard mechanisms.
+### 400 Bad Request
 
-## Request size limits
+**Causes:**
 
-The API enforces request size limits to ensure optimal performance:
+- Malformed JSON in request body
+- Missing required parameters (`model`, `max_tokens`, `messages`)
+- Invalid parameter types (e.g., string where integer expected)
+- Empty messages array
+- Messages not alternating user/assistant
 
-| Endpoint Type | Maximum Request Size |
-|:---|:---|
-| Messages API | 32 MB |
-| Token Counting API | 32 MB |
-| Batch API | 256 MB |
-| Files API | 500 MB |
-
-If you exceed these limits, you'll receive a 413 `request_too_large` error. The error is returned from Cloudflare before the request reaches the API servers.
-
-## Error shapes
-
-Errors are always returned as JSON, with a top-level `error` object that always includes a `type` and `message` value. The response also includes a `request_id` field for easier tracking and debugging. For example:
-
-```json
-{
-  "type": "error",
-  "error": {
-    "type": "not_found_error",
-    "message": "The requested resource could not be found."
-  },
-  "request_id": "req_011CSHoEeqs5C35K2UUqR7Fy"
-}
-```
-
-In accordance with the versioning policy, the values within these objects may expand, and it is possible that the `type` values will grow over time.
-
-## Request id
-
-Every API response includes a unique `request-id` header. This header contains a value such as `req_018EeWyXxfu5pfWkrYcMdjWG`. When contacting support about a specific request, include this ID to help quickly resolve your issue.
-
-The official SDKs provide this value as a property on top-level response objects, containing the value of the `request-id` header:
-
-```python
-import anthropic
-
-client = anthropic.Anthropic()
-
-message = client.messages.create(
-    model="claude-opus-4-6",
-    max_tokens=1024,
-    messages=[{"role": "user", "content": "Hello, Claude"}],
-)
-print(f"Request ID: {message._request_id}")
-```
-
-```typescript
-import Anthropic from "@anthropic-ai/sdk";
-
-const client = new Anthropic();
-
-const message = await client.messages.create({
-  model: "claude-opus-4-6",
-  max_tokens: 1024,
-  messages: [{ role: "user", content: "Hello, Claude" }]
-});
-console.log("Request ID:", message._request_id);
-```
-
-## Long requests
-
-> **Warning:** Consider using the streaming Messages API or Message Batches API for long running requests, especially those over 10 minutes.
-
-Avoid setting a large `max_tokens` value without using the streaming Messages API or Message Batches API:
-
-- Some networks may drop idle connections after a variable period of time, which can cause the request to fail or timeout without receiving a response from Anthropic.
-- Networks differ in reliability; the Message Batches API can help you manage the risk of network issues by allowing you to poll for results rather than requiring an uninterrupted network connection.
-
-If you are building a direct API integration, you should be aware that setting a [TCP socket keep-alive](https://tldp.org/HOWTO/TCP-Keepalive-HOWTO/programming.html) can reduce the impact of idle connection timeouts on some networks.
-
-The SDKs validate that your non-streaming Messages API requests are not expected to exceed a 10 minute timeout and also will set a socket option for TCP keep-alive.
-
-If you don't need to process events incrementally, use `.stream()` with `.get_final_message()` (Python) or `.finalMessage()` (TypeScript) to get the complete `Message` object without writing event-handling code:
-
-```python
-with client.messages.stream(
-    max_tokens=128000,
-    messages=[{"role": "user", "content": "Write a detailed analysis..."}],
-    model="claude-opus-4-6",
-) as stream:
-    message = stream.get_final_message()
-```
-
-```typescript
-const stream = client.messages.stream({
-  max_tokens: 128000,
-  messages: [{ role: "user", content: "Write a detailed analysis..." }],
-  model: "claude-opus-4-6"
-});
-const message = await stream.finalMessage();
-```
-
-## Common validation errors
-
-### Prefill not supported
-
-Claude Opus 4.6 does not support prefilling assistant messages. Sending a request with a prefilled last assistant message to this model returns a 400 `invalid_request_error`:
+**Example error:**
 
 ```json
 {
   "type": "error",
   "error": {
     "type": "invalid_request_error",
-    "message": "Prefilling assistant messages is not supported for this model."
-  }
+    "message": "messages: roles must alternate between \"user\" and \"assistant\""
+  },
+  "request_id": "req_011CSHoEeqs5C35K2UUqR7Fy"
 }
 ```
 
-Use structured outputs, system prompt instructions, or `output_config.format` instead.
+**Fix:** Validate request structure before sending. Check that:
+
+- `model` is a valid model ID
+- `max_tokens` is a positive integer
+- `messages` array is non-empty and alternates correctly
+
+---
+
+### 401 Unauthorized
+
+**Causes:**
+
+- Missing `x-api-key` header or `Authorization` header
+- Invalid API key format
+- Revoked or deleted API key
+
+**Fix:** Ensure `ANTHROPIC_API_KEY` environment variable is set correctly.
+
+---
+
+### 403 Forbidden
+
+**Causes:**
+
+- API key doesn't have access to the requested model
+- Organization-level restrictions
+- Attempting to access beta features without beta access
+
+**Fix:** Check your API key permissions in the Console. You may need a different API key or to request access to specific features.
+
+---
+
+### 404 Not Found
+
+**Causes:**
+
+- Typo in model ID (e.g., `claude-sonnet-4.6` instead of `claude-sonnet-4-6`)
+- Using deprecated model ID
+- Invalid API endpoint
+
+**Fix:** Use exact model IDs from the models documentation. You can use aliases (e.g., `{{OPUS_ID}}`).
+
+---
+
+### 413 Request Too Large
+
+**Causes:**
+
+- Request body exceeds maximum size
+- Too many tokens in input
+- Image data too large
+
+**Fix:** Reduce input size — truncate conversation history, compress/resize images, or split large documents into chunks.
+
+---
+
+### 400 Validation Errors
+
+Some 400 errors are specifically related to parameter validation:
+
+- `max_tokens` exceeds model's limit
+- Invalid `temperature` value (must be 0.0-1.0)
+- `budget_tokens` >= `max_tokens` in extended thinking
+- Invalid tool definition schema
+
+**Common mistake with extended thinking:**
+
+```
+# Wrong: budget_tokens must be < max_tokens
+thinking: budget_tokens=10000, max_tokens=1000  → Error!
+
+# Correct
+thinking: budget_tokens=10000, max_tokens=16000
+```
+
+---
+
+### 429 Rate Limited
+
+**Causes:**
+
+- Exceeded requests per minute (RPM)
+- Exceeded tokens per minute (TPM)
+- Exceeded tokens per day (TPD)
+
+**Headers to check:**
+
+- `retry-after`: Seconds to wait before retrying
+- `x-ratelimit-limit-*`: Your limits
+- `x-ratelimit-remaining-*`: Remaining quota
+
+**Fix:** The Anthropic SDKs automatically retry 429 and 5xx errors with exponential backoff (default: `max_retries=2`). For custom retry behavior, see the language-specific error handling examples.
+
+---
+
+### 500 Internal Server Error
+
+**Causes:**
+
+- Temporary Anthropic service issue
+- Bug in API processing
+
+**Fix:** Retry with exponential backoff. If persistent, check [status.anthropic.com](https://status.anthropic.com).
+
+---
+
+### 529 Overloaded
+
+**Causes:**
+
+- High API demand
+- Service capacity reached
+
+**Fix:** Retry with exponential backoff. Consider using a different model (Haiku is often less loaded), spreading requests over time, or implementing request queuing.
+
+---
+
+## Common Mistakes and Fixes
+
+| Mistake                         | Error            | Fix                                                     |
+| ------------------------------- | ---------------- | ------------------------------------------------------- |
+| `budget_tokens` >= `max_tokens` | 400              | Ensure `budget_tokens` < `max_tokens`                   |
+| Typo in model ID                | 404              | Use valid model ID like `{{OPUS_ID}}`               |
+| First message is `assistant`    | 400              | First message must be `user`                            |
+| Consecutive same-role messages  | 400              | Alternate `user` and `assistant`                        |
+| API key in code                 | 401 (leaked key) | Use environment variable                                |
+| Custom retry needs              | 429/5xx          | SDK retries automatically; customize with `max_retries` |
+
+## Typed Exceptions in SDKs
+
+**Always use the SDK's typed exception classes** instead of checking error messages with string matching. Each HTTP error code maps to a specific exception class:
+
+| HTTP Code | TypeScript Class                  | Python Class                      |
+| --------- | --------------------------------- | --------------------------------- |
+| 400       | `Anthropic.BadRequestError`       | `anthropic.BadRequestError`       |
+| 401       | `Anthropic.AuthenticationError`   | `anthropic.AuthenticationError`   |
+| 403       | `Anthropic.PermissionDeniedError` | `anthropic.PermissionDeniedError` |
+| 404       | `Anthropic.NotFoundError`         | `anthropic.NotFoundError`         |
+| 429       | `Anthropic.RateLimitError`        | `anthropic.RateLimitError`        |
+| 500+      | `Anthropic.InternalServerError`   | `anthropic.InternalServerError`   |
+| Any       | `Anthropic.APIError`              | `anthropic.APIError`              |
+
+```typescript
+// ✅ Correct: use typed exceptions
+try {
+  const response = await client.messages.create({...});
+} catch (error) {
+  if (error instanceof Anthropic.RateLimitError) {
+    // Handle rate limiting
+  } else if (error instanceof Anthropic.APIError) {
+    console.error(`API error ${error.status}:`, error.message);
+  }
+}
+
+// ❌ Wrong: don't check error messages with string matching
+try {
+  const response = await client.messages.create({...});
+} catch (error) {
+  const msg = error instanceof Error ? error.message : String(error);
+  if (msg.includes("429") || msg.includes("rate_limit")) { ... }
+}
+```
+
+All exception classes extend `Anthropic.APIError`, which has a `status` property. Use `instanceof` checks from most specific to least specific (e.g., check `RateLimitError` before `APIError`).

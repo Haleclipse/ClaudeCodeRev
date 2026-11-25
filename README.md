@@ -11,7 +11,7 @@ For personal study and learning purposes only.
 1. **Sourcemap extraction** — 1902 TypeScript source files extracted from `cli.js.map`'s `sourcesContent`
 2. **React Compiler reversal** — 552 files further restored to pre-compilation originals via embedded inline sourcemaps
 3. **Stub generation** — 142 feature-gated modules (DCE'd from the public build) auto-stubbed from import analysis
-4. **Resource recovery** — 29 skill docs fetched from platform.claude.com, 4 classifier prompts inferred from usage
+4. **Resource recovery** — text assets (`.md` / `.txt`) are not in the sourcemap. 29 skill docs and 3 prompts (auto-mode classifier system prompt, external permission rules, ultraplan) are restored verbatim from the official 2.1.88 npm bundle (`version-diff/restore-text-assets.mjs`); earlier copies were fetched from platform.claude.com or inferred from usage and did not match. `permissions_anthropic.txt` is ant-only (DCE'd from the public build), so it remains inferred
 5. **Internal packages** — `@ant/*` packages restored from sourcemap, native addons paired with vendor binaries
 
 ## Setup

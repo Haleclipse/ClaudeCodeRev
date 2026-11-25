@@ -1,437 +1,402 @@
-# C# SDK
+# Claude API — C#
 
-Install and configure the Anthropic C# SDK for .NET applications with IChatClient integration
-
----
-
-The Anthropic C# SDK provides convenient access to the Anthropic REST API from applications written in C#.
-
-> **Note:** The C# SDK is currently in beta. APIs may change between versions.
-
-> **Note:** For API feature documentation with code examples, see the [API reference](/docs/en/api/overview). This page covers C#-specific SDK features and configuration.
-
-> **Warning:** As of version 10+, the `Anthropic` package is now the official Anthropic SDK for C#. Package versions 3.X and below were previously used for the tryAGI community-built SDK, which has moved to [`tryAGI.Anthropic`](https://www.nuget.org/packages/tryagi.Anthropic/). If you need to continue using the former client in your project, update your package reference to `tryAGI.Anthropic`.
+> **Note:** The C# SDK is the official Anthropic SDK for C#. Tool use is supported via the Messages API. A class-annotation-based tool runner is not available; use raw tool definitions with JSON schema. The SDK also supports Microsoft.Extensions.AI IChatClient integration with function invocation.
 
 ## Installation
-
-Install the package from [NuGet](https://www.nuget.org/packages/Anthropic):
 
 ```bash
 dotnet add package Anthropic
 ```
 
-## Requirements
-
-This library requires .NET Standard 2.0 or later.
-
-## Usage
+## Client Initialization
 
 ```csharp
-using System;
 using Anthropic;
+
+// Default (uses ANTHROPIC_API_KEY env var)
+AnthropicClient client = new();
+
+// Explicit API key (use environment variables — never hardcode keys)
+AnthropicClient client = new() {
+    ApiKey = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY")
+};
+```
+
+---
+
+## Basic Message Request
+
+```csharp
 using Anthropic.Models.Messages;
 
-AnthropicClient client = new();
-
-MessageCreateParams parameters = new()
+var parameters = new MessageCreateParams
 {
-    MaxTokens = 1024,
-    Messages =
-    [
-        new()
-        {
-            Role = Role.User,
-            Content = "Hello, Claude",
-        },
-    ],
-    Model = "claude-opus-4-6",
+    Model = Model.ClaudeOpus4_6,
+    MaxTokens = 16000,
+    Messages = [new() { Role = Role.User, Content = "What is the capital of France?" }]
 };
+var response = await client.Messages.Create(parameters);
 
-var message = await client.Messages.Create(parameters);
-
-Console.WriteLine(message);
+// ContentBlock is a union wrapper. .Value unwraps to the variant object,
+// then OfType<T> filters to the type you want. Or use the TryPick* idiom
+// shown in the Thinking section below.
+foreach (var text in response.Content.Select(b => b.Value).OfType<TextBlock>())
+{
+    Console.WriteLine(text.Text);
+}
 ```
 
-## Client configuration
-
-Configure the client using environment variables:
-
-```csharp
-using Anthropic;
-
-// Configured using the ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN and ANTHROPIC_BASE_URL environment variables
-AnthropicClient client = new();
-```
-
-Or manually:
-
-```csharp
-using Anthropic;
-
-AnthropicClient client = new() { ApiKey = "my-anthropic-api-key" };
-```
-
-Or using a combination of the two approaches.
-
-See this table for the available options:
-
-| Property    | Environment variable   | Required | Default value                 |
-| ----------- | ---------------------- | -------- | ----------------------------- |
-| `ApiKey`    | `ANTHROPIC_API_KEY`    | false    | -                             |
-| `AuthToken` | `ANTHROPIC_AUTH_TOKEN` | false    | -                             |
-| `BaseUrl`   | `ANTHROPIC_BASE_URL`   | true     | `"https://api.anthropic.com"` |
-
-### Modifying configuration
-
-To temporarily use a modified client configuration, while reusing the same connection and thread pools, call `WithOptions` on any client or service:
-
-```csharp
-using System;
-
-var message = await client
-    .WithOptions(options =>
-        options with
-        {
-            BaseUrl = "https://example.com",
-            Timeout = TimeSpan.FromSeconds(42),
-        }
-    )
-    .Messages.Create(parameters);
-
-Console.WriteLine(message);
-```
-
-Using a [`with` expression](https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/operators/with-expression) makes it easy to construct the modified options.
-
-The `WithOptions` method does not affect the original client or service.
+---
 
 ## Streaming
 
-The SDK defines methods that return response "chunk" streams, where each chunk can be individually processed as soon as it arrives instead of waiting on the full response. Streaming methods generally correspond to [SSE](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events) or [JSONL](https://jsonlines.org) responses.
-
-A streaming method always has a `Streaming` suffix in its name, even if it doesn't have a non-streaming variant.
-
-These streaming methods return [`IAsyncEnumerable`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.iasyncenumerable-1):
-
 ```csharp
-using System;
 using Anthropic.Models.Messages;
 
-MessageCreateParams parameters = new()
+var parameters = new MessageCreateParams
 {
-    MaxTokens = 1024,
-    Messages =
-    [
-        new()
-        {
-            Role = Role.User,
-            Content = "Hello, Claude",
-        },
-    ],
-    Model = "claude-opus-4-6",
+    Model = Model.ClaudeOpus4_6,
+    MaxTokens = 64000,
+    Messages = [new() { Role = Role.User, Content = "Write a haiku" }]
 };
 
-await foreach (var message in client.Messages.CreateStreaming(parameters))
+await foreach (RawMessageStreamEvent streamEvent in client.Messages.CreateStreaming(parameters))
 {
-    Console.WriteLine(message);
-}
-```
-
-## Error handling
-
-The SDK throws custom unchecked exception types:
-
-- `AnthropicApiException`: Base class for API errors. See this table for which exception subclass is thrown for each HTTP status code:
-
-| Status | Exception                                |
-| ------ | ---------------------------------------- |
-| 400    | `AnthropicBadRequestException`           |
-| 401    | `AnthropicUnauthorizedException`         |
-| 403    | `AnthropicForbiddenException`            |
-| 404    | `AnthropicNotFoundException`             |
-| 422    | `AnthropicUnprocessableEntityException`  |
-| 429    | `AnthropicRateLimitException`            |
-| 5xx    | `Anthropic5xxException`                  |
-| others | `AnthropicUnexpectedStatusCodeException` |
-
-Additionally, all 4xx errors inherit from `Anthropic4xxException`.
-
-- `AnthropicSseException`: thrown for errors encountered during SSE streaming after a successful initial HTTP response.
-- `AnthropicIOException`: I/O networking errors.
-- `AnthropicInvalidDataException`: Failure to interpret successfully parsed data. For example, when accessing a property that's supposed to be required, but the API unexpectedly omitted it from the response.
-- `AnthropicException`: Base class for all exceptions.
-
-## Retries
-
-The SDK automatically retries 2 times by default, with a short exponential backoff between requests.
-
-Only the following error types are retried:
-
-- Connection errors (for example, due to a network connectivity problem)
-- 408 Request Timeout
-- 409 Conflict
-- 429 Rate Limit
-- 5xx Internal
-
-The API may also explicitly instruct the SDK to retry or not retry a request.
-
-To set a custom number of retries, configure the client using the `MaxRetries` property:
-
-```csharp
-using Anthropic;
-
-AnthropicClient client = new() { MaxRetries = 3 };
-```
-
-Or configure a single method call using `WithOptions`:
-
-```csharp
-using System;
-
-var message = await client
-    .WithOptions(options =>
-        options with { MaxRetries = 3 }
-    )
-    .Messages.Create(parameters);
-
-Console.WriteLine(message);
-```
-
-## Timeouts
-
-Requests time out after 10 minutes by default.
-
-To set a custom timeout, configure the client using the `Timeout` option:
-
-```csharp
-using System;
-using Anthropic;
-
-AnthropicClient client = new() { Timeout = TimeSpan.FromSeconds(42) };
-```
-
-Or configure a single method call using `WithOptions`:
-
-```csharp
-using System;
-
-var message = await client
-    .WithOptions(options =>
-        options with { Timeout = TimeSpan.FromSeconds(42) }
-    )
-    .Messages.Create(parameters);
-
-Console.WriteLine(message);
-```
-
-## Pagination
-
-The SDK defines methods that return paginated lists of results. It provides convenient ways to access the results either one page at a time or item-by-item across all pages.
-
-### Auto-pagination
-
-To iterate through all results across all pages, use the `Paginate` method, which automatically fetches more pages as needed. The method returns an [`IAsyncEnumerable`](https://learn.microsoft.com/en-us/dotnet/api/system.collections.generic.iasyncenumerable-1):
-
-```csharp
-using System;
-
-var page = await client.Messages.Batches.List(parameters);
-await foreach (var item in page.Paginate())
-{
-    Console.WriteLine(item);
-}
-```
-
-### Manual pagination
-
-To access individual page items and manually request the next page, use the `Items` property, and `HasNext` and `Next` methods:
-
-```csharp
-using Anthropic;
-using System;
-
-AnthropicClient client = new();
-
-var page = await client.Messages.Batches.List();
-while (true)
-{
-    foreach (var item in page.Items)
+    if (streamEvent.TryPickContentBlockDelta(out var delta) &&
+        delta.Delta.TryPickText(out var text))
     {
-        Console.WriteLine(item);
+        Console.Write(text.Text);
     }
-    if (!page.HasNext())
-    {
-        break;
-    }
-    page = await page.Next();
 }
 ```
 
-## Response validation
+**`RawMessageStreamEvent` TryPick methods** (naming drops the `Message`/`Raw` prefix): `TryPickStart`, `TryPickDelta`, `TryPickStop`, `TryPickContentBlockStart`, `TryPickContentBlockDelta`, `TryPickContentBlockStop`. There is no `TryPickMessageStop` — use `TryPickStop`.
 
-In rare cases, the API may return a response that doesn't match the expected type. By default, the SDK does not throw an exception in this case. It throws `AnthropicInvalidDataException` only if you directly access the property.
+---
 
-If you would prefer to check that the response is completely well-typed upfront, then either call `Validate`:
+## Thinking
 
-```csharp
-var message = await client.Messages.Create(parameters);
-message.Validate();
-```
-
-Or configure the client using the `ResponseValidation` option:
+**Adaptive thinking is the recommended mode for Claude 4.6+ models.** Claude decides dynamically when and how much to think.
 
 ```csharp
-using Anthropic;
-
-AnthropicClient client = new() { ResponseValidation = true };
-```
-
-Or configure a single method call using `WithOptions`:
-
-```csharp
-using System;
-
-var message = await client
-    .WithOptions(options =>
-        options with { ResponseValidation = true }
-    )
-    .Messages.Create(parameters);
-
-Console.WriteLine(message);
-```
-
-## IChatClient integration
-
-The SDK provides an implementation of the `IChatClient` interface from the `Microsoft.Extensions.AI.Abstractions` library. This enables `AnthropicClient` (and `Anthropic.Services.IBetaService`) to be used with other libraries that integrate with these core abstractions. For example, tools in the MCP C# SDK (`ModelContextProtocol`) library can be used directly with an `AnthropicClient` exposed via `IChatClient`.
-
-```csharp
-using Anthropic;
-using Microsoft.Extensions.AI;
-using ModelContextProtocol.Client;
-
-// Configured using the ANTHROPIC_API_KEY, ANTHROPIC_AUTH_TOKEN and ANTHROPIC_BASE_URL environment variables
-IChatClient chatClient = client.AsIChatClient("claude-opus-4-6")
-    .AsBuilder()
-    .UseFunctionInvocation()
-    .Build();
-
-// Using McpClient from the MCP C# SDK
-McpClient learningServer = await McpClient.CreateAsync(
-    new HttpClientTransport(new() { Endpoint = new("https://learn.microsoft.com/api/mcp") }));
-
-ChatOptions options = new() { Tools = [.. await learningServer.ListToolsAsync()] };
-
-Console.WriteLine(await chatClient.GetResponseAsync("Tell me about IChatClient", options));
-```
-
-## Requests and responses
-
-To send a request to the Claude API, build an instance of a `Params` class and pass it to the corresponding client method. When the response is received, it's deserialized into an instance of a C# class.
-
-For example, `client.Messages.Create` should be called with an instance of `MessageCreateParams`, and it will return an instance of `Task<Message>`.
-
-## Advanced usage
-
-### Binary responses
-
-The SDK defines methods that return binary responses, which are used for API responses that shouldn't necessarily be parsed, like non-JSON data.
-
-These methods return `HttpResponse`:
-
-```csharp
-using System;
-using Anthropic.Models.Beta.Files;
-
-FileDownloadParams parameters = new() { FileID = "file_id" };
-
-var response = await client.Beta.Files.Download(parameters);
-
-Console.WriteLine(response);
-```
-
-To save the response content to a file, or any [`Stream`](https://learn.microsoft.com/en-us/dotnet/api/system.io.stream), use the [`CopyToAsync`](https://learn.microsoft.com/en-us/dotnet/api/system.io.stream.copytoasync) method:
-
-```csharp
-using System.IO;
-
-using var response = await client.Beta.Files.Download(parameters);
-using var contentStream = await response.ReadAsStream();
-using var fileStream = File.Open(path, FileMode.OpenOrCreate);
-await contentStream.CopyToAsync(fileStream); // Or any other Stream
-```
-
-### Raw responses
-
-The SDK defines methods that deserialize responses into instances of C# classes. To access response headers, status code, or the raw response body, prefix any HTTP method call on a client or service with `WithRawResponse`:
-
-```csharp
-var response = await client.WithRawResponse.Messages.Create(parameters);
-var statusCode = response.StatusCode;
-var headers = response.Headers;
-```
-
-The raw `HttpResponseMessage` can also be accessed through the `RawMessage` property.
-
-For non-streaming responses, you can deserialize the response into an instance of a C# class if needed:
-
-```csharp
-using System;
 using Anthropic.Models.Messages;
 
-var response = await client.WithRawResponse.Messages.Create(parameters);
-Message deserialized = await response.Deserialize();
-Console.WriteLine(deserialized);
-```
-
-For streaming responses, you can deserialize the response to an `IAsyncEnumerable` if needed:
-
-```csharp
-using System;
-
-var response = await client.WithRawResponse.Messages.CreateStreaming(parameters);
-await foreach (var item in response.Enumerate())
+var response = await client.Messages.Create(new MessageCreateParams
 {
-    Console.WriteLine(item);
+    Model = Model.ClaudeOpus4_6,
+    MaxTokens = 16000,
+    // ThinkingConfigParam? implicitly converts from the concrete variant classes —
+    // no wrapper needed.
+    Thinking = new ThinkingConfigAdaptive(),
+    Messages =
+    [
+        new() { Role = Role.User, Content = "Solve: 27 * 453" },
+    ],
+});
+
+// ThinkingBlock(s) precede TextBlock in Content. TryPick* narrows the union.
+foreach (var block in response.Content)
+{
+    if (block.TryPickThinking(out ThinkingBlock? t))
+    {
+        Console.WriteLine($"[thinking] {t.Thinking}");
+    }
+    else if (block.TryPickText(out TextBlock? text))
+    {
+        Console.WriteLine(text.Text);
+    }
 }
 ```
 
-### Logging
+> **Deprecated:** `new ThinkingConfigEnabled { BudgetTokens = N }` (fixed-budget extended thinking) still works on Claude 4.6 but is deprecated. Use adaptive thinking above.
 
-> **Warning:** All log messages are intended for debugging only. The format and content of log messages may change between releases.
+Alternative to `TryPick*`: `.Select(b => b.Value).OfType<ThinkingBlock>()` (same LINQ pattern as the Basic Message example).
 
-Enable debug logging via environment variable:
+---
 
-```bash
-export ANTHROPIC_LOG=debug
+## Tool Use
+
+### Defining a tool
+
+`Tool` (NOT `ToolParam`) with an `InputSchema` record. `InputSchema.Type` is auto-set to `"object"` by the constructor — don't set it. `ToolUnion` has an implicit conversion from `Tool`, triggered by the collection expression `[...]`.
+
+```csharp
+using System.Text.Json;
+using Anthropic.Models.Messages;
+
+var parameters = new MessageCreateParams
+{
+    Model = Model.ClaudeSonnet4_6,
+    MaxTokens = 16000,
+    Tools = [
+        new Tool {
+            Name = "get_weather",
+            Description = "Get the current weather in a given location",
+            InputSchema = new() {
+                Properties = new Dictionary<string, JsonElement> {
+                    ["location"] = JsonSerializer.SerializeToElement(
+                        new { type = "string", description = "City name" }),
+                },
+                Required = ["location"],
+            },
+        },
+    ],
+    Messages = [new() { Role = Role.User, Content = "Weather in Paris?" }],
+};
 ```
 
-### Undocumented API functionality
+Derived from `anthropic-sdk-csharp/src/Anthropic/Models/Messages/Tool.cs` and `ToolUnion.cs:799` (implicit conversion).
 
-The SDK is typed for convenient usage of the documented API. However, it also supports working with undocumented or not yet supported parts of the API.
+See [shared tool use concepts](../shared/tool-use-concepts.md) for the loop pattern.
+### Converting response content to the follow-up assistant message
 
-## Platform integrations
+When echoing Claude's response back in the assistant turn, **there is no `.ToParam()` helper** — manually reconstruct each `ContentBlock` variant as its `*Param` counterpart. Do NOT use `new ContentBlockParam(block.Json)`: it compiles and serializes, but `.Value` stays `null` so `TryPick*`/`Validate()` fail (degraded JSON pass-through, not the typed path).
 
-> **Note:** For detailed platform setup guides with code examples, see:
-> - [Amazon Bedrock](/docs/en/build-with-claude/claude-on-amazon-bedrock)
-> - [Microsoft Foundry](/docs/en/build-with-claude/claude-in-microsoft-foundry)
+```csharp
+using Anthropic.Models.Messages;
 
-The C# SDK supports Bedrock and Foundry through separate NuGet packages:
+Message response = await client.Messages.Create(parameters);
 
-- **Bedrock:** `Anthropic.Bedrock`. Uses `AnthropicBedrockClient` with `AnthropicBedrockCredentialsHelper.FromEnv()` or explicit credentials.
-- **Foundry:** `Anthropic.Foundry`. Uses `AnthropicFoundryClient` with `DefaultAnthropicFoundryCredentials.FromEnv()` or explicit credentials.
+// No .ToParam() — reconstruct per variant. Implicit conversions from each
+// *Param type to ContentBlockParam mean no explicit wrapper.
+List<ContentBlockParam> assistantContent = [];
+List<ContentBlockParam> toolResults = [];
+foreach (ContentBlock block in response.Content)
+{
+    if (block.TryPickText(out TextBlock? text))
+    {
+        assistantContent.Add(new TextBlockParam { Text = text.Text });
+    }
+    else if (block.TryPickThinking(out ThinkingBlock? thinking))
+    {
+        // Signature MUST be preserved — the API rejects tampering
+        assistantContent.Add(new ThinkingBlockParam
+        {
+            Thinking = thinking.Thinking,
+            Signature = thinking.Signature,
+        });
+    }
+    else if (block.TryPickRedactedThinking(out RedactedThinkingBlock? redacted))
+    {
+        assistantContent.Add(new RedactedThinkingBlockParam { Data = redacted.Data });
+    }
+    else if (block.TryPickToolUse(out ToolUseBlock? toolUse))
+    {
+        // ToolUseBlock has required Caller; ToolUseBlockParam.Caller is optional — don't copy it
+        assistantContent.Add(new ToolUseBlockParam
+        {
+            ID = toolUse.ID,
+            Name = toolUse.Name,
+            Input = toolUse.Input,
+        });
+        // Execute the tool; collect ONE result per tool_use block — the API
+        // rejects the follow-up if any tool_use ID lacks a matching tool_result.
+        string result = ExecuteYourTool(toolUse.Name, toolUse.Input);
+        toolResults.Add(new ToolResultBlockParam
+        {
+            ToolUseID = toolUse.ID,
+            Content = result,
+        });
+    }
+}
 
-## Semantic versioning
+// Follow-up: prior messages + assistant echo + user tool_result(s)
+List<MessageParam> followUpMessages =
+[
+    .. parameters.Messages,
+    new() { Role = Role.Assistant, Content = assistantContent },
+    new() { Role = Role.User, Content = toolResults },
+];
+```
 
-> **Warning:** While this package is versioned as 10+, it's currently in beta. During the beta period, breaking changes may occur in minor or patch releases. Once the library reaches stable release, SemVer conventions will be followed more strictly. Share feedback by [filing an issue](https://www.github.com/anthropics/anthropic-sdk-csharp/issues/new).
+`ToolResultBlockParam` has no tuple constructor — use the object initializer. `Content` is a string-or-list union; a plain `string` implicitly converts.
 
-This package generally follows [SemVer](https://semver.org/spec/v2.0.0.html) conventions, though certain backwards-incompatible changes may be released as minor versions:
+---
 
-1. Changes to library internals which are technically public but not intended or documented for external use.
-2. Changes that aren't expected to impact the vast majority of users in practice.
+## Context Editing / Compaction (Beta)
 
-## Additional resources
+**Beta-namespace prefix is inconsistent** (source-verified against `src/Anthropic/Models/Beta/Messages/*.cs` @ 12.9.0). No prefix: `MessageCreateParams`, `MessageCountTokensParams`, `Role`. **Everything else has the `Beta` prefix**: `BetaMessageParam`, `BetaMessage`, `BetaContentBlock`, `BetaToolUseBlock`, all block param types. The unprefixed `Role` WILL collide with `Anthropic.Models.Messages.Role` if you import both namespaces (CS0104). Safest: import only Beta; if mixing, alias the beta `Role`:
 
-- [GitHub repository](https://github.com/anthropics/anthropic-sdk-csharp)
-- [NuGet package](https://www.nuget.org/packages/Anthropic)
-- [API reference](/docs/en/api/overview)
-- [Streaming guide](/docs/en/build-with-claude/streaming)
+```csharp
+using Anthropic.Models.Beta.Messages;
+using NonBeta = Anthropic.Models.Messages;  // only if you also need non-beta types
+// Now: MessageCreateParams, BetaMessageParam, Role (beta's), NonBeta.Role (if needed)
+```
+
+
+`BetaMessage.Content` is `IReadOnlyList<BetaContentBlock>` — a 15-variant discriminated union. Narrow with `TryPick*`. **Response `BetaContentBlock` is NOT assignable to param `BetaContentBlockParam`** — there's no `.ToParam()` in C#. Round-trip by converting each block:
+
+```csharp
+using Anthropic.Models.Beta.Messages;
+
+var betaParams = new MessageCreateParams   // no Beta prefix — one of only 2 unprefixed
+{
+    Model = Model.ClaudeOpus4_6,
+    MaxTokens = 16000,
+    Betas = ["compact-2026-01-12"],
+    ContextManagement = new BetaContextManagementConfig
+    {
+        Edits = [new BetaCompact20260112Edit()],
+    },
+    Messages = messages,
+};
+BetaMessage resp = await client.Beta.Messages.Create(betaParams);
+
+foreach (BetaContentBlock block in resp.Content)
+{
+    if (block.TryPickCompaction(out BetaCompactionBlock? compaction))
+    {
+        // Content is nullable — compaction can fail server-side
+        Console.WriteLine($"compaction summary: {compaction.Content}");
+    }
+}
+
+// Context-edit metadata lives on a separate nullable field
+if (resp.ContextManagement is { } ctx)
+{
+    foreach (var edit in ctx.AppliedEdits)
+        Console.WriteLine($"cleared {edit.ClearedInputTokens} tokens");
+}
+
+// ROUND-TRIP: BetaMessageParam.Content is BetaMessageParamContent (a string|list
+// union). It implicit-converts from List<BetaContentBlockParam>, NOT from the
+// response's IReadOnlyList<BetaContentBlock>. Convert each block:
+List<BetaContentBlockParam> paramBlocks = [];
+foreach (var b in resp.Content)
+{
+    if (b.TryPickText(out var t)) paramBlocks.Add(new BetaTextBlockParam { Text = t.Text });
+    else if (b.TryPickCompaction(out var c)) paramBlocks.Add(new BetaCompactionBlockParam { Content = c.Content });
+    // ... other variants as needed
+}
+messages.Add(new BetaMessageParam { Role = Role.Assistant, Content = paramBlocks });
+```
+
+All 15 `BetaContentBlock.TryPick*` variants: `Text`, `Thinking`, `RedactedThinking`, `ToolUse`, `ServerToolUse`, `WebSearchToolResult`, `WebFetchToolResult`, `CodeExecutionToolResult`, `BashCodeExecutionToolResult`, `TextEditorCodeExecutionToolResult`, `ToolSearchToolResult`, `McpToolUse`, `McpToolResult`, `ContainerUpload`, `Compaction`.
+
+**`BetaToolUseBlock.Input` is `IReadOnlyDictionary<string, JsonElement>`** — index by key then call the `JsonElement` extractor:
+
+```csharp
+if (block.TryPickToolUse(out BetaToolUseBlock? tu))
+{
+    int a = tu.Input["a"].GetInt32();
+    string s = tu.Input["name"].GetString()!;
+}
+```
+
+---
+
+## Effort Parameter
+
+Effort is nested under `OutputConfig`, NOT a top-level property. `ApiEnum<string, Effort>` has an implicit conversion from the enum, so assign `Effort.High` directly.
+
+```csharp
+OutputConfig = new OutputConfig { Effort = Effort.High },
+```
+
+Values: `Effort.Low`, `Effort.Medium`, `Effort.High`, `Effort.Max`. Combine with `Thinking = new ThinkingConfigAdaptive()` for cost-quality control.
+
+---
+
+## Prompt Caching
+
+`System` takes `MessageCreateParamsSystem?` — a union of `string` or `List<TextBlockParam>`. There is no `SystemTextBlockParam`; use plain `TextBlockParam`. The implicit conversion needs the concrete `List<TextBlockParam>` type (array literals won't convert). For placement patterns and the silent-invalidator audit checklist, see `shared/prompt-caching.md`.
+
+```csharp
+System = new List<TextBlockParam> {
+    new() {
+        Text = longSystemPrompt,
+        CacheControl = new CacheControlEphemeral(),  // auto-sets Type = "ephemeral"
+    },
+},
+```
+
+Optional `Ttl` on `CacheControlEphemeral`: `new() { Ttl = Ttl.Ttl1h }` or `Ttl.Ttl5m`. `CacheControl` also exists on `Tool.CacheControl` and top-level `MessageCreateParams.CacheControl`.
+
+Verify hits via `response.Usage.CacheCreationInputTokens` / `response.Usage.CacheReadInputTokens`.
+
+---
+
+## Token Counting
+
+```csharp
+MessageTokensCount result = await client.Messages.CountTokens(new MessageCountTokensParams {
+    Model = Model.ClaudeOpus4_6,
+    Messages = [new() { Role = Role.User, Content = "Hello" }],
+});
+long tokens = result.InputTokens;
+```
+
+`MessageCountTokensParams.Tools` uses a different union type (`MessageCountTokensTool`) than `MessageCreateParams.Tools` (`ToolUnion`) — if you're passing tools, the compiler will tell you when it matters.
+
+---
+
+## Structured Output
+
+```csharp
+OutputConfig = new OutputConfig {
+    Format = new JsonOutputFormat {
+        Schema = new Dictionary<string, JsonElement> {
+            ["type"] = JsonSerializer.SerializeToElement("object"),
+            ["properties"] = JsonSerializer.SerializeToElement(
+                new { name = new { type = "string" } }),
+            ["required"] = JsonSerializer.SerializeToElement(new[] { "name" }),
+        },
+    },
+},
+```
+
+`JsonOutputFormat.Type` is auto-set to `"json_schema"` by the constructor. `Schema` is `required`.
+
+---
+
+## PDF / Document Input
+
+`DocumentBlockParam` takes a `DocumentBlockParamSource` union: `Base64PdfSource` / `UrlPdfSource` / `PlainTextSource` / `ContentBlockSource`. `Base64PdfSource` auto-sets `MediaType = "application/pdf"` and `Type = "base64"`.
+
+```csharp
+new MessageParam {
+    Role = Role.User,
+    Content = new List<ContentBlockParam> {
+        new DocumentBlockParam { Source = new Base64PdfSource { Data = base64String } },
+        new TextBlockParam { Text = "Summarize this PDF" },
+    },
+}
+```
+
+---
+
+## Server-Side Tools
+
+Web search, bash, text editor, and code execution are built-in server tools. Type names are version-suffixed; constructors auto-set `name`/`type`. All implicit-convert to `ToolUnion`.
+
+```csharp
+Tools = [
+    new WebSearchTool20260209(),
+    new ToolBash20250124(),
+    new ToolTextEditor20250728(),
+    new CodeExecutionTool20260120(),
+],
+```
+
+Also available: `WebFetchTool20260209`, `MemoryTool20250818`. `WebSearchTool20260209` optionals: `AllowedDomains`, `BlockedDomains`, `MaxUses`, `UserLocation`.
+
+---
+
+## Files API (Beta)
+
+Files live under `client.Beta.Files` (namespace `Anthropic.Models.Beta.Files`). `BinaryContent` implicit-converts from `Stream` and `byte[]`.
+
+```csharp
+using Anthropic.Models.Beta.Files;
+using Anthropic.Models.Beta.Messages;
+
+FileMetadata meta = await client.Beta.Files.Upload(
+    new FileUploadParams { File = File.OpenRead("doc.pdf") });
+
+// Referencing the uploaded file requires Beta message types:
+new BetaRequestDocumentBlock {
+    Source = new BetaFileDocumentSource { FileID = meta.ID },
+}
+```
+
+The non-beta `DocumentBlockParamSource` union has no file-ID variant — file references need `client.Beta.Messages.Create()`.
