@@ -182,6 +182,7 @@ export function isPathAllowed(
     const safetyCheck = checkPathSafetyForAutoEdit(
       resolvedPath,
       precomputedPathsToCheck,
+      undefined,
     )
     if (!safetyCheck.safe) {
       return {

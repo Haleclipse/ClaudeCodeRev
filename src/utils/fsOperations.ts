@@ -200,7 +200,7 @@ export function isDuplicatePath(
 /**
  * Resolve the deepest existing ancestor of a path via realpathSync, walking
  * up until it succeeds. Detects dangling symlinks (link entry exists, target
- * doesn't) via lstat and resolves them via readlink.
+ * doesn't) via readlink and resolves them through the link target.
  *
  * Use when the input path may not exist (new file writes) and you need to
  * know where the write would ACTUALLY land after the OS follows symlinks.
@@ -218,30 +218,29 @@ export function resolveDeepestExistingAncestorSync(
 ): string | undefined {
   let dir = absolutePath
   const segments: string[] = []
-  // Walk up using lstat (cheap, O(1)) to find the first existing component.
-  // lstat does not follow symlinks, so dangling symlinks are detected here.
-  // Only call realpathSync (expensive, O(depth)) once at the end.
+  // Walk up using readlink (cheap, O(1)) to find the first existing component.
+  // readlink does not follow symlinks: it returns the target for a link entry
+  // (live or dangling), fails with ENOENT when nothing exists at the path, and
+  // with EINVAL for an existing non-symlink. Only call realpathSync
+  // (expensive, O(depth)) once at the end.
   while (dir !== nodePath.dirname(dir)) {
-    let st: fs.Stats
+    let target: string | undefined
+    let errno: string | undefined
     try {
-      st = fs.lstatSync(dir)
-    } catch {
-      // lstat failed: truly non-existent. Walk up.
-      segments.unshift(nodePath.basename(dir))
-      dir = nodePath.dirname(dir)
-      continue
+      target = fs.readlinkSync(dir)
+    } catch (e) {
+      errno = getErrnoCode(e)
     }
-    if (st.isSymbolicLink()) {
+    if (target !== undefined) {
       // Found a symlink (live or dangling). Try realpath first (resolves
-      // chained symlinks); fall back to readlink for dangling symlinks.
+      // chained symlinks); fall back to the link target for dangling ones.
       try {
         const resolved = fs.realpathSync(dir)
         return segments.length === 0
           ? resolved
           : nodePath.join(resolved, ...segments)
       } catch {
-        // Dangling: realpath failed but lstat saw the link entry.
-        const target = fs.readlinkSync(dir)
+        // Dangling: realpath failed but the link entry exists.
         const absTarget = nodePath.isAbsolute(target)
           ? target
           : nodePath.resolve(nodePath.dirname(dir), target)
@@ -249,6 +248,12 @@ export function resolveDeepestExistingAncestorSync(
           ? absTarget
           : nodePath.join(absTarget, ...segments)
       }
+    }
+    if (errno === 'ENOENT') {
+      // Truly non-existent. Walk up.
+      segments.unshift(nodePath.basename(dir))
+      dir = nodePath.dirname(dir)
+      continue
     }
     // Existing non-symlink component. One realpath call resolves any
     // symlinks in its ancestors. If none, return undefined (no symlink).
@@ -322,41 +327,34 @@ export function getPathsForPermissionCheck(inputPath: string): string[] {
       }
       visited.add(currentPath)
 
-      if (!fsImpl.existsSync(currentPath)) {
-        // Path doesn't exist (new file case). existsSync follows symlinks,
-        // so this is also reached for DANGLING symlinks (link entry exists,
-        // target doesn't). Resolve symlinks in the path and its ancestors
-        // so permission checks see the real destination. Without this,
-        // `./data -> /etc/cron.d/` (live parent symlink) or
-        // `./evil.txt -> ~/.ssh/authorized_keys2` (dangling file symlink)
-        // would allow writes that escape the working directory.
-        if (currentPath === path) {
-          const resolved = resolveDeepestExistingAncestorSync(fsImpl, path)
-          if (resolved !== undefined) {
-            pathSet.add(resolved)
+      // Get the immediate symlink target. readlink never follows or opens
+      // the file (safe for FIFOs/devices): EINVAL means an existing
+      // non-symlink, ENOENT means nothing exists at this path.
+      let target: string | undefined
+      let errno: string | undefined
+      try {
+        target = fsImpl.readlinkSync(currentPath)
+      } catch (e) {
+        errno = getErrnoCode(e)
+      }
+
+      if (target === undefined) {
+        if (errno === 'ENOENT') {
+          // Path doesn't exist (new file case). Resolve symlinks in its
+          // ancestors so permission checks see the real destination.
+          // Without this, `./data -> /etc/cron.d/` (live parent symlink)
+          // would allow writes that escape the working directory. Dangling
+          // file symlinks (`./evil.txt -> ~/.ssh/authorized_keys2`) are
+          // caught above: readlink succeeds on the link entry itself.
+          if (currentPath === path) {
+            const resolved = resolveDeepestExistingAncestorSync(fsImpl, path)
+            if (resolved !== undefined) {
+              pathSet.add(resolved)
+            }
           }
         }
         break
       }
-
-      const stats = fsImpl.lstatSync(currentPath)
-
-      // Skip special file types that can cause issues
-      if (
-        stats.isFIFO() ||
-        stats.isSocket() ||
-        stats.isCharacterDevice() ||
-        stats.isBlockDevice()
-      ) {
-        break
-      }
-
-      if (!stats.isSymbolicLink()) {
-        break
-      }
-
-      // Get the immediate symlink target
-      const target = fsImpl.readlinkSync(currentPath)
 
       // If target is relative, resolve it relative to the symlink's directory
       const absoluteTarget = nodePath.isAbsolute(target)

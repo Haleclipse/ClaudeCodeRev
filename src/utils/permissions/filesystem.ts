@@ -431,8 +431,14 @@ function isScratchpadPath(absolutePath: string): boolean {
  * - Files in .idea directories (to prevent JetBrains IDE settings manipulation)
  * - Shell configuration files (to prevent shell startup script manipulation)
  * - UNC paths (to prevent network file access and WebDAV attacks)
+ *
+ * With allowClaudeSelfConfig, Claude's own skills/agents/commands directories
+ * and .claude/scheduled_tasks.json are not treated as dangerous.
  */
-function isDangerousFilePathToAutoEdit(path: string): boolean {
+function isDangerousFilePathToAutoEdit(
+  path: string,
+  allowClaudeSelfConfig?: boolean,
+): boolean {
   const absolutePath = expandPath(path)
   const pathSegments = absolutePath.split(sep)
   const fileName = pathSegments.at(-1)
@@ -459,10 +465,26 @@ function isDangerousFilePathToAutoEdit(path: string): boolean {
       // within the worktree (not followed by 'worktrees') are still blocked.
       if (dir === '.claude') {
         const nextSegment = pathSegments[i + 1]
-        if (
-          nextSegment &&
-          normalizeCaseForComparison(nextSegment) === 'worktrees'
-        ) {
+        const normalizedNext = nextSegment
+          ? normalizeCaseForComparison(nextSegment)
+          : undefined
+        if (allowClaudeSelfConfig && normalizedNext) {
+          if (
+            normalizedNext === 'skills' ||
+            normalizedNext === 'agents' ||
+            normalizedNext === 'commands'
+          ) {
+            break
+          }
+          // Only the file directly under .claude/
+          if (
+            normalizedNext === 'scheduled_tasks.json' &&
+            i + 1 === pathSegments.length - 1
+          ) {
+            break
+          }
+        }
+        if (normalizedNext === 'worktrees') {
           break // Skip this .claude, continue checking other segments
         }
       }
@@ -615,11 +637,15 @@ function hasSuspiciousWindowsPathPattern(path: string): boolean {
  * to prevent bypasses via symlinks pointing to protected files.
  *
  * @param path The path to check for safety
+ * @param allowClaudeSelfConfig When set, only Claude settings files count as
+ *   protected config (not skills/agents/commands), see isDangerousFilePathToAutoEdit.
+ *   Every caller in external builds passes undefined.
  * @returns Object with safe=false and message if unsafe, or { safe: true } if all checks pass
  */
 export function checkPathSafetyForAutoEdit(
   path: string,
-  precomputedPathsToCheck?: readonly string[],
+  precomputedPathsToCheck: readonly string[] | undefined,
+  allowClaudeSelfConfig: boolean | undefined,
 ):
   | { safe: true }
   | { safe: false; message: string; classifierApprovable: boolean } {
@@ -640,7 +666,15 @@ export function checkPathSafetyForAutoEdit(
 
   // Check for Claude config files on all paths
   for (const pathToCheck of pathsToCheck) {
-    if (isClaudeConfigFilePath(pathToCheck)) {
+    if (allowClaudeSelfConfig) {
+      if (isClaudeSettingsPath(pathToCheck)) {
+        return {
+          safe: false,
+          message: `Claude requested permissions to write to ${path}, but you haven't granted it yet.`,
+          classifierApprovable: true,
+        }
+      }
+    } else if (isClaudeConfigFilePath(pathToCheck)) {
       return {
         safe: false,
         message: `Claude requested permissions to write to ${path}, but you haven't granted it yet.`,
@@ -651,7 +685,7 @@ export function checkPathSafetyForAutoEdit(
 
   // Check for dangerous files on all paths
   for (const pathToCheck of pathsToCheck) {
-    if (isDangerousFilePathToAutoEdit(pathToCheck)) {
+    if (isDangerousFilePathToAutoEdit(pathToCheck, allowClaudeSelfConfig)) {
       return {
         safe: false,
         message: `Claude requested permissions to edit ${path} which is a sensitive file.`,
@@ -1025,6 +1059,83 @@ export function matchingRuleForInput(
 }
 
 /**
+ * macOS exposes /tmp, /var, /etc as symlinks into /private (and some systems
+ * merge /bin, /lib, /sbin into /usr). Map each real prefix back to its
+ * familiar alias — only where realpath confirms it on this machine — so allow
+ * rules written against the alias still match the resolved path.
+ */
+const getSystemPathAliases = memoize(function (): Map<string, string> {
+  const candidates: Array<[real: string, alias: string]> = [
+    ['/private/tmp', '/tmp'],
+    ['/private/var', '/var'],
+    ['/private/etc', '/etc'],
+    ['/usr/bin', '/bin'],
+    ['/usr/lib', '/lib'],
+    ['/usr/sbin', '/sbin'],
+  ]
+  const aliases = new Map<string, string>()
+  const fs = getFsImplementation()
+  for (const [real, alias] of candidates) {
+    try {
+      if (fs.realpathSync(alias) === real) {
+        aliases.set(real, alias)
+      }
+    } catch {
+      // Alias doesn't exist on this system
+    }
+  }
+  return aliases
+})
+
+function toSystemPathAlias(path: string): string {
+  for (const [real, alias] of getSystemPathAliases()) {
+    if (path === real || path.startsWith(real + sep)) {
+      return alias + path.slice(real.length)
+    }
+  }
+  return path
+}
+
+/**
+ * Allow-rule match that covers every path a permission check sees (the path
+ * itself and each symlink hop / resolved target). All of them must be allowed
+ * — otherwise a symlink inside an allowed directory could point anywhere.
+ * Returns the first matching rule, or null if any path is not allowed.
+ */
+function matchAllowRuleForPaths(
+  paths: readonly string[],
+  toolPermissionContext: ToolPermissionContext,
+  toolType: 'edit' | 'read',
+): PermissionRule | null {
+  let firstRule: PermissionRule | null = null
+  for (const path of paths) {
+    let rule = matchingRuleForInput(
+      path,
+      toolPermissionContext,
+      toolType,
+      'allow',
+    )
+    if (!rule) {
+      // Rules are usually written against /tmp, not /private/tmp
+      const aliased = toSystemPathAlias(path)
+      if (aliased !== path) {
+        rule = matchingRuleForInput(
+          aliased,
+          toolPermissionContext,
+          toolType,
+          'allow',
+        )
+      }
+    }
+    if (!rule) {
+      return null
+    }
+    firstRule ??= rule
+  }
+  return firstRule
+}
+
+/**
  * Permission result for read permission for the specified tool & tool input
  */
 export function checkReadPermissionForTool(
@@ -1157,12 +1268,11 @@ export function checkReadPermissionForTool(
     return internalReadResult
   }
 
-  // 8. Check for allow rules
-  const allowRule = matchingRuleForInput(
-    path,
+  // 8. Check for allow rules (the symlink targets must be allowed too)
+  const allowRule = matchAllowRuleForPaths(
+    pathsToCheck,
     toolPermissionContext,
     'read',
-    'allow',
   )
   if (allowRule) {
     return {
@@ -1302,7 +1412,7 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
   // 1.7. Check comprehensive safety validations (Windows patterns, Claude config, dangerous files)
   // This MUST come before checking allow rules to prevent users from accidentally granting
   // permission to edit protected files
-  const safetyCheck = checkPathSafetyForAutoEdit(path, pathsToCheck)
+  const safetyCheck = checkPathSafetyForAutoEdit(path, pathsToCheck, undefined)
   if (!safetyCheck.safe) {
     // SDK suggestion: if under .claude/skills/{name}/, emit the narrowed
     // session-scoped addRules that step 1.6 will honor on the next call.
@@ -1374,12 +1484,11 @@ export function checkWritePermissionForTool<Input extends AnyObject>(
     }
   }
 
-  // 4. Check for allow rules
-  const allowRule = matchingRuleForInput(
-    path,
+  // 4. Check for allow rules (the symlink targets must be allowed too)
+  const allowRule = matchAllowRuleForPaths(
+    pathsToCheck,
     toolPermissionContext,
     'edit',
-    'allow',
   )
   if (allowRule) {
     return {
