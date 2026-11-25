@@ -188,14 +188,18 @@ function wrapWithOsc8Link(text: string, url: string): string {
 /**
  * Build a mapping from each character position in the plain text to its segment index.
  * Returns an array where charToSegment[i] is the segment index for character i.
+ * Preallocated typed array + fill: long texts made the per-char push the
+ * dominant cost here.
  */
-function buildCharToSegmentMap(segments: StyledSegment[]): number[] {
-  const map: number[] = []
+function buildCharToSegmentMap(segments: StyledSegment[]): Uint32Array {
+  let total = 0
+  for (let i = 0; i < segments.length; i++) total += segments[i]!.text.length
+  const map = new Uint32Array(total)
+  let pos = 0
   for (let i = 0; i < segments.length; i++) {
-    const len = segments[i]!.text.length
-    for (let j = 0; j < len; j++) {
-      map.push(i)
-    }
+    const end = pos + segments[i]!.text.length
+    map.fill(i, pos, end)
+    pos = end
   }
   return map
 }
@@ -211,7 +215,7 @@ function buildCharToSegmentMap(segments: StyledSegment[]): number[] {
 function applyStylesToWrappedText(
   wrappedPlain: string,
   segments: StyledSegment[],
-  charToSegment: number[],
+  charToSegment: Uint32Array,
   originalPlain: string,
   trimEnabled: boolean = false,
 ): string {
@@ -1254,6 +1258,40 @@ function renderNodeToOutput(
 // still passing prevScreen so opaque descendants can blit their narrower
 // rects (NewMessagesPill's inner Text with backgroundColor). Opaque
 // absolute siblings fill their entire rect — direct blit is safe.
+/**
+ * True when any absolute-positioned child's rect differs from its cached
+ * rect of the previous frame. A moved overlay leaves its old pixels in
+ * prevScreen, so in-flow siblings blitted from prevScreen would bring the
+ * stale overlay back with them.
+ */
+function absoluteChildMoved(
+  node: DOMElement,
+  offsetX: number,
+  offsetY: number,
+): boolean {
+  for (const childNode of node.childNodes) {
+    const childElem = childNode as DOMElement
+    if (childElem.style.position !== 'absolute') continue
+    const yogaNode = childElem.yogaNode
+    if (!yogaNode || yogaNode.getDisplay() === LayoutDisplay.None) continue
+    const cached = nodeCache.get(childElem)
+    if (!cached) continue
+    const x = offsetX + yogaNode.getComputedLeft()
+    let y = offsetY + yogaNode.getComputedTop()
+    // Same clamp as the nodeCache.set in renderNodeToOutput
+    if (y < 0) y = 0
+    if (
+      cached.x !== x ||
+      cached.y !== y ||
+      cached.width !== yogaNode.getComputedWidth() ||
+      cached.height !== yogaNode.getComputedHeight()
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 function renderChildren(
   node: DOMElement,
   output: Output,
@@ -1263,6 +1301,10 @@ function renderChildren(
   prevScreen: Screen | undefined,
   inheritedBackgroundColor: Color | undefined,
 ): void {
+  // An absolute child moved: in-flow children must repaint instead of
+  // blitting the previous frame (which still holds the overlay's old rect).
+  const absoluteMoved =
+    prevScreen !== undefined && absoluteChildMoved(node, offsetX, offsetY)
   let seenDirtyChild = false
   let seenDirtyClipped = false
   for (const childNode of node.childNodes) {
@@ -1273,7 +1315,10 @@ function renderChildren(
     renderNodeToOutput(childElem, output, {
       offsetX,
       offsetY,
-      prevScreen: hasRemovedChild || seenDirtyChild ? undefined : prevScreen,
+      prevScreen:
+        hasRemovedChild || seenDirtyChild || (absoluteMoved && !isAbsolute)
+          ? undefined
+          : prevScreen,
       // Short-circuits on seenDirtyClipped (false in the common case) so
       // the opaque/bg reads don't happen per-child per-frame.
       skipSelfBlit:

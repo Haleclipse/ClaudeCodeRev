@@ -98,18 +98,28 @@ export function dispatchClick(
  * Mutates `hovered` in place so the caller (App instance) can hold it
  * across calls. Clears the set when the hit is null (cursor moved into a
  * non-rendered gap or off the root rect).
+ *
+ * When the pointer is over a blank cell, nodes marked
+ * `hoverIgnoresBlankCells` are treated as not hovered — so e.g. a message
+ * row only counts as hovered while the pointer is over its text.
  */
 export function dispatchHover(
   root: DOMElement,
   col: number,
   row: number,
   hovered: Set<DOMElement>,
+  cellIsBlank = false,
 ): void {
   const next = new Set<DOMElement>()
   let node: DOMElement | undefined = hitTest(root, col, row) ?? undefined
   while (node) {
     const h = node._eventHandlers as EventHandlerProps | undefined
-    if (h?.onMouseEnter || h?.onMouseLeave) next.add(node)
+    if (
+      (h?.onMouseEnter || h?.onMouseLeave) &&
+      !(cellIsBlank && node.attributes['hoverIgnoresBlankCells'])
+    ) {
+      next.add(node)
+    }
     node = node.parentNode
   }
   for (const old of hovered) {

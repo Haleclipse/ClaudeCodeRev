@@ -247,6 +247,9 @@ function VirtualItem({
       onClick={clickable ? e => onClickK(msg, e.cellIsBlank) : undefined}
       onMouseEnter={clickable ? () => onEnterK(k) : undefined}
       onMouseLeave={clickable ? () => onLeaveK(k) : undefined}
+      // Collapsed rows only hover over their text; the expanded (tinted)
+      // block hovers across its whole rect.
+      hoverIgnoresBlankCells={!expanded}
     >
       <TextHoverColorContext.Provider
         value={hovered && !expanded ? 'text' : undefined}

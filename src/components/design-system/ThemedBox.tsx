@@ -44,6 +44,7 @@ export type Props = BaseStylesWithoutColors &
     onKeyDownCapture?: (event: KeyboardEvent) => void
     onMouseEnter?: () => void
     onMouseLeave?: () => void
+    hoverIgnoresBlankCells?: boolean
   }
 
 /**

@@ -5,6 +5,7 @@ import {
   useLayoutEffect,
   useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react'
 import type { ScrollBoxHandle } from '../ink/components/ScrollBox.js'
@@ -215,6 +216,10 @@ export function useVirtualScroll(
   // → heights shrink → the old item-sample subtraction went negative →
   // effLo inflated → black screen). One-frame lag like heightCache.
   const listOriginRef = useRef(0)
+  // Bumped when listOrigin moves (content above the list changed height) so
+  // range and clamp are recomputed against the new origin right away rather
+  // than on the next scroll — otherwise the stale origin leaves ghost rows.
+  const [, setListOriginTick] = useState(0)
   const spacerRef = useRef<DOMElement | null>(null)
 
   // useSyncExternalStore ties re-renders to imperative scroll. Snapshot is
@@ -570,13 +575,11 @@ export function useVirtualScroll(
   // render uses estimate-based offsets, clamp set, sticky-follow moves
   // scrollTop, measurement fires, offsets rebuild with real heights, second
   // render's clamp differs → scrollTop clamp-adjusts → content shifts.
-  const listOrigin = listOriginRef.current
   const effTopSpacer = offsets[effStart]!
   // At effStart=0 there's no unmounted content above — the clamp must allow
   // scrolling past listOrigin to see pre-list content (logo, header) that
   // sits in the ScrollBox but outside VirtualMessageList. Only clamp when
   // the topSpacer is nonzero (there ARE unmounted items above).
-  const clampMin = effStart === 0 ? 0 : effTopSpacer + listOrigin
   // At effEnd=n there's no bottomSpacer — nothing to avoid racing past. Using
   // offsets[n] here would bake in heightCache (one render behind Yoga), and
   // when the tail item is STREAMING its cached height lags its real height by
@@ -584,17 +587,12 @@ export function useVirtualScroll(
   // scrollTop below the real max, pushing the streaming text off-viewport
   // (the "scrolled up, response disappeared" bug). Infinity = unbounded:
   // render-node-to-output's own Math.min(cur, maxScroll) governs instead.
-  const clampMax =
+  // Both bounds are list-local here; listOrigin is added in the layout
+  // effect below, after it has been re-read from Yoga for this commit.
+  const clampMaxLocal =
     effEnd === n
       ? Infinity
-      : Math.max(effTopSpacer, offsets[effEnd]! - viewportH) + listOrigin
-  useLayoutEffect(() => {
-    if (isSticky) {
-      scrollRef.current?.setClampBounds(undefined, undefined)
-    } else {
-      scrollRef.current?.setClampBounds(clampMin, clampMax)
-    }
-  })
+      : Math.max(effTopSpacer, offsets[effEnd]! - viewportH)
 
   // Measure heights from the PREVIOUS Ink render. Runs every commit (no
   // deps) because Yoga recomputes layout without React knowing. yogaNode
@@ -616,10 +614,28 @@ export function useVirtualScroll(
   // (reconciler.resetAfterCommit → onRender), that's two writes with
   // different spacer heights → visible flicker. Heights propagate to
   // offsets on the next natural render. One-frame lag, absorbed by overscan.
+  // (The one exception is a listOrigin shift, see setListOriginTick.)
+  //
+  // The clamp is applied in the same effect, right after listOrigin is
+  // refreshed, so it never uses the previous frame's origin.
   useLayoutEffect(() => {
     const spacerYoga = spacerRef.current?.yogaNode
     if (spacerYoga && spacerYoga.getComputedWidth() > 0) {
-      listOriginRef.current = spacerYoga.getComputedTop()
+      const top = spacerYoga.getComputedTop()
+      const prevTop = listOriginRef.current
+      listOriginRef.current = top
+      if (prevTop !== 0 && Math.abs(top - prevTop) > 1) {
+        setListOriginTick(t => t + 1)
+      }
+    }
+    const listOrigin = listOriginRef.current
+    if (isSticky) {
+      scrollRef.current?.setClampBounds(undefined, undefined)
+    } else {
+      scrollRef.current?.setClampBounds(
+        effStart === 0 ? 0 : effTopSpacer + listOrigin,
+        clampMaxLocal === Infinity ? Infinity : clampMaxLocal + listOrigin,
+      )
     }
     if (skipMeasurementRef.current) {
       skipMeasurementRef.current = false

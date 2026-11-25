@@ -4672,6 +4672,21 @@ export function getMessagesAfterCompactBoundary<
   return sliced
 }
 
+/**
+ * Append `message`, or — if a message with the same uuid is already present
+ * — drop the old copy and append the new one, so a re-delivered message
+ * replaces itself instead of rendering twice.
+ */
+export function upsertMessageByUuid<T extends { uuid: string }>(
+  messages: T[],
+  message: T,
+): T[] {
+  if (messages.findLastIndex(m => m.uuid === message.uuid) === -1) {
+    return [...messages, message]
+  }
+  return [...messages.filter(m => m.uuid !== message.uuid), message]
+}
+
 export function shouldShowUserMessage(
   message: NormalizedMessage,
   isTranscriptMode: boolean,

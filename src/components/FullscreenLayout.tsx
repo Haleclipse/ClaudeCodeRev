@@ -409,7 +409,7 @@ export function FullscreenLayout({
             <NewMessagesPill count={newMessageCount} onClick={onPillClick} />
           )}
           {bottomFloat != null && (
-            <Box position="absolute" bottom={0} right={0} opaque>
+            <Box position="absolute" bottom={0} right={0}>
               {bottomFloat}
             </Box>
           )}

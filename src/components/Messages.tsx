@@ -302,7 +302,7 @@ type Props = {
       currentIdx: number
     } | null,
   ) => void
-  /** Bypass MAX_MESSAGES_WITHOUT_VIRTUALIZATION. For one-shot headless renders
+  /** Bypass the non-virtualized render cap. For one-shot headless renders
    *  (e.g. /export via renderToString) where the memory concern doesn't apply
    *  and the "already in scrollback" justification doesn't hold. */
   disableRenderCap?: boolean
@@ -351,7 +351,13 @@ const MAX_MESSAGES_TO_SHOW_IN_TRANSCRIPT_MODE = 30
 // slice roughly where it was instead of resetting to 0 — which would
 // jump from ~200 rendered messages to the full history, orphaning
 // in-progress badge snapshots in scrollback.
-const MAX_MESSAGES_WITHOUT_VIRTUALIZATION = 200
+//
+// The cap scales with terminal height (at most 200): a short terminal can't
+// show 200 messages anyway, and everything above the viewport is already in
+// native scrollback.
+function getMaxMessagesWithoutVirtualization(terminalRows: number): number {
+  return Math.min(200, terminalRows)
+}
 const MESSAGE_CAP_STEP = 50
 
 export type SliceAnchor = { uuid: string; idx: number } | null
@@ -360,7 +366,7 @@ export type SliceAnchor = { uuid: string; idx: number } | null
 export function computeSliceStart(
   collapsed: ReadonlyArray<{ uuid: string }>,
   anchorRef: { current: SliceAnchor },
-  cap = MAX_MESSAGES_WITHOUT_VIRTUALIZATION,
+  cap: number,
   step = MESSAGE_CAP_STEP,
 ): number {
   const anchor = anchorRef.current
@@ -426,7 +432,7 @@ const MessagesImpl = ({
   cursorNavRef,
   renderRange,
 }: Props): React.ReactNode => {
-  const { columns } = useTerminalSize()
+  const { columns, rows } = useTerminalSize()
   const toggleShowAllShortcut = useShortcutDisplay(
     'transcript:toggleShowAll',
     'Transcript',
@@ -552,10 +558,11 @@ const MessagesImpl = ({
   const virtualScrollRuntimeGate = scrollRef != null && !disableVirtualScroll
   const shouldTruncate =
     isTranscriptMode && !showAllInTranscript && !virtualScrollRuntimeGate
+  const renderCap = getMaxMessagesWithoutVirtualization(rows)
 
   // Anchor for the first rendered message in the non-virtualized cap slice.
   // Monotonic advance only — mutation during render is idempotent (safe
-  // under StrictMode double-render). See MAX_MESSAGES_WITHOUT_VIRTUALIZATION
+  // under StrictMode double-render). See getMaxMessagesWithoutVirtualization
   // comment above for why this replaced count-based slicing.
   const sliceAnchorRef = useRef<SliceAnchor>(null)
 
@@ -576,10 +583,20 @@ const MessagesImpl = ({
       // (this PR's core goal — full history in UI, filter only for the model).
       // Also avoids a UUID mismatch: normalizeMessages derives new UUIDs, so
       // projectSnippedView's check against original removedUuids would fail.
+      // Non-virtualized path: only the tail can ever be rendered (see
+      // computeSliceStart), so pre-trim to twice the render cap before the
+      // O(n) passes below. The 2× margin leaves room for the anchor slice
+      // and for messages that grouping/collapsing merge away.
+      const capApplies = !virtualScrollRuntimeGate && !disableRenderCap
+      const preCapWindow = renderCap * 2
+      const cappedMessages =
+        capApplies && normalizedMessages.length > preCapWindow
+          ? normalizedMessages.slice(-preCapWindow)
+          : normalizedMessages
       const compactAwareMessages =
         verbose || isFullscreenEnvEnabled()
-          ? normalizedMessages
-          : getMessagesAfterCompactBoundary(normalizedMessages, {
+          ? cappedMessages
+          : getMessagesAfterCompactBoundary(cappedMessages, {
               includeSnipped: true,
             })
 
@@ -645,7 +662,7 @@ const MessagesImpl = ({
         verbose,
       )
 
-      const lookups = buildMessageLookups(normalizedMessages, messagesToShow)
+      const lookups = buildMessageLookups(cappedMessages, messagesToShow)
 
       const hiddenMessageCount =
         messagesToShowNotTruncated.length -
@@ -665,6 +682,9 @@ const MessagesImpl = ({
       shouldTruncate,
       tools,
       isBriefOnly,
+      virtualScrollRuntimeGate,
+      disableRenderCap,
+      renderCap,
     ])
 
   // Cheap slice — only runs when scroll range or slice config changes.
@@ -678,14 +698,20 @@ const MessagesImpl = ({
     // post-grouping array so each chunk gets correct tool-call grouping.
     const capApplies = !virtualScrollRuntimeGate && !disableRenderCap
     const sliceStart = capApplies
-      ? computeSliceStart(collapsed, sliceAnchorRef)
+      ? computeSliceStart(collapsed, sliceAnchorRef, renderCap)
       : 0
     return renderRange
       ? collapsed.slice(renderRange[0], renderRange[1])
       : sliceStart > 0
         ? collapsed.slice(sliceStart)
         : collapsed
-  }, [collapsed, renderRange, virtualScrollRuntimeGate, disableRenderCap])
+  }, [
+    collapsed,
+    renderRange,
+    virtualScrollRuntimeGate,
+    disableRenderCap,
+    renderCap,
+  ])
 
   const streamingToolUseIDs = useMemo(
     () => new Set(streamingToolUses.map(_ => _.contentBlock.id)),

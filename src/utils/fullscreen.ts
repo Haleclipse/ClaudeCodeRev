@@ -142,17 +142,6 @@ export function isMouseTrackingEnabled(): boolean {
 }
 
 /**
- * Whether mouse click handling is disabled (clicks/drags ignored, wheel still
- * works). Set CLAUDE_CODE_DISABLE_MOUSE_CLICKS=1 to prevent accidental clicks
- * from triggering cursor positioning, text selection, or message expansion.
- *
- * Fullscreen-specific — only reachable when CLAUDE_CODE_NO_FLICKER is active.
- */
-export function isMouseClicksDisabled(): boolean {
-  return isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_MOUSE_CLICKS)
-}
-
-/**
  * True when the fullscreen alt-screen layout is actually rendering —
  * requires an interactive REPL session AND the env var not explicitly
  * set falsy. Headless paths (--print, SDK, in-process teammates) never

@@ -3,7 +3,6 @@ import { updateLastInteractionTime } from '../../bootstrap/state.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { stopCapturingEarlyInput } from '../../utils/earlyInput.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
-import { isMouseClicksDisabled } from '../../utils/fullscreen.js'
 import { logError } from '../../utils/log.js'
 import { EventEmitter } from '../events/emitter.js'
 import { InputEvent } from '../events/input-event.js'
@@ -623,10 +622,6 @@ function processKeysInBatch(
 
 /** Exported for testing. Mutates app.props.selection and click/hover state. */
 export function handleMouseEvent(app: App, m: ParsedMouse): void {
-  // Allow disabling click handling while keeping wheel scroll (which goes
-  // through the keybinding system as 'wheelup'/'wheeldown', not here).
-  if (isMouseClicksDisabled()) return
-
   const sel = app.props.selection
   // Terminal coords are 1-indexed; screen buffer is 0-indexed
   const col = m.col - 1

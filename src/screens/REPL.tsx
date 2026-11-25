@@ -262,6 +262,7 @@ import {
   type StreamingThinking,
   isCompactBoundaryMessage,
   getMessagesAfterCompactBoundary,
+  upsertMessageByUuid,
   getContentText,
   createUserMessage,
   createAssistantMessage,
@@ -3496,7 +3497,9 @@ export function REPL({
               return [...oldMessages, newMessage]
             })
           } else {
-            setMessages(oldMessages => [...oldMessages, newMessage])
+            setMessages(oldMessages =>
+              upsertMessageByUuid(oldMessages, newMessage),
+            )
           }
           // Block ticks on API errors to prevent tick → error → tick
           // runaway loops (e.g., auth failure, rate limit, blocking limit).

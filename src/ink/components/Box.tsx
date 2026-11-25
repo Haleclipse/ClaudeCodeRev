@@ -43,6 +43,12 @@ export type Props = Except<Styles, 'textWrap'> & {
   onMouseEnter?: () => void
   /** Fired when the mouse moves out of this Box's rendered rect. */
   onMouseLeave?: () => void
+  /**
+   * Treat the pointer as outside this Box while it sits on a blank
+   * (unwritten) cell, so hover tracks the rendered content rather than the
+   * full layout rect.
+   */
+  hoverIgnoresBlankCells?: boolean
 }
 
 /**
@@ -64,6 +70,7 @@ function Box({
   onBlurCapture,
   onMouseEnter,
   onMouseLeave,
+  hoverIgnoresBlankCells,
   onKeyDown,
   onKeyDownCapture,
   ...style
@@ -99,6 +106,7 @@ function Box({
       onBlurCapture={onBlurCapture}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      hoverIgnoresBlankCells={hoverIgnoresBlankCells}
       onKeyDown={onKeyDown}
       onKeyDownCapture={onKeyDownCapture}
       style={{
