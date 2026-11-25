@@ -185,9 +185,12 @@ export async function generateUnifiedSuggestions(
 
     const fuseResults = fuse.search(query, { limit: MAX_UNIFIED_SUGGESTIONS })
     for (const result of fuseResults) {
+      // Nudge MCP resources down (lower score ranks first) so a source file
+      // outranks an equally-matching MCP resource of the same name
+      const penalty = result.item.type === 'mcp_resource' ? 0.15 : 0
       scoredResults.push({
         source: result.item,
-        score: result.score ?? 0.5,
+        score: (result.score ?? 0.5) + penalty,
       })
     }
   }
