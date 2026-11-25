@@ -21,15 +21,15 @@ import { logError } from '../../utils/log.js'
 import type { buildMessageLookups } from '../../utils/messages.js'
 import { MessageResponse } from '../MessageResponse.js'
 import { useSelectedMessageBg } from '../messageActions.js'
+import { SentryErrorBoundary } from '../SentryErrorBoundary.js'
+import { ToolUseLoader } from '../ToolUseLoader.js'
+import { HookProgressMessage } from './HookProgressMessage.js'
 import {
   RateMessageContext,
   useHoveredToolUseId,
   useMessageRating,
   useSetHoveredToolUseId,
 } from '../messageRating.js'
-import { SentryErrorBoundary } from '../SentryErrorBoundary.js'
-import { ToolUseLoader } from '../ToolUseLoader.js'
-import { HookProgressMessage } from './HookProgressMessage.js'
 
 type Props = {
   param: ToolUseBlockParam

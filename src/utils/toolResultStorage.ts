@@ -20,7 +20,7 @@ import { logForDebugging } from './debug.js'
 import { getErrnoCode, toError } from './errors.js'
 import { formatFileSize } from './format.js'
 import { logError } from './log.js'
-import { getProjectDir } from './sessionStorage.js'
+import { getProjectDir } from './sessionStoragePortable.js'
 import { jsonStringify } from './slowOperations.js'
 
 // Subdirectory name for tool results within a session

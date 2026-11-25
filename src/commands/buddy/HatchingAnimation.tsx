@@ -119,7 +119,7 @@ export function HatchingAnimation({ hatching, onDone }: Props): React.ReactNode 
   const [crackStartTick, setCrackStartTick] = useState<number | null>(
     null,
   )
-  const [revealed, setRevealed] = useState<Companion | null>(null)
+  const [companion, setCompanion] = useState<Companion | null>(null)
 
   useEffect(() => {
     const interval = setInterval(
@@ -145,17 +145,17 @@ export function HatchingAnimation({ hatching, onDone }: Props): React.ReactNode 
       frameIndex = WOBBLE_FRAME_COUNT + sinceCrack
     } else {
       frameIndex = FRAMES.length - 1
-      if (!revealed && hatched) setRevealed(hatched)
+      if (!companion && hatched) setCompanion(hatched)
     }
   }
 
-  if (revealed) {
+  if (companion) {
     return (
       <Box flexDirection="column">
-        <CompanionCard companion={revealed} onDone={onDone} />
+        <CompanionCard companion={companion} onDone={onDone} />
         <Box flexDirection="column" marginTop={1}>
           <Text dimColor>
-            {revealed.name} is here · it'll chime in as you code
+            {companion.name} is here · it'll chime in as you code
           </Text>
           <Text dimColor>your buddy won't count toward your usage</Text>
           <Text dimColor>
