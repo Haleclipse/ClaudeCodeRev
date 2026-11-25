@@ -127,7 +127,18 @@ function gateOf(content: string, index: number): string {
   const stmt = statementBefore(content, index)
   const eq = stmt.indexOf('=')
   const q = stmt.lastIndexOf('?')
-  if (eq >= 0 && q > eq) parts.push(tidy(stmt.slice(eq + 1, q)))
+  if (eq >= 0 && q > eq) {
+    // `x = new Set(cond ? …` → keep only what follows the last unclosed `(`
+    let cond = stmt.slice(eq + 1, q)
+    for (let i = cond.length - 1, depth = 0; i >= 0; i--) {
+      if (cond[i] === ')') depth++
+      else if (cond[i] === '(' && depth-- === 0) {
+        cond = cond.slice(i + 1)
+        break
+      }
+    }
+    parts.push(tidy(cond))
+  }
   return parts.length > 1 ? parts.map(p => `(${p})`).join(' && ') : (parts[0] ?? '')
 }
 
