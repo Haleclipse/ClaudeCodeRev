@@ -2,13 +2,12 @@ import { readdir } from 'fs/promises'
 import { join } from 'path'
 import { coerce as semverCoerce } from 'semver'
 import { getSessionId } from '../bootstrap/state.js'
-import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
 import { execFileNoThrow } from './execFileNoThrow.js'
 import { pathExists } from './file.js'
 import { gte as semverGte } from './semver.js'
 
-const MIN_DESKTOP_VERSION = '1.1.2396'
+export const MIN_DESKTOP_VERSION = '1.1.9669'
 
 function isDevMode(): boolean {
   if ((process.env.NODE_ENV as string) === 'development') {
@@ -29,14 +28,13 @@ function isDevMode(): boolean {
 
 /**
  * Builds a deep link URL for Claude Desktop to resume a CLI session.
- * Format: claude://resume?session={sessionId}&cwd={cwd}
- * In dev mode: claude-dev://resume?session={sessionId}&cwd={cwd}
+ * Format: claude://resume?session={sessionId}
+ * In dev mode: claude-dev://resume?session={sessionId}
  */
 function buildDesktopDeepLink(sessionId: string): string {
   const protocol = isDevMode() ? 'claude-dev' : 'claude'
   const url = new URL(`${protocol}://resume`)
   url.searchParams.set('session', sessionId)
-  url.searchParams.set('cwd', getCwd())
   return url.toString()
 }
 
@@ -108,16 +106,18 @@ async function getDesktopVersion(): Promise<string | null> {
     const installDir = join(localAppData, 'AnthropicClaude')
     try {
       const entries = await readdir(installDir)
-      const versions = entries
-        .filter(e => e.startsWith('app-'))
-        .map(e => e.slice(4))
-        .filter(v => semverCoerce(v) !== null)
-        .sort((a, b) => {
-          const ca = semverCoerce(a)!
-          const cb = semverCoerce(b)!
-          return ca.compare(cb)
-        })
-      return versions.length > 0 ? versions[versions.length - 1]! : null
+      return (
+        entries
+          .filter(e => e.startsWith('app-'))
+          .map(e => e.slice(4))
+          .filter(v => semverCoerce(v) !== null)
+          .sort((a, b) => {
+            const ca = semverCoerce(a)!
+            const cb = semverCoerce(b)!
+            return ca.compare(cb)
+          })
+          .at(-1) ?? null
+      )
     } catch {
       return null
     }
@@ -210,13 +210,19 @@ export async function openCurrentSessionInDesktop(): Promise<{
 }> {
   const sessionId = getSessionId()
 
-  // Check if Desktop is installed
-  const installed = await isDesktopInstalled()
-  if (!installed) {
+  // Check that Desktop is installed and new enough to resume CLI sessions
+  const installStatus = await getDesktopInstallStatus()
+  if (installStatus.status === 'not-installed') {
     return {
       success: false,
       error:
         'Claude Desktop is not installed. Install it from https://claude.ai/download',
+    }
+  }
+  if (installStatus.status === 'version-too-old') {
+    return {
+      success: false,
+      error: `Claude Desktop ${installStatus.version} is too old to resume this session. Please update to ${MIN_DESKTOP_VERSION} or later.`,
     }
   }
 

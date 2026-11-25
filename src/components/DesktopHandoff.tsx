@@ -5,6 +5,7 @@ import { Box, Text, useInput } from '../ink.js'
 import { openBrowser } from '../utils/browser.js'
 import {
   getDesktopInstallStatus,
+  MIN_DESKTOP_VERSION,
   openCurrentSessionInDesktop,
 } from '../utils/desktopDeepLink.js'
 import { errorMessage } from '../utils/errors.js'
@@ -79,7 +80,7 @@ export function DesktopHandoff({ onDone }: Props): React.ReactNode {
 
       if (installStatus.status === 'version-too-old') {
         setDownloadMessage(
-          `Claude Desktop needs to be updated (found v${installStatus.version}, need v1.1.2396+).`,
+          `Claude Desktop needs to be updated (found v${installStatus.version}, need v${MIN_DESKTOP_VERSION}+).`,
         )
         setState('prompt-download')
         return
