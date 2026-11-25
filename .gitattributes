@@ -1,0 +1,4 @@
+# Dependency patches must be stored byte-for-byte: some upstream files use CRLF
+# (e.g. @protobufjs/inquire) and the patch context lines carry those \r bytes.
+# Without this, core.autocrlf=input strips them and the patch no longer applies.
+patches/*.patch -text
