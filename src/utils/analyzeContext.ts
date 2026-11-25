@@ -5,15 +5,16 @@ import {
   SYSTEM_PROMPT_DYNAMIC_BOUNDARY,
 } from 'src/constants/prompts.js'
 import { microcompactMessages } from 'src/services/compact/microCompact.js'
-import { getSdkBetas } from '../bootstrap/state.js'
 import { getCommandName } from '../commands.js'
 import { getSystemContext } from '../context.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import {
   AUTOCOMPACT_BUFFER_TOKENS,
+  type AutoCompactWindowSource,
   getEffectiveContextWindowSize,
   isAutoCompactEnabled,
   MANUAL_COMPACT_BUFFER_TOKENS,
+  resolveAutoCompactWindow,
 } from '../services/compact/autoCompact.js'
 import {
   countMessagesTokensWithAPI,
@@ -48,7 +49,6 @@ import type {
 } from '../types/message.js'
 import { toolToAPISchema } from './api.js'
 import { filterInjectedMemoryFiles, getMemoryFiles } from './claudemd.js'
-import { getContextWindowForModel } from './context.js'
 import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
 import { isEnvTruthy } from './envUtils.js'
@@ -192,6 +192,8 @@ export interface ContextData {
   readonly totalTokens: number
   readonly maxTokens: number
   readonly rawMaxTokens: number
+  /** Where maxTokens came from (env / settings autoCompactWindow / model) */
+  readonly autocompactSource?: AutoCompactWindowSource
   readonly percentage: number
   readonly gridRows: GridSquare[][]
   readonly model: string
@@ -926,13 +928,19 @@ export async function analyzeContextUsage(
   mainThreadAgentDefinition?: AgentDefinition,
   /** Original messages before microcompact, used to extract API usage */
   originalMessages?: Message[],
+  /** AppState.autoCompactWindow (ignored when auto-compact is off) */
+  autoCompactWindow?: number,
 ): Promise<ContextData> {
   const runtimeModel = getRuntimeMainLoopModel({
     permissionMode: (await getToolPermissionContext()).mode,
     mainLoopModel: model,
   })
-  // Get context window size
-  const contextWindow = getContextWindowForModel(runtimeModel, getSdkBetas())
+  // Get context window size (capped by the configured auto-compact window)
+  const configuredWindow = isAutoCompactEnabled()
+    ? autoCompactWindow
+    : undefined
+  const { window: contextWindow, source: autocompactSource } =
+    resolveAutoCompactWindow(runtimeModel, configuredWindow)
 
   // Build the effective system prompt using the shared utility
   const defaultSystemPrompt = await getSystemPrompt(tools, runtimeModel)
@@ -1001,7 +1009,8 @@ export async function analyzeContextUsage(
   // Check if autocompact is enabled and calculate threshold
   const isAutoCompact = isAutoCompactEnabled()
   const autoCompactThreshold = isAutoCompact
-    ? getEffectiveContextWindowSize(model) - AUTOCOMPACT_BUFFER_TOKENS
+    ? getEffectiveContextWindowSize(model, configuredWindow) -
+      AUTOCOMPACT_BUFFER_TOKENS
     : undefined
 
   // Create categories
@@ -1345,6 +1354,7 @@ export async function analyzeContextUsage(
     totalTokens: finalTotalTokens,
     maxTokens: contextWindow,
     rawMaxTokens: contextWindow,
+    autocompactSource,
     percentage: Math.round((finalTotalTokens / contextWindow) * 100),
     gridRows,
     model: runtimeModel,

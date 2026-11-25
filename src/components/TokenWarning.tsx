@@ -9,6 +9,7 @@ import {
   isAutoCompactEnabled,
 } from '../services/compact/autoCompact.js'
 import { useCompactWarningSuppression } from '../services/compact/compactWarningHook.js'
+import { useAppState } from '../state/AppState.js'
 import { getUpgradeMessage } from '../utils/model/contextWindowUpgradeCheck.js'
 
 type Props = {
@@ -72,8 +73,9 @@ function CollapseLabel({
 }
 
 export function TokenWarning({ tokenUsage, model }: Props): React.ReactNode {
+  const autoCompactWindow = useAppState(s => s.autoCompactWindow)
   const { percentLeft, isAboveWarningThreshold, isAboveErrorThreshold } =
-    calculateTokenWarningState(tokenUsage, model)
+    calculateTokenWarningState(tokenUsage, model, autoCompactWindow)
 
   // Use reactive hook to check if warning should be suppressed
   const suppressWarning = useCompactWarningSuppression()
@@ -110,7 +112,10 @@ export function TokenWarning({ tokenUsage, model }: Props): React.ReactNode {
     }
   }
   if (reactiveOnlyMode || collapseMode) {
-    const effectiveWindow = getEffectiveContextWindowSize(model)
+    const effectiveWindow = getEffectiveContextWindowSize(
+      model,
+      autoCompactWindow,
+    )
     displayPercentLeft = Math.max(
       0,
       Math.round(((effectiveWindow - tokenUsage) / effectiveWindow) * 100),

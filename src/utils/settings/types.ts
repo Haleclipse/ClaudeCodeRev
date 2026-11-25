@@ -709,6 +709,16 @@ export const SettingsSchema = lazySchema(() =>
         .optional()
         .catch(undefined)
         .describe('Persisted effort level for supported models.'),
+      // Same bounds as AUTOCOMPACT_WINDOW_MIN / AUTOCOMPACT_WINDOW_MAX in
+      // services/compact/autoCompact.ts (set via /autocompact)
+      autoCompactWindow: z
+        .number()
+        .int()
+        .min(100_000)
+        .max(1_000_000)
+        .optional()
+        .catch(undefined)
+        .describe('Auto-compact window size'),
       advisorModel: z
         .string()
         .optional()

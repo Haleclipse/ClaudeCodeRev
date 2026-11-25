@@ -5,6 +5,7 @@ import type { ContextData } from '../utils/analyzeContext.js'
 import { generateContextSuggestions } from '../utils/contextSuggestions.js'
 import { getDisplayPath } from '../utils/file.js'
 import { formatTokens } from '../utils/format.js'
+import { getPublicModelDisplayName } from '../utils/model/model.js'
 import {
   getSourceDisplayName,
   type SettingSource,
@@ -119,6 +120,7 @@ export function ContextVisualization({ data }: Props): React.ReactNode {
     categories,
     totalTokens,
     rawMaxTokens,
+    autocompactSource,
     percentage,
     gridRows,
     model,
@@ -185,9 +187,13 @@ export function ContextVisualization({ data }: Props): React.ReactNode {
 
         {/* Legend to the right */}
         <Box flexDirection="column" gap={0} flexShrink={0}>
+          {getPublicModelDisplayName(model) && (
+            <Text>{getPublicModelDisplayName(model)}</Text>
+          )}
+          <Text dimColor>{model}</Text>
           <Text dimColor>
-            {model} · {formatTokens(totalTokens)}/{formatTokens(rawMaxTokens)}{' '}
-            tokens ({percentage}%)
+            {formatTokens(totalTokens)}/{formatTokens(rawMaxTokens)} tokens (
+            {percentage}%)
           </Text>
           <CollapseStatus />
           <Text> </Text>
@@ -249,6 +255,14 @@ export function ContextVisualization({ data }: Props): React.ReactNode {
       </Box>
 
       <Box flexDirection="column" marginLeft={-1}>
+        {autocompactSource !== 'model' && (
+          <Box marginTop={1}>
+            <Text bold>Auto-compact window: </Text>
+            <Text dimColor>
+              {formatTokens(rawMaxTokens)} tokens · /autocompact
+            </Text>
+          </Box>
+        )}
         {mcpTools.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
             <Box>

@@ -222,6 +222,17 @@ export function stripReinjectedAttachments(messages: Message[]): Message[] {
   return messages
 }
 
+/**
+ * Cold compaction (see autoCompactIfNeeded): drop every attachment except
+ * queued commands before summarizing. Attachments are context the next turn
+ * re-derives anyway; queued commands are user input that must survive.
+ */
+function stripNonEssentialAttachments(messages: Message[]): Message[] {
+  return messages.filter(
+    m => m.type !== 'attachment' || m.attachment.type === 'queued_command',
+  )
+}
+
 export const ERROR_MESSAGE_NOT_ENOUGH_MESSAGES =
   'Not enough messages to compact.'
 const MAX_PTL_RETRIES = 3
@@ -392,6 +403,9 @@ export async function compactConversation(
   customInstructions?: string,
   isAutoCompact: boolean = false,
   recompactionInfo?: RecompactionInfo,
+  // Cold compaction: skip the prompt-cache-sharing fork and strip
+  // non-essential attachments from what gets summarized
+  stripNonEssential: boolean = false,
 ): Promise<CompactionResult> {
   try {
     if (messages.length === 0) {
@@ -455,6 +469,7 @@ export async function compactConversation(
         context,
         preCompactTokenCount,
         cacheSafeParams: retryCacheSafeParams,
+        stripNonEssential,
       })
       summary = getAssistantMessageText(summaryResponse)
       if (!summary?.startsWith(PROMPT_TOO_LONG_ERROR_MESSAGE)) break
@@ -649,6 +664,7 @@ export async function compactConversation(
 
     logEvent('tengu_compact', {
       preCompactTokenCount,
+      stripNonEssential,
       // Kept for continuity — semantically the compact API call's total usage
       postCompactTokenCount: compactionCallTotalTokens,
       truePostCompactTokenCount,
@@ -1140,6 +1156,7 @@ async function streamCompactSummary({
   context,
   preCompactTokenCount,
   cacheSafeParams,
+  stripNonEssential = false,
 }: {
   messages: Message[]
   summaryRequest: UserMessage
@@ -1147,15 +1164,17 @@ async function streamCompactSummary({
   context: ToolUseContext
   preCompactTokenCount: number
   cacheSafeParams: CacheSafeParams
+  stripNonEssential?: boolean
 }): Promise<AssistantMessage> {
   // When prompt cache sharing is enabled, use forked agent to reuse the
   // main conversation's cached prefix (system prompt, tools, context messages).
   // Falls back to regular streaming path on failure.
   // 3P default: true — see comment at the other tengu_compact_cache_prefix read above.
-  const promptCacheSharingEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_compact_cache_prefix',
-    true,
-  )
+  // Cold compaction skips it: the cached prefix has expired, and the fork
+  // would send the full (unstripped) conversation.
+  const promptCacheSharingEnabled =
+    !stripNonEssential &&
+    getFeatureValue_CACHED_MAY_BE_STALE('tengu_compact_cache_prefix', true)
   // Send keep-alive signals during compaction to prevent remote session
   // WebSocket idle timeouts from dropping bridge connections. Compaction
   // API calls can take 5-10+ seconds, during which no other messages
@@ -1289,13 +1308,18 @@ async function streamCompactSummary({
           )
         : [FileReadTool]
 
+      const messagesToSend = [
+        ...getMessagesAfterCompactBoundary(messages),
+        summaryRequest,
+      ]
       const streamingGen = queryModelWithStreaming({
         messages: normalizeMessagesForAPI(
           stripImagesFromMessages(
-            stripReinjectedAttachments([
-              ...getMessagesAfterCompactBoundary(messages),
-              summaryRequest,
-            ]),
+            stripReinjectedAttachments(
+              stripNonEssential
+                ? stripNonEssentialAttachments(messagesToSend)
+                : messagesToSend,
+            ),
           ),
           context.options.tools,
         ),

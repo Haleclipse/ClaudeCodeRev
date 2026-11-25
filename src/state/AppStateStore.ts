@@ -425,6 +425,9 @@ export type AppState = DeepImmutable<{
   advisorModel?: string
   // Effort value
   effortValue?: EffortValue
+  // Auto-compact window (tokens) from settings / /autocompact. Undefined =
+  // model context window. CLAUDE_CODE_AUTO_COMPACT_WINDOW still wins.
+  autoCompactWindow?: number
   // Set synchronously in launchUltraplan before the detached flow starts.
   // Prevents duplicate launches during the ~5s window before
   // ultraplanSessionUrl is set by teleportToRemote. Cleared by launchDetached

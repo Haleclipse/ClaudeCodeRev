@@ -8,6 +8,7 @@ import { FallbackTriggeredError } from './services/api/withRetry.js'
 import {
   calculateTokenWarningState,
   isAutoCompactEnabled,
+  RAPID_REFILL_BREAKER_MESSAGE,
   type AutoCompactTrackingState,
 } from './services/compact/autoCompact.js'
 import { buildPostCompactMessages } from './services/compact/compact.js'
@@ -451,7 +452,12 @@ async function* queryLoop(
     )
 
     queryCheckpoint('query_autocompact_start')
-    const { compactionResult, consecutiveFailures } = await deps.autocompact(
+    const {
+      compactionResult,
+      consecutiveFailures,
+      consecutiveRapidRefills,
+      rapidRefillBreakerTripped,
+    } = await deps.autocompact(
       messagesForQuery,
       toolUseContext,
       {
@@ -466,6 +472,22 @@ async function* queryLoop(
       snipTokensFreed,
     )
     queryCheckpoint('query_autocompact_end')
+
+    // The context keeps refilling right after each compact — stop instead of
+    // compacting (and paying for it) every turn.
+    if (rapidRefillBreakerTripped) {
+      logEvent('tengu_auto_compact_rapid_refill_breaker', {
+        consecutiveRapidRefills: tracking?.consecutiveRapidRefills ?? 0,
+        turnsSincePreviousCompact: tracking?.turnCounter ?? -1,
+        queryChainId: queryChainIdForAnalytics,
+        queryDepth: queryTracking.depth,
+      })
+      yield createAssistantAPIErrorMessage({
+        content: RAPID_REFILL_BREAKER_MESSAGE,
+        error: 'invalid_request',
+      })
+      return { reason: 'rapid_refill_breaker' }
+    }
 
     if (compactionResult) {
       const {
@@ -523,6 +545,7 @@ async function* queryLoop(
         turnId: deps.uuid(),
         turnCounter: 0,
         consecutiveFailures: 0,
+        consecutiveRapidRefills,
       }
 
       const postCompactMessages = buildPostCompactMessages(compactionResult)
@@ -637,6 +660,7 @@ async function* queryLoop(
       const { isAtBlockingLimit } = calculateTokenWarningState(
         tokenCountWithEstimation(messagesForQuery) - snipTokensFreed,
         toolUseContext.options.mainLoopModel,
+        toolUseContext.getAppState().autoCompactWindow,
       )
       if (isAtBlockingLimit) {
         yield createAssistantAPIErrorMessage({

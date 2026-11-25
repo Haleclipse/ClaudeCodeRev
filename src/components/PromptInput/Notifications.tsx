@@ -86,9 +86,11 @@ export function Notifications({
   // re-reads settings.json on every call, so another session's /model write
   // would leak into this session's display (anthropics/claude-code#37596).
   const mainLoopModel = useMainLoopModel()
+  const autoCompactWindow = useAppState(s => s.autoCompactWindow)
   const isShowingCompactMessage = calculateTokenWarningState(
     tokenUsage,
     mainLoopModel,
+    autoCompactWindow,
   ).isAboveWarningThreshold
   const { status: ideStatus } = useIdeConnectionStatus(mcpClients)
   const notifications = useAppState(s => s.notifications)

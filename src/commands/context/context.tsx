@@ -59,6 +59,7 @@ export async function call(
     context, // Pass full context for system prompt calculation
     undefined, // mainThreadAgentDefinition
     apiView, // Original messages for API usage extraction
+    appState.autoCompactWindow,
   )
 
   // Render to ANSI string to preserve colors and pass to onDone like local commands do

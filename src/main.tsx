@@ -3712,6 +3712,12 @@ async function run(): Promise<CommanderCommand> {
           toolPermissionContext,
           effortValue:
             parseEffortValue(options.effort) ?? getInitialEffortSetting(),
+          // options.autocompact: no such flag is registered in external
+          // builds (the official 2.1.89 bundle has no "--autocompact"), so
+          // this resolves to settings.autoCompactWindow there.
+          autoCompactWindow:
+            (options as { autocompact?: number }).autocompact ??
+            getInitialSettings().autoCompactWindow,
           ...(isFastModeEnabled() && {
             fastMode: getInitialFastModeSetting(effectiveModel ?? null),
           }),
@@ -4151,6 +4157,9 @@ async function run(): Promise<CommanderCommand> {
           : null,
         effortValue:
           parseEffortValue(options.effort) ?? getInitialEffortSetting(),
+        autoCompactWindow:
+          (options as { autocompact?: number }).autocompact ??
+          getInitialSettings().autoCompactWindow,
         activeOverlays: new Set<string>(),
         fastMode: getInitialFastModeSetting(resolvedInitialModel),
         ...(isAdvisorEnabled() && advisorModel && { advisorModel }),

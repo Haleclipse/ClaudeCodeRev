@@ -73,6 +73,7 @@ export async function collectContextData(
     >,
     undefined, // mainThreadAgentDefinition
     apiView, // original messages for API usage extraction
+    appState.autoCompactWindow,
   )
 }
 

@@ -990,6 +990,7 @@ export async function getAttachments(
             getTokenUsageAttachment(
               messages ?? [],
               toolUseContext.options.mainLoopModel,
+              toolUseContext.getAppState().autoCompactWindow,
             ),
           ),
         ),
@@ -3829,12 +3830,13 @@ function getTeamContextAttachment(messages: Message[]): Attachment[] {
 function getTokenUsageAttachment(
   messages: Message[],
   model: string,
+  autoCompactWindow?: number,
 ): Attachment[] {
   if (!isEnvTruthy(process.env.CLAUDE_CODE_ENABLE_TOKEN_USAGE_ATTACHMENT)) {
     return []
   }
 
-  const contextWindow = getEffectiveContextWindowSize(model)
+  const contextWindow = getEffectiveContextWindowSize(model, autoCompactWindow)
   const usedTokens = tokenCountFromLastAPIResponse(messages)
 
   return [
