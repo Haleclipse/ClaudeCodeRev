@@ -40,10 +40,10 @@ import {
 import { logFileOperation } from '../../utils/fileOperationAnalytics.js'
 import { formatFileSize } from '../../utils/format.js'
 import { getFsImplementation } from '../../utils/fsOperations.js'
+import { detectImageFormatFromBuffer } from '../../utils/imageFormat.js'
 import {
   compressImageBufferWithTokenLimit,
   createImageMetadataText,
-  detectImageFormatFromBuffer,
   type ImageDimensions,
   ImageResizeError,
   maybeResizeAndDownsampleImageBuffer,

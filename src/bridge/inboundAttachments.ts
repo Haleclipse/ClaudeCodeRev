@@ -32,6 +32,8 @@ const attachmentSchema = lazySchema(() =>
   z.object({
     file_uuid: z.string(),
     file_name: z.string(),
+    // Set by clients that already know the upload is an image
+    is_image: z.boolean().nullish(),
   }),
 )
 const attachmentsArraySchema = lazySchema(() => z.array(attachmentSchema()))

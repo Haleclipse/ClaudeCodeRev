@@ -112,6 +112,8 @@ export type EnvLessBridgeParams = {
    * retags internally.
    */
   onUserMessage?: (text: string, sessionId: string) => boolean
+  /** Called once credentials for the new session are in hand (see replBridge.ts). */
+  onSessionEstablished?: (sessionId: string) => void
   onPermissionResponse?: (response: SDKControlResponse) => void
   onInterrupt?: () => void
   onSetModel?: (model: string | undefined) => void
@@ -151,6 +153,7 @@ export async function initEnvLessBridgeCore(
     initialMessages,
     onInboundMessage,
     onUserMessage,
+    onSessionEstablished,
     onPermissionResponse,
     onInterrupt,
     onSetModel,
@@ -212,6 +215,7 @@ export async function initEnvLessBridgeCore(
   logForDebugging(
     `[remote-bridge] Fetched bridge credentials (expires_in=${credentials.expires_in}s)`,
   )
+  onSessionEstablished?.(sessionId)
 
   // ── 3. Build v2 transport (SSETransport + CCRClient) ────────────────────
   const sessionUrl = buildCCRv2SdkUrl(credentials.api_base_url, sessionId)

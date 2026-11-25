@@ -30,7 +30,6 @@ import {
 } from './workSecret.js'
 import { toCompatSessionId, toInfraSessionId } from './sessionIdCompat.js'
 import { updateSessionBridgeId } from '../utils/concurrentSessions.js'
-import { getTrustedDeviceToken } from './trustedDevice.js'
 import { HybridTransport } from '../cli/transports/HybridTransport.js'
 import {
   type ReplBridgeTransport,
@@ -155,6 +154,12 @@ export type BridgeCoreParams = {
    */
   onAuth401?: (staleAccessToken: string) => Promise<boolean>
   /**
+   * Trusted-device token for the bridge API client. Injected (REPL wrapper
+   * passes getTrustedDeviceToken) so this module doesn't import
+   * trustedDevice.ts itself.
+   */
+  getTrustedDeviceToken?: () => string | undefined
+  /**
    * Poll interval config getter for the work-poll heartbeat loop. REPL
    * wrapper passes the GrowthBook-backed getPollIntervalConfig (allows ops
    * to live-tune poll rates fleet-wide). Daemon passes a static config
@@ -208,6 +213,12 @@ export type BridgeCoreParams = {
    * onFirstUserMessage (spawn-bridge, PR #21250), which stays fire-once.
    */
   onUserMessage?: (text: string, sessionId: string) => boolean
+  /**
+   * Called whenever a bridge session becomes current — at startup and after
+   * a reconnect re-creates the session. The REPL wrapper starts client
+   * presence pulses for the session here.
+   */
+  onSessionEstablished?: (sessionId: string) => void
   /** See InitBridgeOptions.perpetual. */
   perpetual?: boolean
   /**
@@ -279,6 +290,7 @@ export async function initBridgeCore(
       )
     },
     onAuth401,
+    getTrustedDeviceToken,
     getPollIntervalConfig = () => DEFAULT_POLL_CONFIG,
     initialHistoryCap = 200,
     initialMessages,
@@ -291,6 +303,7 @@ export async function initBridgeCore(
     onSetPermissionMode,
     onStateChange,
     onUserMessage,
+    onSessionEstablished,
     perpetual,
     initialSSESequenceNum = 0,
   } = params
@@ -481,6 +494,7 @@ export async function initBridgeCore(
   // or left alone (perpetual mode — pointer survives clean exit too).
   // `claude remote-control --continue` from the same directory will detect
   // it and offer to resume.
+  onSessionEstablished?.(currentSessionId)
   await writeBridgePointer(dir, {
     sessionId: currentSessionId,
     environmentId,
@@ -789,6 +803,7 @@ export async function initBridgeCore(
     // Re-publish to the PID file so peer dedup (peerRegistry.ts) picks up the
     // new ID — setReplBridgeHandle only fires at init/teardown, not reconnect.
     void updateSessionBridgeId(toCompatSessionId(newSessionId)).catch(() => {})
+    onSessionEstablished?.(newSessionId)
     // Reset per-session transport state IMMEDIATELY after the session swap,
     // before any await. If this runs after `await writeBridgePointer` below,
     // there's a window where handle.bridgeSessionId already returns session B

@@ -19,6 +19,10 @@ import { getOriginalCwd, getSessionId } from '../bootstrap/state.js'
 import type { SDKMessage } from '../entrypoints/agentSdkTypes.js'
 import type { SDKControlResponse } from '../entrypoints/sdk/controlTypes.js'
 import { getFeatureValue_CACHED_WITH_REFRESH } from '../services/analytics/growthbook.js'
+import {
+  startClientPresence,
+  stopClientPresence,
+} from '../services/clientPresence.js'
 import { getOrganizationUUID } from '../services/oauth/client.js'
 import {
   isPolicyAllowed,
@@ -42,6 +46,7 @@ import {
   isSyntheticMessage,
 } from '../utils/messages.js'
 import type { PermissionMode } from '../utils/permissions/PermissionMode.js'
+import { getSessionIngressAuthHeaders } from '../utils/sessionIngressAuth.js'
 import { getCurrentSessionTitle } from '../utils/sessionStorage.js'
 import {
   extractConversationText,
@@ -69,7 +74,8 @@ import { checkEnvLessBridgeMinVersion } from './envLessBridgeConfig.js'
 import { getPollIntervalConfig } from './pollConfig.js'
 import type { BridgeState, ReplBridgeHandle } from './replBridge.js'
 import { initBridgeCore } from './replBridge.js'
-import { setCseShimGate } from './sessionIdCompat.js'
+import { setCseShimGate, toInfraSessionId } from './sessionIdCompat.js'
+import { getTrustedDeviceToken } from './trustedDevice.js'
 import type { BridgeWorkerType } from './types.js'
 
 export type InitBridgeOptions = {
@@ -422,7 +428,7 @@ export async function initReplBridge(
       '[bridge:repl] Using env-less bridge path (tengu_bridge_repl_v2)',
     )
     const { initEnvLessBridgeCore } = await import('./remoteBridgeCore.js')
-    return initEnvLessBridgeCore({
+    const handle = await initEnvLessBridgeCore({
       baseUrl,
       orgUUID,
       title,
@@ -440,6 +446,13 @@ export async function initReplBridge(
       // session creation (replBridge.ts:768); v2 skips the param entirely.
       onInboundMessage,
       onUserMessage,
+      // v2 sessions authenticate with the bridge OAuth token
+      onSessionEstablished: sessionId =>
+        startClientPresence(toInfraSessionId(sessionId), baseUrl, () => {
+          const token = getBridgeAccessToken()
+          if (!token) return {}
+          return { Authorization: `Bearer ${token}` }
+        }),
       onPermissionResponse,
       onInterrupt,
       onSetModel,
@@ -449,6 +462,7 @@ export async function initReplBridge(
       outboundOnly,
       tags,
     })
+    return wrapBridgeHandleTeardown(handle)
   }
 
   // ── v1 path: env-based (register/poll/ack/heartbeat) ──────────────────
@@ -487,7 +501,7 @@ export async function initReplBridge(
   // 6. Delegate. BridgeCoreHandle is a structural superset of
   // ReplBridgeHandle (adds writeSdkMessages which REPL callers don't use),
   // so no adapter needed — just the narrower type on the way out.
-  return initBridgeCore({
+  const handle = await initBridgeCore({
     dir: getOriginalCwd(),
     machineName: hostname(),
     branch,
@@ -495,6 +509,13 @@ export async function initReplBridge(
     title,
     baseUrl,
     sessionIngressUrl,
+    // v1 sessions authenticate with the session-ingress token
+    onSessionEstablished: sessionId =>
+      startClientPresence(
+        toInfraSessionId(sessionId),
+        sessionIngressUrl,
+        getSessionIngressAuthHeaders,
+      ),
     workerType,
     getAccessToken: getBridgeAccessToken,
     createSession: opts =>
@@ -529,6 +550,7 @@ export async function initReplBridge(
     onUserMessage,
     toSDKMessages,
     onAuth401: handleOAuth401Error,
+    getTrustedDeviceToken,
     getPollIntervalConfig,
     initialHistoryCap,
     initialMessages,
@@ -542,6 +564,27 @@ export async function initReplBridge(
     onStateChange,
     perpetual,
   })
+  return wrapBridgeHandleTeardown(handle)
+}
+
+/**
+ * Presence pulses must stop with the bridge: wrap teardown so it stops them
+ * first. A failed init (null handle) also stops any pulses a session that
+ * was established along the way may have started.
+ */
+function wrapBridgeHandleTeardown(
+  handle: ReplBridgeHandle | null,
+): ReplBridgeHandle | null {
+  if (!handle) {
+    stopClientPresence()
+    return null
+  }
+  const teardown = handle.teardown.bind(handle)
+  handle.teardown = async () => {
+    stopClientPresence()
+    await teardown()
+  }
+  return handle
 }
 
 const TITLE_MAX_LEN = 50
