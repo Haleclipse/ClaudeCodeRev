@@ -408,7 +408,7 @@ function validateHookJson(
  * (same format as oversized tool results). If persisting fails, the output is
  * truncated instead.
  */
-async function persistHookOutputIfLarge(
+export async function persistHookOutput(
   text: string,
   id: string,
   source: string,
@@ -2672,7 +2672,7 @@ async function* executeHooks({
           exitCode: result.status,
           outcome: 'success',
         })
-        const content = await persistHookOutputIfLarge(
+        const content = await persistHookOutput(
           result.stdout.trim(),
           hookId,
           'stdout',
@@ -2840,7 +2840,7 @@ async function* executeHooks({
     // Yield system message separately if present
     if (result.systemMessage) {
       outputSizes.systemMessageChars += result.systemMessage.length
-      const content = await persistHookOutputIfLarge(
+      const content = await persistHookOutput(
         result.systemMessage,
         `${toolUseID}-${resultIndex}`,
         'systemMessage',
@@ -2864,7 +2864,7 @@ async function* executeHooks({
       )
       yield {
         additionalContexts: [
-          await persistHookOutputIfLarge(
+          await persistHookOutput(
             result.additionalContext,
             `${toolUseID}-${resultIndex}`,
             'additionalContext',
@@ -2879,7 +2879,7 @@ async function* executeHooks({
         `Hook ${hookEvent} (${getHookDisplayText(result.hook)}) provided initialUserMessage (${result.initialUserMessage.length} chars)`,
       )
       yield {
-        initialUserMessage: await persistHookOutputIfLarge(
+        initialUserMessage: await persistHookOutput(
           result.initialUserMessage,
           `${toolUseID}-${resultIndex}`,
           'initialUserMessage',

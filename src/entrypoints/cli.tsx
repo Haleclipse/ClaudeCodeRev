@@ -1,5 +1,11 @@
 import { feature } from 'bun:bundle'
 
+// SECURITY: Prevent Windows from executing commands from the current directory
+// (PATH hijacking). Set at the very top of the entrypoint so it is in effect
+// before anything can spawn; main.tsx sets it as well.
+// eslint-disable-next-line custom-rules/no-top-level-side-effects
+process.env.NoDefaultCurrentDirectoryInExePath = '1'
+
 // Bugfix for corepack auto-pinning, which adds yarnpkg to peoples' package.jsons
 // eslint-disable-next-line custom-rules/no-top-level-side-effects
 process.env.COREPACK_ENABLE_AUTO_PIN = '0'
