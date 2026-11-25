@@ -133,6 +133,7 @@ function MessageImpl({
               thinkingBlockId={`${message.uuid}:${index}`}
               lastThinkingBlockId={lastThinkingBlockId}
               advisorModel={message.advisorModel}
+              messageUuid={message.uuid}
             />
           ))}
         </Box>
@@ -369,6 +370,7 @@ function AssistantMessageBlock({
   thinkingBlockId,
   lastThinkingBlockId,
   advisorModel,
+  messageUuid,
 }: {
   param:
     | BetaContentBlock
@@ -397,6 +399,8 @@ function AssistantMessageBlock({
   /** ID of the last thinking block to show, null means show all */
   lastThinkingBlockId?: string | null
   advisorModel?: string
+  /** uuid of the assistant message this block belongs to (for rating) */
+  messageUuid?: string
 }): React.ReactNode {
   if (feature('CONNECTOR_TEXT')) {
     if (isConnectorTextBlock(param)) {
@@ -408,6 +412,7 @@ function AssistantMessageBlock({
           verbose={verbose}
           width={width}
           onOpenRateLimitOptions={onOpenRateLimitOptions}
+          messageUuid={messageUuid}
         />
       )
     }
@@ -428,6 +433,7 @@ function AssistantMessageBlock({
           inProgressToolCallCount={inProgressToolCallCount}
           lookups={lookups}
           isTranscriptMode={isTranscriptMode}
+          messageUuid={messageUuid}
         />
       )
     case 'text':
@@ -439,6 +445,7 @@ function AssistantMessageBlock({
           verbose={verbose}
           width={width}
           onOpenRateLimitOptions={onOpenRateLimitOptions}
+          messageUuid={messageUuid}
         />
       )
     case 'redacted_thinking':

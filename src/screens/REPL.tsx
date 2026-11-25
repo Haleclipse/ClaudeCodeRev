@@ -166,6 +166,7 @@ import {
 } from '../cost-tracker.js'
 import { useCostSummary } from '../costHook.js'
 import { useFpsMetrics } from '../context/fpsMetrics.js'
+import { MessageRatingProvider } from '../components/messageRating.js'
 import { useAfterFirstRender } from '../hooks/useAfterFirstRender.js'
 import { useDeferredHookMessages } from '../hooks/useDeferredHookMessages.js'
 import {
@@ -5818,6 +5819,7 @@ export function REPL({
         ? scrollRef
         : undefined
     const transcriptMessagesElement = (
+      <MessageRatingProvider>
       <Messages
         messages={transcriptMessages}
         tools={tools}
@@ -5843,6 +5845,7 @@ export function REPL({
         setPositions={setPositions}
         disableRenderCap={dumpMode}
       />
+      </MessageRatingProvider>
     )
     const transcriptToolJSX = toolJSX && (
       <Box flexDirection="column" width="100%">
@@ -6159,6 +6162,7 @@ export function REPL({
           scrollable={
             <>
               <TeammateViewHeader />
+              <MessageRatingProvider>
               <Messages
                 messages={displayedMessages}
                 tools={tools}
@@ -6190,6 +6194,7 @@ export function REPL({
                 setCursor={setCursor}
                 cursorNavRef={cursorNavRef}
               />
+              </MessageRatingProvider>
               <AwsAuthStatusBox />
               {/* Hide the processing placeholder while a modal is showing —
                   it would sit at the last visible transcript row right above

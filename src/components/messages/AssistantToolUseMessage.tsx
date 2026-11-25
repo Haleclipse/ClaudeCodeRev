@@ -1,11 +1,12 @@
 import type { ToolUseBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
-import React, { useMemo } from 'react'
+import { feature } from 'bun:bundle'
+import React, { useContext, useMemo, useState } from 'react'
 import { useTerminalSize } from 'src/hooks/useTerminalSize.js'
 import type { ThemeName } from 'src/utils/theme.js'
 import type { Command } from '../../commands.js'
-import { BLACK_CIRCLE } from '../../constants/figures.js'
+import { BLACK_CIRCLE, UP_ARROW } from '../../constants/figures.js'
 import { stringWidth } from '../../ink/stringWidth.js'
-import { Box, Text, useTheme } from '../../ink.js'
+import { Box, NoSelect, Text, useTheme } from '../../ink.js'
 import { useAppStateMaybeOutsideOfProvider } from '../../state/AppState.js'
 import {
   findToolByName,
@@ -15,10 +16,17 @@ import {
 } from '../../Tool.js'
 import type { ProgressMessage } from '../../types/message.js'
 import { useIsClassifierChecking } from '../../utils/classifierApprovalsHook.js'
+import { isFullscreenEnvEnabled } from '../../utils/fullscreen.js'
 import { logError } from '../../utils/log.js'
 import type { buildMessageLookups } from '../../utils/messages.js'
 import { MessageResponse } from '../MessageResponse.js'
 import { useSelectedMessageBg } from '../messageActions.js'
+import {
+  RateMessageContext,
+  useHoveredToolUseId,
+  useMessageRating,
+  useSetHoveredToolUseId,
+} from '../messageRating.js'
 import { SentryErrorBoundary } from '../SentryErrorBoundary.js'
 import { ToolUseLoader } from '../ToolUseLoader.js'
 import { HookProgressMessage } from './HookProgressMessage.js'
@@ -36,6 +44,8 @@ type Props = {
   inProgressToolCallCount?: number
   lookups: ReturnType<typeof buildMessageLookups>
   isTranscriptMode?: boolean
+  /** uuid of the assistant message containing this tool_use, for rating */
+  messageUuid?: string
 }
 
 export function AssistantToolUseMessage({
@@ -51,7 +61,14 @@ export function AssistantToolUseMessage({
   inProgressToolCallCount,
   lookups,
   isTranscriptMode,
+  messageUuid,
 }: Props): React.ReactNode {
+  const rateMessage = useContext(RateMessageContext)
+  const hoveredToolUseId = useHoveredToolUseId()
+  const setHoveredToolUseId = useSetHoveredToolUseId()
+  const isHovered = hoveredToolUseId === param.id
+  const rating = useMessageRating(messageUuid)
+  const [isArrowHovered, setIsArrowHovered] = useState(false)
   const terminalSize = useTerminalSize()
   const [theme] = useTheme()
   const bg = useSelectedMessageBg()
@@ -156,6 +173,16 @@ export function AssistantToolUseMessage({
       marginTop={addMargin ? 1 : 0}
       width="100%"
       backgroundColor={bg}
+      onMouseEnter={
+        feature('MESSAGE_ACTIONS')
+          ? () => setHoveredToolUseId?.(param.id)
+          : undefined
+      }
+      onMouseLeave={
+        feature('MESSAGE_ACTIONS')
+          ? () => setHoveredToolUseId?.(null)
+          : undefined
+      }
     >
       <Box flexDirection="column">
         <Box
@@ -164,7 +191,34 @@ export function AssistantToolUseMessage({
           minWidth={stringWidth(userFacingToolName) + (shouldShowDot ? 2 : 0)}
         >
           {shouldShowDot &&
-            (isQueued ? (
+            // Rating: once the tool finished cleanly, hovering the block swaps
+            // the dot for ↑ (↓ is rendered under the tool result)
+            (isResolved &&
+            !lookups.erroredToolUseIDs.has(param.id) &&
+            feature('MESSAGE_ACTIONS') &&
+            isFullscreenEnvEnabled() &&
+            messageUuid !== undefined &&
+            rateMessage !== null &&
+            (isHovered || rating !== undefined) ? (
+              <NoSelect
+                fromLeftEdge
+                minWidth={2}
+                onClick={() => rateMessage(messageUuid, 'positive')}
+                onMouseEnter={() => setIsArrowHovered(true)}
+                onMouseLeave={() => setIsArrowHovered(false)}
+              >
+                <Text
+                  color={
+                    rating === 'positive' || isArrowHovered
+                      ? 'success'
+                      : undefined
+                  }
+                  dimColor={rating !== 'positive' && !isArrowHovered}
+                >
+                  {UP_ARROW}
+                </Text>
+              </NoSelect>
+            ) : isQueued ? (
               <Box minWidth={2}>
                 <Text dimColor={isQueued}>{BLACK_CIRCLE}</Text>
               </Box>

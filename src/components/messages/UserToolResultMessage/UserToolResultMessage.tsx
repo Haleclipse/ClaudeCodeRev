@@ -1,16 +1,27 @@
 import type { ToolResultBlockParam } from '@anthropic-ai/sdk/resources/index.mjs'
+import { feature } from 'bun:bundle'
 import * as React from 'react'
+import { useContext, useState } from 'react'
+import { DOWN_ARROW } from '../../../constants/figures.js'
+import { Box, NoSelect, Text } from '../../../ink.js'
 import type { Tools } from '../../../Tool.js'
 import type {
   NormalizedUserMessage,
   ProgressMessage,
 } from '../../../types/message.js'
+import { isFullscreenEnvEnabled } from '../../../utils/fullscreen.js'
 import {
   type buildMessageLookups,
   CANCEL_MESSAGE,
   INTERRUPT_MESSAGE_FOR_TOOL_USE,
   REJECT_MESSAGE,
 } from '../../../utils/messages.js'
+import {
+  RateMessageContext,
+  useHoveredToolUseId,
+  useMessageRating,
+  useSetHoveredToolUseId,
+} from '../../messageRating.js'
 import { UserToolCanceledMessage } from './UserToolCanceledMessage.js'
 import { UserToolErrorMessage } from './UserToolErrorMessage.js'
 import { UserToolRejectMessage } from './UserToolRejectMessage.js'
@@ -41,23 +52,29 @@ export function UserToolResultMessage({
   isTranscriptMode,
 }: Props): React.ReactNode {
   const toolUse = useGetToolFromMessages(param.tool_use_id, tools, lookups)
+  const setHoveredToolUseId = useSetHoveredToolUseId()
+  const hoveredToolUseId = useHoveredToolUseId()
+  const rateMessage = useContext(RateMessageContext)
+  // Ratings attach to the assistant message that issued the tool_use
+  const assistantUuid = lookups.assistantUuidByToolUseID.get(param.tool_use_id)
+  const rating = useMessageRating(assistantUuid)
+  const [isArrowHovered, setIsArrowHovered] = useState(false)
   if (!toolUse) {
     return null
   }
 
+  let content: React.ReactNode
   if (
     typeof param.content === 'string' &&
     param.content.startsWith(CANCEL_MESSAGE)
   ) {
-    return <UserToolCanceledMessage />
-  }
-
-  if (
+    content = <UserToolCanceledMessage />
+  } else if (
     (typeof param.content === 'string' &&
       param.content.startsWith(REJECT_MESSAGE)) ||
     param.content === INTERRUPT_MESSAGE_FOR_TOOL_USE
   ) {
-    return (
+    content = (
       <UserToolRejectMessage
         input={toolUse.toolUse.input as { [key: string]: unknown }}
         progressMessagesForMessage={progressMessagesForMessage}
@@ -69,10 +86,8 @@ export function UserToolResultMessage({
         isTranscriptMode={isTranscriptMode}
       />
     )
-  }
-
-  if (param.is_error) {
-    return (
+  } else if (param.is_error) {
+    content = (
       <UserToolErrorMessage
         progressMessagesForMessage={progressMessagesForMessage}
         tool={toolUse.tool}
@@ -82,20 +97,62 @@ export function UserToolResultMessage({
         isTranscriptMode={isTranscriptMode}
       />
     )
+  } else {
+    content = (
+      <UserToolSuccessMessage
+        message={message}
+        lookups={lookups}
+        toolUseID={toolUse.toolUse.id}
+        progressMessagesForMessage={progressMessagesForMessage}
+        style={style}
+        tool={toolUse.tool}
+        tools={tools}
+        verbose={verbose}
+        width={width}
+        isTranscriptMode={isTranscriptMode}
+      />
+    )
   }
 
+  // Hover state is shared with the AssistantToolUseMessage of the same
+  // tool_use id, which shows ↑ in its dot column; ↓ goes under the result.
+  const isHovered = hoveredToolUseId === param.tool_use_id
   return (
-    <UserToolSuccessMessage
-      message={message}
-      lookups={lookups}
-      toolUseID={toolUse.toolUse.id}
-      progressMessagesForMessage={progressMessagesForMessage}
-      style={style}
-      tool={toolUse.tool}
-      tools={tools}
-      verbose={verbose}
-      width={width}
-      isTranscriptMode={isTranscriptMode}
-    />
+    <Box
+      flexDirection="column"
+      onMouseEnter={
+        feature('MESSAGE_ACTIONS')
+          ? () => setHoveredToolUseId?.(param.tool_use_id)
+          : undefined
+      }
+      onMouseLeave={
+        feature('MESSAGE_ACTIONS')
+          ? () => setHoveredToolUseId?.(null)
+          : undefined
+      }
+    >
+      {content}
+      {feature('MESSAGE_ACTIONS') &&
+      isFullscreenEnvEnabled() &&
+      assistantUuid &&
+      rateMessage &&
+      (isHovered || rating !== undefined) ? (
+        <NoSelect
+          fromLeftEdge
+          onClick={() => rateMessage(assistantUuid, 'negative')}
+          onMouseEnter={() => setIsArrowHovered(true)}
+          onMouseLeave={() => setIsArrowHovered(false)}
+        >
+          <Text
+            color={
+              rating === 'negative' || isArrowHovered ? 'error' : undefined
+            }
+            dimColor={rating !== 'negative' && !isArrowHovered}
+          >
+            {DOWN_ARROW}
+          </Text>
+        </NoSelect>
+      ) : null}
+    </Box>
   )
 }
