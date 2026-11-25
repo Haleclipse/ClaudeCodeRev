@@ -192,6 +192,12 @@ const define: Record<string, string> = {}
 for (const [key, val] of Object.entries(MACROS)) {
   define[key] = val
 }
+// Compile-time process.env constants, as in the official external build. The
+// ant-only / opt-in modules these gate (REPLTool, SuggestBackgroundPRTool,
+// agents-platform, VerifyPlanExecutionTool) are not in the published sources,
+// so their require() branches must be folded away or the bundle can't resolve.
+define['process.env.USER_TYPE'] = JSON.stringify('external')
+define['process.env.CLAUDE_CODE_VERIFY_PLAN'] = 'undefined'
 
 async function main() {
   const startTime = Date.now()
