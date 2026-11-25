@@ -76,9 +76,16 @@ export function SystemTextMessage({
         width="100%"
       >
         <Box minWidth={2}>
-          <Text dimColor>{REFERENCE_MARK}</Text>
+          <Text color="subtle">{REFERENCE_MARK}</Text>
         </Box>
-        <Text dimColor>{message.content}</Text>
+        <Text>
+          <Text bold color="subtle">
+            recap:{' '}
+          </Text>
+          <Text dimColor italic>
+            {message.content}
+          </Text>
+        </Text>
       </Box>
     )
   }
