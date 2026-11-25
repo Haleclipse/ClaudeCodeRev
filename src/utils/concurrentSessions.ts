@@ -28,7 +28,7 @@ function getSessionsDir(): string {
  * write the file for it — cleanup-on-exit wiring then works for free.
  * Gated so the env-var string is DCE'd from external builds.
  */
-function envSessionKind(): SessionKind | undefined {
+export function envSessionKind(): SessionKind | undefined {
   if (feature('BG_SESSIONS')) {
     const k = process.env.CLAUDE_CODE_SESSION_KIND
     if (k === 'bg' || k === 'daemon' || k === 'daemon-worker') return k

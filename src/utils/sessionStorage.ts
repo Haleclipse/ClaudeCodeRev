@@ -65,7 +65,11 @@ import type {
 import type { QueueOperationMessage } from '../types/messageQueueTypes.js'
 import { uniq } from './array.js'
 import { registerCleanup } from './cleanupRegistry.js'
-import { updateSessionName } from './concurrentSessions.js'
+import {
+  envSessionKind,
+  type SessionKind,
+  updateSessionName,
+} from './concurrentSessions.js'
 import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
@@ -1046,6 +1050,7 @@ class Project {
             message.type === 'user' ? (getPromptId() ?? undefined) : undefined,
           agentId,
           ...message,
+          sessionKind: envSessionKind(),
           // Session-stamp fields MUST come after the spread. On --fork-session
           // and --resume, messages arrive as SerializedMessage (carries source
           // sessionId/cwd/etc. because removeExtraFields only strips parentUuid
@@ -2379,6 +2384,10 @@ export async function loadTranscriptFromFile(
       'Transcript must be an array of messages or an object with a messages array',
     )
   }
+  // convertToLogOption indexes the first/last message
+  if (messages.length === 0) {
+    throw new Error('No messages found in JSON file')
+  }
 
   return convertToLogOption(
     messages,
@@ -2509,6 +2518,7 @@ function convertToLogOption(
     messageCount: countVisibleMessages(transcript),
     isSidechain: firstMessage.isSidechain,
     teamName: firstMessage.teamName,
+    sessionKind: firstMessage.sessionKind,
     agentName: firstMessage.agentName,
     agentSetting,
     leafUuid: lastMessage.uuid,
@@ -3026,6 +3036,7 @@ export async function loadFullLog(log: LogOption): Promise<LogOption> {
       gitBranch: mostRecentLeaf?.gitBranch ?? log.gitBranch,
       isSidechain: transcript[0]?.isSidechain ?? log.isSidechain,
       teamName: transcript[0]?.teamName ?? log.teamName,
+      sessionKind: transcript[0]?.sessionKind ?? log.sessionKind,
       leafUuid: mostRecentLeaf?.uuid ?? log.leafUuid,
       fileHistorySnapshots: buildFileHistorySnapshotChain(
         fileHistorySnapshots,
@@ -4639,6 +4650,7 @@ type LiteMetadata = {
   isSidechain: boolean
   projectPath?: string
   teamName?: string
+  sessionKind?: SessionKind
   customTitle?: string
   summary?: string
   tag?: string
@@ -4807,6 +4819,14 @@ async function readLiteMetadata(
     head.includes('"isSidechain":true') || head.includes('"isSidechain": true')
   const projectPath = extractJsonStringField(head, 'cwd')
   const teamName = extractJsonStringField(head, 'teamName')
+  // Only the spawner-set kinds; anything else is treated as a normal session
+  const rawSessionKind = extractJsonStringField(head, 'sessionKind')
+  const sessionKind =
+    rawSessionKind === 'bg' ||
+    rawSessionKind === 'daemon' ||
+    rawSessionKind === 'daemon-worker'
+      ? rawSessionKind
+      : undefined
   const agentSetting = extractJsonStringField(head, 'agentSetting')
 
   // Prefer the last-prompt tail entry — captured by extractFirstPrompt at
@@ -4859,6 +4879,7 @@ async function readLiteMetadata(
     isSidechain,
     projectPath,
     teamName,
+    sessionKind,
     customTitle,
     summary,
     tag,
@@ -5092,6 +5113,7 @@ async function enrichLog(
     gitBranch: meta.gitBranch,
     isSidechain: meta.isSidechain,
     teamName: meta.teamName,
+    sessionKind: meta.sessionKind,
     customTitle: meta.customTitle,
     summary: meta.summary,
     tag: meta.tag,
@@ -5109,7 +5131,7 @@ async function enrichLog(
   if (!enriched.firstPrompt && !enriched.customTitle) {
     enriched.firstPrompt = '(session)'
   }
-  // Filter: skip sidechains and agent sessions
+  // Filter: skip sidechains, agent sessions and bg/daemon sessions
   if (enriched.isSidechain) {
     logForDebugging(
       `Session ${log.sessionId} filtered from /resume: isSidechain=true`,
@@ -5119,6 +5141,12 @@ async function enrichLog(
   if (enriched.teamName) {
     logForDebugging(
       `Session ${log.sessionId} filtered from /resume: teamName=${enriched.teamName}`,
+    )
+    return null
+  }
+  if (enriched.sessionKind) {
+    logForDebugging(
+      `Session ${log.sessionId} filtered from /resume: sessionKind=${enriched.sessionKind}`,
     )
     return null
   }

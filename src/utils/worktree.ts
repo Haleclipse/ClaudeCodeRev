@@ -177,6 +177,13 @@ export function generateTmuxSessionName(
   return combined.replace(/[/.]/g, '_')
 }
 
+type WorktreeCreateOptions = {
+  /** Fetch and branch from `pull/<n>/head` */
+  prNumber?: number
+  /** Branch from the repo's current HEAD instead of the default branch */
+  fromHead?: boolean
+}
+
 type WorktreeCreateResult =
   | {
       worktreePath: string
@@ -235,7 +242,7 @@ function worktreePathFor(repoRoot: string, slug: string): string {
 async function getOrCreateWorktree(
   repoRoot: string,
   slug: string,
-  options?: { prNumber?: number },
+  options?: WorktreeCreateOptions,
 ): Promise<WorktreeCreateResult> {
   const worktreePath = worktreePathFor(repoRoot, slug)
   const worktreeBranch = worktreeBranchName(slug)
@@ -261,7 +268,11 @@ async function getOrCreateWorktree(
 
   let baseBranch: string
   let baseSha: string | null = null
-  if (options?.prNumber) {
+  if (options?.fromHead) {
+    // Branch off the current checkout (e.g. a bg session forking the user's
+    // in-progress work) — no fetch, no default-branch lookup.
+    baseBranch = 'HEAD'
+  } else if (options?.prNumber) {
     const { code: prFetchCode, stderr: prFetchStderr } =
       await execFileNoThrowWithCwd(
         gitExe(),
@@ -899,7 +910,10 @@ export async function cleanupWorktree(): Promise<void> {
  * global session state (currentWorktreeSession, process.chdir, project config).
  * Falls back to hook-based creation if not in a git repository.
  */
-export async function createAgentWorktree(slug: string): Promise<{
+export async function createAgentWorktree(
+  slug: string,
+  options?: WorktreeCreateOptions,
+): Promise<{
   worktreePath: string
   worktreeBranch?: string
   headCommit?: string
@@ -932,7 +946,7 @@ export async function createAgentWorktree(slug: string): Promise<{
   }
 
   const { worktreePath, worktreeBranch, headCommit, existed } =
-    await getOrCreateWorktree(gitRoot, slug)
+    await getOrCreateWorktree(gitRoot, slug, options)
 
   if (!existed) {
     logForDebugging(
@@ -1038,6 +1052,8 @@ const EPHEMERAL_WORKTREE_PATTERNS = [
   // Template job worktrees: job-<templateName>-<8hex>. Prefix distinguishes
   // from user-named EnterWorktree slugs that happen to end in 8 hex.
   /^job-[a-zA-Z0-9._-]{1,55}-[0-9a-f]{8}$/,
+  // Background session worktrees: bg-<name>-<8hex>.
+  /^bg-[a-zA-Z0-9._-]{1,55}-[0-9a-f]{8}$/,
 ]
 
 /**

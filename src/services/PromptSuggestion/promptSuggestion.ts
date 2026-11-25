@@ -1,8 +1,10 @@
 import { getIsNonInteractiveSession } from '../../bootstrap/state.js'
+import { getTerminalFocused } from '../../ink/terminal-focus-state.js'
 import type { AppState } from '../../state/AppState.js'
 import type { Message } from '../../types/message.js'
 import { isAgentSwarmsEnabled } from '../../utils/agentSwarmsEnabled.js'
 import { count } from '../../utils/array.js'
+import { isBgSession } from '../../utils/concurrentSessions.js'
 import { isEnvDefinedFalsy, isEnvTruthy } from '../../utils/envUtils.js'
 import { toError } from '../../utils/errors.js'
 import {
@@ -185,6 +187,8 @@ export async function executePromptSuggestion(
   context: REPLHookContext,
 ): Promise<void> {
   if (context.querySource !== 'repl_main_thread') return
+  // Nobody is looking: a detached bg session, or the terminal lost focus
+  if (isBgSession() || !getTerminalFocused()) return
 
   currentAbortController = new AbortController()
   const abortController = currentAbortController

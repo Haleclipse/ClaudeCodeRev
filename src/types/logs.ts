@@ -1,4 +1,5 @@
 import type { UUID } from 'crypto'
+import type { SessionKind } from 'src/utils/concurrentSessions.js'
 import type { FileHistorySnapshot } from 'src/utils/fileHistory.js'
 import type { ContentReplacementRecord } from 'src/utils/toolResultStorage.js'
 import type { AgentId } from './ids.js'
@@ -30,6 +31,7 @@ export type LogOption = {
   isLite?: boolean // True for lite logs (messages not loaded)
   sessionId?: string // Session ID for lite logs
   teamName?: string // Team name if this is a spawned agent session
+  sessionKind?: SessionKind // Set for bg/daemon sessions (hidden from /resume)
   agentName?: string // Agent's custom name (from /rename or swarm)
   agentColor?: string // Agent's color (from /rename or swarm)
   agentSetting?: string // Agent definition used (from --agent flag or settings.agent)
@@ -227,6 +229,7 @@ export type TranscriptMessage = SerializedMessage & {
   teamName?: string // Team name if this is a spawned agent session
   agentName?: string // Agent's custom name (from /rename or swarm)
   agentColor?: string // Agent's color (from /rename or swarm)
+  sessionKind?: SessionKind // Spawner-provided kind (bg/daemon), from CLAUDE_CODE_SESSION_KIND
   promptId?: string // Correlates with OTel prompt.id for user prompt messages
 }
 

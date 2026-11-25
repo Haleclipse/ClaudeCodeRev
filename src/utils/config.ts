@@ -14,6 +14,7 @@ import type {
 } from '../services/oauth/types.js'
 import { getCwd } from '../utils/cwd.js'
 import { registerCleanup } from './cleanupRegistry.js'
+import { isBgSession } from './concurrentSessions.js'
 import { logForDebugging } from './debug.js'
 import { logForDiagnosticsNoPII } from './diagLogs.js'
 import { getGlobalClaudeFile } from './env.js'
@@ -707,6 +708,12 @@ function computeTrustDialogAccepted(): boolean {
   // When running from home dir, trust dialog is shown but acceptance is stored
   // in memory only. This allows hooks and other features to work during the session.
   if (getSessionTrustAccepted()) {
+    return true
+  }
+
+  // `claude --bg` sessions run detached with no one to answer the trust
+  // dialog; the user launched them deliberately in this directory.
+  if (isBgSession()) {
     return true
   }
 
