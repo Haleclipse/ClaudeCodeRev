@@ -686,7 +686,16 @@ export function flushInteractionTime(): void {
 function flushInteractionTime_inner(): void {
   STATE.lastInteractionTime = Date.now()
   interactionTimeDirty = false
+  interactionFlushed.emit()
 }
+
+const interactionFlushed = createSignal()
+
+/**
+ * Register a callback that fires each time a user interaction is flushed to
+ * STATE.lastInteractionTime.
+ */
+export const onInteraction = interactionFlushed.subscribe
 
 export function addToTotalLinesChanged(added: number, removed: number): void {
   STATE.totalLinesAdded += added
