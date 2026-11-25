@@ -210,6 +210,9 @@ async function main() {
     sourcemap: withSourcemap ? 'external' : 'none',
     define,
     plugins: [bunBundlePlugin],
+    // .md must load as raw text: Bun's default renders Markdown to HTML, while the
+    // official bundle embeds the skill docs verbatim ("# Claude API — Java", not "<h1>").
+    loader: { '.md': 'text', '.txt': 'text' },
     // Externalize Node builtins (they're loaded via createRequire at runtime)
     external: [
       'bun:ffi',  // guarded by typeof Bun at runtime

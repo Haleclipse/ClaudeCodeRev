@@ -9,3 +9,9 @@
 "MACRO.VERSION_CHANGELOG" = '""'
 "MACRO.FEEDBACK_CHANNEL" = '"https://github.com/anthropics/claude-code/issues"'
 "MACRO.ISSUES_EXPLAINER" = '"https://github.com/anthropics/claude-code/issues"'
+
+# .md/.txt assets (skill docs, prompts) must load as raw text. Bun's default
+# renders Markdown to HTML; scripts/build.ts sets the same loader for builds.
+[loader]
+".md" = "text"
+".txt" = "text"
