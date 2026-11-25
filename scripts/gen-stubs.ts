@@ -680,7 +680,11 @@ type InkElementProps = {
   [key: string]: any
 }
 
-declare global {
+// Script-style declaration file (no import/export). As a module it would
+// make \`import '../global.d.ts'\` bundle an empty module init that the
+// official build doesn't have. With \`jsx: react\` TS resolves intrinsic
+// elements through React.JSX, so that is the namespace extended here.
+declare namespace React {
   namespace JSX {
     interface IntrinsicElements {
       'ink-root': InkElementProps
@@ -693,8 +697,6 @@ declare global {
     }
   }
 }
-
-export {}
 `)
 
 // --- ink/cursor.ts ---

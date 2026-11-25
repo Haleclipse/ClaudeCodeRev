@@ -59,7 +59,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   CONNECTOR_TEXT: false, // official 2.1.88: with it on, types/connectorText.ts gets bundled; official tree-shakes it
   MCP_RICH_OUTPUT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   MCP_SKILLS: false, // official 2.1.88: gated modules absent from its sourcemap
-  HOOK_PROMPTS: true,
+  HOOK_PROMPTS: false, // official 2.1.88: REPL getToolUseContext passes requestPrompt: void 0
   PROACTIVE: false, // official 2.1.88: gated modules absent from its sourcemap
   BUILDING_CLAUDE_APPS: true,
   UNATTENDED_RETRY: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
