@@ -125,7 +125,7 @@ Reached only when a build-time gate is on: `feature(…)` flags, or `process.env
 | `src/tools/WorkflowTool/createWorkflowCommand.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/commands.ts:403 |
 | `src/tools/WorkflowTool/WorkflowPermissionRequest.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/permissions/PermissionRequest.tsx:55 |
 | `src/tools/WorkflowTool/WorkflowTool.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/permissions/PermissionRequest.tsx:49<br>src/tools.ts:132 |
-| `src/utils/computerUse/common.ts` | source | `feature('CHICAGO_MCP')`<br>`new Set( feature('CHICAGO_MCP')` | src/services/analytics/metadata.ts:133<br>src/services/mcp/client.ts:247<br>src/services/mcp/config.ts:1514 |
+| `src/utils/computerUse/common.ts` | source | `feature('CHICAGO_MCP')` | src/services/analytics/metadata.ts:133<br>src/services/mcp/client.ts:247<br>src/services/mcp/config.ts:1514 |
 | `src/utils/computerUse/wrapper.tsx` | source | `feature('CHICAGO_MCP')` | src/services/mcp/client.ts:243 |
 | `src/utils/cronJitterConfig.ts` | source | `feature('AGENT_TRIGGERS')` | src/cli/print.ts:369 |
 | `src/utils/cronScheduler.ts` | source | `feature('AGENT_TRIGGERS')` | src/cli/print.ts:366 |

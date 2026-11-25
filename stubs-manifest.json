@@ -1810,8 +1810,7 @@
       "status": "source",
       "gateKind": "build",
       "gates": [
-        "feature('CHICAGO_MCP')",
-        "new Set( feature('CHICAGO_MCP')"
+        "feature('CHICAGO_MCP')"
       ],
       "flags": [
         "CHICAGO_MCP"
