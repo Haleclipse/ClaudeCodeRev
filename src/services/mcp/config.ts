@@ -6,6 +6,7 @@ import { dirname, join, parse } from 'path'
 import { getPlatform } from 'src/utils/platform.js'
 import type { PluginError } from '../../types/plugin.js'
 import { getPluginErrorMessage } from '../../types/plugin.js'
+import { uniq } from '../../utils/array.js'
 import { isClaudeInChromeMCPServer } from '../../utils/claudeInChrome/common.js'
 import {
   getCurrentProjectConfig,
@@ -611,7 +612,7 @@ function expandEnvVars(config: McpServerConfig): {
 
   return {
     expanded,
-    missingVars: [...new Set(missingVars)],
+    missingVars: uniq(missingVars),
   }
 }
 

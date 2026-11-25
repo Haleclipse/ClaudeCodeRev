@@ -3815,25 +3815,55 @@ async function run(): Promise<CommanderCommand> {
             logForDebugging(`[MCP] ${label} connect error: ${err}`),
           )
         }
-        // Await all MCP configs — print mode is often single-turn, so
-        // "late-connecting servers visible next turn" doesn't help. SDK init
-        // message and turn-1 tool list both need configured MCP tools present.
+        // MCP_CONNECTION_NONBLOCKING: don't wait for MCP at all; servers keep
+        // connecting in the background and show up on a later turn.
+        const mcpNonBlocking = isEnvTruthy(
+          process.env.MCP_CONNECTION_NONBLOCKING,
+        )
+        const MCP_CONNECT_TIMEOUT_MS = 5_000
+        // Bounded wait — #23725 made MCP connect blocking so single-turn -p
+        // sees configured tools (SDK init message and turn-1 tool list both
+        // need them), but with 40+ slow connectors tengu_startup_perf p99
+        // climbed to 76s. If a batch doesn't finish in time, proceed; the
+        // promise keeps running and updates headlessStore in the background
+        // so turn 2+ still sees those servers.
+        async function awaitMcpConnect(
+          connect: Promise<void>,
+          label: string,
+        ): Promise<void> {
+          if (mcpNonBlocking) {
+            logForDebugging(
+              `[MCP] ${label} running fully async (MCP_CONNECTION_NONBLOCKING)`,
+            )
+            return
+          }
+          let timer: ReturnType<typeof setTimeout> | undefined
+          const timedOut = await Promise.race([
+            connect.then(() => false),
+            new Promise<boolean>(resolve => {
+              timer = setTimeout(r => r(true), MCP_CONNECT_TIMEOUT_MS, resolve)
+            }),
+          ])
+          clearTimeout(timer)
+          if (timedOut) {
+            logForDebugging(
+              `[MCP] ${label} not ready after ${MCP_CONNECT_TIMEOUT_MS}ms — proceeding; background connection continues`,
+            )
+          }
+        }
         // Zero-server case is free via the early return in connectMcpBatch.
         // Connectors parallelize inside getMcpToolsCommandsAndResources
-        // (processBatched with Promise.all). claude.ai is awaited too — its
-        // fetch was kicked off early (line ~2558) so only residual time blocks
-        // here. --bare skips claude.ai entirely for perf-sensitive scripts.
+        // (processBatched with Promise.all). claude.ai's fetch was kicked off
+        // early (line ~2558) so only residual time blocks below. --bare skips
+        // claude.ai entirely for perf-sensitive scripts.
         profileCheckpoint('before_connectMcp')
-        await connectMcpBatch(regularMcpConfigs, 'regular')
+        await awaitMcpConnect(
+          connectMcpBatch(regularMcpConfigs, 'regular'),
+          '--mcp-config servers',
+        )
         profileCheckpoint('after_connectMcp')
         // Dedup: suppress plugin MCP servers that duplicate a claude.ai
         // connector (connector wins), then connect claude.ai servers.
-        // Bounded wait — #23725 made this blocking so single-turn -p sees
-        // connectors, but with 40+ slow connectors tengu_startup_perf p99
-        // climbed to 76s. If fetch+connect doesn't finish in time, proceed;
-        // the promise keeps running and updates headlessStore in the
-        // background so turn 2+ still sees connectors.
-        const CLAUDE_AI_MCP_TIMEOUT_MS = 5_000
         const claudeaiConnect = claudeaiConfigPromise.then(claudeaiConfigs => {
           if (Object.keys(claudeaiConfigs).length > 0) {
             const claudeaiSigs = new Set<string>()
@@ -3893,23 +3923,7 @@ async function run(): Promise<CommanderCommand> {
           )
           return connectMcpBatch(dedupedClaudeAi, 'claudeai')
         })
-        let claudeaiTimer: ReturnType<typeof setTimeout> | undefined
-        const claudeaiTimedOut = await Promise.race([
-          claudeaiConnect.then(() => false),
-          new Promise<boolean>(resolve => {
-            claudeaiTimer = setTimeout(
-              r => r(true),
-              CLAUDE_AI_MCP_TIMEOUT_MS,
-              resolve,
-            )
-          }),
-        ])
-        if (claudeaiTimer) clearTimeout(claudeaiTimer)
-        if (claudeaiTimedOut) {
-          logForDebugging(
-            `[MCP] claude.ai connectors not ready after ${CLAUDE_AI_MCP_TIMEOUT_MS}ms — proceeding; background connection continues`,
-          )
-        }
+        await awaitMcpConnect(claudeaiConnect, 'claude.ai connectors')
         profileCheckpoint('after_connectMcp_claudeai')
 
         // In headless mode, start deferred prefetches immediately (no user typing delay)

@@ -1,10 +1,12 @@
 import { writeFile } from 'fs/promises'
 import { join } from 'path'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../services/analytics/index.js'
 import type { MCPResultType } from '../services/mcp/client.js'
+import { AGENT_TOOL_NAME } from '../tools/AgentTool/constants.js'
 import { toError } from './errors.js'
 import { formatFileSize } from './format.js'
 import { logError } from './log.js'
@@ -42,20 +44,55 @@ export function getLargeOutputInstructions(
   formatDescription: string,
   maxReadLength?: number,
 ): string {
-  const baseInstructions =
+  const header =
     `Error: result (${contentLength.toLocaleString()} characters) exceeds maximum allowed tokens. Output has been saved to ${rawOutputPath}.\n` +
-    `Format: ${formatDescription}\n` +
-    `Use offset and limit parameters to read specific portions of the file, search within it for specific content, and jq to make structured queries.\n` +
-    `REQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n` +
-    `- You MUST read the content from the file at ${rawOutputPath} in sequential chunks until 100% of the content has been read.\n`
+    `Format: ${formatDescription}\n`
 
+  // Subagent prompt: point the model at an Agent subagent for full reads so
+  // the whole output never enters the main context. MCP_TRUNCATION_PROMPT_OVERRIDE
+  // (subagent | legacy) forces either variant.
+  const override = process.env.MCP_TRUNCATION_PROMPT_OVERRIDE
+  const useSubagentPrompt =
+    override === 'subagent'
+      ? true
+      : override === 'legacy'
+        ? false
+        : getFeatureValue_CACHED_MAY_BE_STALE('tengu_mcp_subagent_prompt', false)
+  if (!useSubagentPrompt) {
+    return (
+      header +
+      `Use offset and limit parameters to read specific portions of the file, search within it for specific content, and jq to make structured queries.\n` +
+      `REQUIREMENTS FOR SUMMARIZATION/ANALYSIS/REVIEW:\n` +
+      getFullReadRequirements(rawOutputPath, maxReadLength)
+    )
+  }
+
+  return (
+    header +
+    `- For targeted queries (find a row, filter by field): use jq or grep on the file directly.\n` +
+    `- For analysis or summarization that requires reading the full content: use the ${AGENT_TOOL_NAME} tool to process the file in an isolated context so the full output does not enter your main context. Be explicit about what the subagent must return — e.g. "Read ALL of ${rawOutputPath}; summarize it and quote any key findings, decisions, or action items verbatim" — a vague "summarize this" may lose the detail you actually need. Require it to read the entire file before answering.\n`
+  )
+}
+
+/**
+ * The "read 100% of the file in chunks, then say what you read" requirements
+ * of the legacy large-output prompt.
+ *
+ * @param maxReadLength - Optional max chars for Read tool (for Bash output context)
+ */
+function getFullReadRequirements(
+  rawOutputPath: string,
+  maxReadLength?: number,
+): string {
   const truncationWarning = maxReadLength
     ? `- If you receive truncation warnings when reading the file ("[N lines truncated]"), reduce the chunk size until you have read 100% of the content without truncation ***DO NOT PROCEED UNTIL YOU HAVE DONE THIS***. Bash output is limited to ${maxReadLength.toLocaleString()} chars.\n`
     : `- If you receive truncation warnings when reading the file, reduce the chunk size until you have read 100% of the content without truncation.\n`
 
-  const completionRequirement = `- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n`
-
-  return baseInstructions + truncationWarning + completionRequirement
+  return (
+    `- You MUST read the content from the file at ${rawOutputPath} in sequential chunks until 100% of the content has been read.\n` +
+    truncationWarning +
+    `- Before producing ANY summary or analysis, you MUST explicitly describe what portion of the content you have read. ***If you did not read the entire content, you MUST explicitly state this.***\n`
+  )
 }
 
 /**
