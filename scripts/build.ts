@@ -253,6 +253,33 @@ const reactCompilerPlugin: import('bun').BunPlugin = {
 }
 
 // ---------------------------------------------------------------------------
+// --dev only: exports that gated code imports but the published sources don't
+// have (stubs-manifest.json → missingExports, written by gen-stubs) are
+// appended as inert values, so a build with every flag on still bundles.
+// Default builds never reach those imports (the gated code is DCE'd).
+// ---------------------------------------------------------------------------
+const devMissingExportsPlugin: import('bun').BunPlugin = {
+  name: 'dev-missing-exports',
+  setup(build) {
+    const manifestPath = join(ROOT, 'stubs-manifest.json')
+    if (!existsSync(manifestPath)) return
+    const byModule = new Map<string, { name: string; shape: 'null' | 'noop' }[]>()
+    for (const e of JSON.parse(readFileSync(manifestPath, 'utf8')).missingExports ?? []) {
+      const abs = join(ROOT, e.module)
+      byModule.set(abs, [...(byModule.get(abs) ?? []), e])
+    }
+    if (byModule.size === 0) return
+    const esc = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    build.onLoad({ filter: new RegExp(`^(?:${[...byModule.keys()].map(esc).join('|')})$`) }, ({ path }) => {
+      const extra = byModule.get(path)!.map(e =>
+        e.shape === 'noop' ? `export function ${e.name}(..._args: any[]): any {}` : `export const ${e.name}: any = null`,
+      )
+      return { contents: `${readFileSync(path, 'utf8')}\n${extra.join('\n')}\n`, loader: path.endsWith('.tsx') ? 'tsx' : 'ts' }
+    })
+  },
+}
+
+// ---------------------------------------------------------------------------
 // Build
 // ---------------------------------------------------------------------------
 
@@ -276,7 +303,9 @@ async function main() {
     minify: !isDev,
     sourcemap: withSourcemap ? 'external' : 'none',
     define,
-    plugins: [reactCompilerPlugin],
+    // devMissingExportsPlugin first: for its few files it must win over the
+    // React Compiler pass (dev builds only).
+    plugins: isDev ? [devMissingExportsPlugin, reactCompilerPlugin] : [reactCompilerPlugin],
     // .md must load as raw text: Bun's default renders Markdown to HTML, while the
     // official bundle embeds the skill docs verbatim ("# Claude API — Java", not "<h1>").
     loader: { '.md': 'text', '.txt': 'text' },

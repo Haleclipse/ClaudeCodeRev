@@ -43,15 +43,145 @@ function walk(dir: string): string[] {
 type ImportInfo = {
   symbol: string
   isType: boolean  // import type { X } or { type X }
+  /** require()-derived value: how the call site uses it (null placeholder or no-op function) */
+  shape?: 'null' | 'noop'
 }
 
 const missingTargets = new Map<string, ImportInfo[]>()
+
+// Every relative reference (import / export-from / dynamic import / require) → STUBS.md
+type Ref = { file: string; line: number; via: 'import' | 'dynamic' | 'require' }
+const refsByTarget = new Map<string, Ref[]>()
+// Every require() site with the build-time condition guarding it → STUBS.md
+type RequireSite = { file: string; line: number; gate: string; target: string }
+const requireSites: RequireSite[] = []
+
+function addRef(target: string, ref: Ref) {
+  const list = refsByTarget.get(target) ?? []
+  list.push(ref)
+  refsByTarget.set(target, list)
+}
+
+function makeLineOf(content: string): (index: number) => number {
+  const starts = [0]
+  for (let i = 0; i < content.length; i++) if (content.charCodeAt(i) === 10) starts.push(i + 1)
+  return (index: number) => {
+    let lo = 0, hi = starts.length - 1
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      if (starts[mid] <= index) lo = mid
+      else hi = mid - 1
+    }
+    return lo + 1
+  }
+}
+
+/** Text of the statement that contains `index`, from its const/let/var keyword. */
+function statementBefore(content: string, index: number): string {
+  const before = content.slice(Math.max(0, index - 600), index)
+  const starts = [...before.matchAll(/(?:^|\n)[ \t]*(?:export\s+)?(?:const|let|var)\b/g)]
+  return starts.length ? before.slice(starts[starts.length - 1].index!) : ''
+}
+
+/**
+ * Conditions of the `if (…) {` blocks enclosing `index`, outermost first.
+ * Walks back over balanced braces; an unmatched `{` is an enclosing block,
+ * kept when its header is `if (cond)`.
+ */
+function enclosingIfs(content: string, index: number): string[] {
+  const conds: string[] = []
+  let depth = 0
+  for (let i = index - 1; i >= Math.max(0, index - 6000); i--) {
+    const ch = content[i]
+    if (ch === '}') depth++
+    else if (ch === '{') {
+      if (depth > 0) {
+        depth--
+        continue
+      }
+      const head = content.slice(Math.max(0, i - 400), i)
+      for (let at = head.lastIndexOf('if'); at >= 0; at = head.lastIndexOf('if', at - 1)) {
+        if (at > 0 && /[\w$.]/.test(head[at - 1])) continue
+        const open = head.slice(at).match(/^if\s*\(/)
+        if (!open) continue
+        let d = 0, k = at + open[0].length - 1
+        for (; k < head.length; k++) {
+          if (head[k] === '(') d++
+          else if (head[k] === ')' && --d === 0) break
+        }
+        if (k < head.length && /^\)\s*$/.test(head.slice(k))) conds.unshift(head.slice(at + open[0].length, k))
+        break
+      }
+    }
+  }
+  return conds
+}
+
+/**
+ * The build-time condition guarding a require(): enclosing `if (cond) {` blocks
+ * plus the statement's own `cond ? require(…)`, joined with &&.
+ */
+function gateOf(content: string, index: number): string {
+  const tidy = (s: string) => s.replace(/\s+/g, ' ').trim()
+  const parts = enclosingIfs(content, index).map(tidy)
+  const stmt = statementBefore(content, index)
+  const eq = stmt.indexOf('=')
+  const q = stmt.lastIndexOf('?')
+  if (eq >= 0 && q > eq) parts.push(tidy(stmt.slice(eq + 1, q)))
+  return parts.length > 1 ? parts.map(p => `(${p})`).join(' && ') : (parts[0] ?? '')
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
+/**
+ * Is `local` called without a guard (`local(`) somewhere after `from`? A
+ * guarded `local?.(` copes with null, an unguarded call needs a function.
+ */
+function isCalled(content: string, local: string, from: number): boolean {
+  return new RegExp(`(?<![\\w$.])${escapeRe(local)}\\s*\\(`).test(content.slice(from))
+}
+
+/**
+ * Members a require() call site reads, with the shape the site needs — a no-op
+ * function where something calls it unguarded, otherwise null:
+ *   const L = … require('./x.js').X → X (called on the spot, or L(…) later)
+ *   const { a, b: c } = require(…)  → a, b (the local a / c called later)
+ *   const mod = … require(…) …      → every mod.m / mod?.m read in the file (mod.m(…))
+ */
+function requireUsage(content: string, index: number, length: number): ImportInfo[] {
+  const after = content.slice(index + length, index + length + 300)
+  const stmt = statementBefore(content, index)
+  const member = after.match(/^(?:\s*as\s+typeof\s+import\(\s*['"][^'"]*['"]\s*\))?\s*\)?\s*\.\s*([\w$]+)(\s*\()?/)
+  if (member) {
+    const local = stmt.match(/(?:const|let|var)\s+([\w$]+)/)?.[1]
+    const called = !!member[2] || (!!local && isCalled(content, local, index))
+    return [{ symbol: member[1], isType: false, shape: called ? 'noop' : 'null' }]
+  }
+  const destructured = stmt.match(/(?:const|let|var)\s*\{([^}]*)\}\s*=\s*\(?\s*$/)
+  if (destructured) {
+    return destructured[1].split(',').map(s => s.trim()).filter(Boolean).map(part => {
+      const [name, local = name] = part.split(':').map(s => s.trim())
+      return { symbol: name, isType: false, shape: isCalled(content, local, index) ? 'noop' : 'null' }
+    })
+  }
+  const ns = stmt.match(/(?:const|let|var)\s+([\w$]+)/)
+  if (!ns) return []
+  const members = new Map<string, ImportInfo>()
+  const re = new RegExp(`(?<![\\w$.])${escapeRe(ns[1])}\\s*(?:\\?\\.|\\.)\\s*([\\w$]+)(\\s*\\()?`, 'g')
+  for (const mm of content.slice(index).matchAll(re)) {
+    const prev = members.get(mm[1])
+    if (prev?.shape === 'noop') continue
+    members.set(mm[1], { symbol: mm[1], isType: false, shape: mm[2] ? 'noop' : 'null' })
+  }
+  return [...members.values()]
+}
 
 const allFiles = walk(ROOT).filter(f => /\.(ts|tsx)$/.test(f))
 
 for (const file of allFiles) {
   const content = readFileSync(file, 'utf8')
   const dir = dirname(file)
+  const lineAt = makeLineOf(content)
 
   // Match import/export statements with 'from' clause:
   //   import { A, type B } from './foo.js'
@@ -81,6 +211,7 @@ for (const file of allFiles) {
     // Check if target exists
     const tsPath = resolved.replace(/\.js$/, '.ts')
     const tsxPath = resolved.replace(/\.js$/, '.tsx')
+    addRef(existsSync(tsxPath) ? tsxPath : tsPath, { file, line: lineAt(m.index), via: 'import' })
     if (existsSync(tsPath) || existsSync(tsxPath)) continue
 
     // Parse symbols
@@ -121,12 +252,14 @@ for (const file of allFiles) {
     const resolved = normalize(join(dir, specifier))
     // For .d.ts files, check as-is; for .js, check .ts/.tsx
     if (specifier.endsWith('.d.ts')) {
+      addRef(resolved, { file, line: lineAt(m.index), via: 'import' })
       if (!existsSync(resolved)) {
         if (!missingTargets.has(resolved)) missingTargets.set(resolved, [])
       }
     } else if (specifier.endsWith('.js')) {
       const tsPath = resolved.replace(/\.js$/, '.ts')
       const tsxPath = resolved.replace(/\.js$/, '.tsx')
+      addRef(existsSync(tsxPath) ? tsxPath : tsPath, { file, line: lineAt(m.index), via: 'import' })
       if (!existsSync(tsPath) && !existsSync(tsxPath)) {
         if (!missingTargets.has(tsPath)) missingTargets.set(tsPath, [])
       }
@@ -146,12 +279,43 @@ for (const file of allFiles) {
 
     const tsPath = resolved.replace(/\.js$/, '.ts')
     const tsxPath = resolved.replace(/\.js$/, '.tsx')
+    addRef(existsSync(tsxPath) ? tsxPath : tsPath, { file, line: lineAt(m.index), via: 'dynamic' })
     if (existsSync(tsPath) || existsSync(tsxPath)) continue
 
     const key = tsPath
     if (!missingTargets.has(key)) {
       missingTargets.set(key, [])
     }
+  }
+
+  // require('./x.js') — modules behind build-time gates, e.g.
+  //   const X = feature('F') ? require('./x.js').X : null
+  //   const X = cond ? (require('./x.js') as typeof import('./x.js')).X : null
+  //   if (feature('F')) { const { a } = require('./x.js'); a() }
+  //   const mod = feature('F') ? (require('./x.js') as typeof import('./x.js')) : null
+  // A stub gets exactly the members the call site reads: null for values (the
+  // callers test them before use), a no-op function for members it calls.
+  const reqRe = /require\(\s*['"]([^'"]+\.js)['"]\s*\)/g
+  while ((m = reqRe.exec(content)) !== null) {
+    const specifier = m[1]
+    let resolved: string
+    if (specifier.startsWith('src/')) {
+      resolved = join(ROOT, specifier.replace(/^src\//, ''))
+    } else if (specifier.startsWith('.')) {
+      resolved = normalize(join(dir, specifier))
+    } else continue
+
+    const tsPath = resolved.replace(/\.js$/, '.ts')
+    const tsxPath = resolved.replace(/\.js$/, '.tsx')
+    const target = existsSync(tsxPath) ? tsxPath : tsPath
+    const line = lineAt(m.index)
+    addRef(target, { file, line, via: 'require' })
+    requireSites.push({ file, line, gate: gateOf(content, m.index), target })
+    if (existsSync(tsPath) || existsSync(tsxPath)) continue
+
+    const list = missingTargets.get(tsPath) ?? []
+    list.push(...requireUsage(content, m.index, m[0].length))
+    missingTargets.set(tsPath, list)
   }
 }
 
@@ -751,22 +915,35 @@ function generateStub(targetPath: string, imports: ImportInfo[]): string {
 
   // Deduplicate symbols
   const seen = new Map<string, boolean>() // symbol → isType (false wins, i.e. value)
-  for (const { symbol, isType } of imports) {
+  const shapes = new Map<string, 'null' | 'noop'>() // require()-derived values (noop wins)
+  for (const { symbol, isType, shape } of imports) {
     const existing = seen.get(symbol)
     if (existing === undefined) {
       seen.set(symbol, isType)
     } else if (existing && !isType) {
       seen.set(symbol, false) // upgrade to value export
     }
+    if (shape && shapes.get(symbol) !== 'noop') shapes.set(symbol, shape)
   }
 
-  const lines: string[] = [STUB_MARKER, '']
+  const lines: string[] = [STUB_MARKER]
+  if (shapes.size > 0) {
+    lines.push('// Only reached behind build-time gates (see STUBS.md); members are inert: null / no-op.')
+  }
+  lines.push('')
 
   const typeExports: string[] = []
   const valueExports: string[] = []
 
   for (const [symbol, isType] of seen) {
-    if (symbol === 'default') {
+    const shape = shapes.get(symbol)
+    if (shape && !isType) {
+      if (symbol === 'default') {
+        valueExports.push(shape === 'noop' ? 'export default function (..._args: any[]): any {}' : 'export default null as any')
+      } else {
+        valueExports.push(shape === 'noop' ? `export function ${symbol}(..._args: any[]): any {}` : `export const ${symbol}: any = null`)
+      }
+    } else if (symbol === 'default') {
       valueExports.push('export default {} as any')
     } else if (isType) {
       typeExports.push(symbol)
@@ -861,4 +1038,186 @@ if (DRY_RUN) {
   console.log(`\n${created} stub files would be created`)
 } else {
   console.log(`Created ${created} stubs, skipped ${skipped} existing files`)
+}
+
+// ---------------------------------------------------------------------------
+// 5. Inventory: STUBS.md (human) + stubs-manifest.json (machine)
+//
+// Which modules behind build-time gates exist as real source and which are
+// stubs, with the gate (feature flags / env checks) and every reference. As
+// later versions open features up (DCE'd → external, ant → external), stubs
+// turn into source; diffing two versions' manifests shows that progress
+// (version-diff uses it in the semantic change report).
+// ---------------------------------------------------------------------------
+if (!DRY_RUN) {
+  const REPO = join(ROOT, '..')
+  const rel = (p: string) => p.replace(REPO + '/', '')
+  const isStub = (p: string) => existsSync(p) && readFileSync(p, 'utf8').startsWith(STUB_MARKER)
+  const sortRefs = (refs: Ref[]) =>
+    [...new Set(refs.map(r => `${rel(r.file)}:${r.line}${r.via === 'import' ? '' : ` (${r.via})`}`))].sort()
+
+  const sourceFiles = walk(ROOT).filter(f => /\.(ts|tsx)$/.test(f) && !isStub(f))
+  const stubFiles = walk(ROOT).filter(f => /\.(ts|tsx)$/.test(f) && isStub(f)).sort()
+
+  // Build-time gates: feature() flags and process.env checks (USER_TYPE etc.,
+  // folded by the build's define). Other conditions are ordinary lazy
+  // requires decided at runtime; they are listed separately.
+  const isBuildGate = (g: string) => /feature\(|process\.env\.|"external"/.test(g)
+
+  // Gated require() targets, grouped by target
+  const byTarget = new Map<string, RequireSite[]>()
+  for (const site of requireSites) {
+    if (!site.gate) continue
+    const list = byTarget.get(site.target) ?? []
+    list.push(site)
+    byTarget.set(site.target, list)
+  }
+  const gated = [...byTarget.entries()]
+    .sort((a, b) => a[0].localeCompare(b[0]))
+    .map(([target, sites]) => {
+      const gates = [...new Set(sites.map(s => s.gate))].sort()
+      return {
+        target: rel(target),
+        status: !existsSync(target) ? 'missing' : isStub(target) ? 'stub' : 'source',
+        gateKind: gates.some(isBuildGate) ? 'build' : 'runtime',
+        gates,
+        flags: [...new Set(gates.flatMap(g => [...g.matchAll(/feature\(\s*['"]([A-Z0-9_]+)['"]\s*\)/g)].map(m => m[1])))].sort(),
+        env: [...new Set(gates.flatMap(g => [...g.matchAll(/process\.env\.([A-Z0-9_]+)/g)].map(m => m[1])))].sort(),
+        sites: [...new Set(sites.map(s => `${rel(s.file)}:${s.line}`))].sort(),
+      }
+    })
+
+  // Value imports from real (non-stub) modules that the module doesn't export.
+  // The published sources are stripped of some internal-only exports; the
+  // importers only reach them behind gates, so default builds DCE the use.
+  // `--dev` builds append inert versions at bundle time (scripts/build.ts).
+  const exportCache = new Map<string, Set<string>>()
+  const exportsOf = (p: string, seenFiles = new Set<string>()): Set<string> => {
+    if (exportCache.has(p)) return exportCache.get(p)!
+    const names = new Set<string>()
+    if (seenFiles.has(p) || !existsSync(p)) return names
+    seenFiles.add(p)
+    const t = readFileSync(p, 'utf8')
+    for (const m of t.matchAll(/^export\s+(?:declare\s+)?(?:async\s+)?(?:default\s+)?(?:abstract\s+)?(?:function\*?|const\s+enum|const|let|var|class|enum|interface|type|namespace)\s+([\w$]+)/gm)) names.add(m[1])
+    if (/^export\s+default\b/m.test(t)) names.add('default')
+    for (const m of t.matchAll(/^export\s+(?:type\s+)?\{([^}]*)\}/gm)) {
+      for (const part of m[1].split(',')) {
+        const x = part.trim().replace(/^type\s+/, '')
+        if (x) names.add((x.split(/\s+as\s+/)[1] ?? x).trim())
+      }
+    }
+    for (const m of t.matchAll(/^export\s+\*\s+from\s+['"](\.[^'"]+)\.js['"]/gm)) {
+      const base = normalize(join(dirname(p), m[1]))
+      const next = existsSync(base + '.ts') ? base + '.ts' : base + '.tsx'
+      for (const n of exportsOf(next, seenFiles)) names.add(n)
+    }
+    exportCache.set(p, names)
+    return names
+  }
+  const missingExports = new Map<string, { module: string; name: string; shape: 'null' | 'noop'; importedBy: string[] }>()
+  for (const file of allFiles) {
+    if (isStub(file)) continue
+    const content = readFileSync(file, 'utf8')
+    const lineAt = makeLineOf(content)
+    for (const m of content.matchAll(/^import\s+(?!type\b)\{([^}]*)\}\s+from\s+['"]([^'"]+\.js)['"]/gm)) {
+      const spec = m[2]
+      let resolved: string
+      if (spec.startsWith('src/')) resolved = join(ROOT, spec.replace(/^src\//, ''))
+      else if (spec.startsWith('.')) resolved = normalize(join(dirname(file), spec))
+      else continue
+      const ts = resolved.replace(/\.js$/, '.ts')
+      const target = existsSync(ts) ? ts : resolved.replace(/\.js$/, '.tsx')
+      if (!existsSync(target) || isStub(target)) continue
+      const names = exportsOf(target)
+      for (const part of m[1].split(',')) {
+        const x = part.trim()
+        if (!x || x.startsWith('type ')) continue
+        const [name, local = name] = x.split(/\s+as\s+/).map(s => s.trim())
+        if (names.has(name)) continue
+        const key = `${target}#${name}`
+        const entry = missingExports.get(key) ?? { module: rel(target), name, shape: 'null' as const, importedBy: [] }
+        if (isCalled(content, local, m.index! + m[0].length)) entry.shape = 'noop'
+        entry.importedBy.push(`${rel(file)}:${lineAt(m.index!)}`)
+        missingExports.set(key, entry)
+      }
+    }
+  }
+  const missingExportList = [...missingExports.values()].sort((a, b) => `${a.module}#${a.name}`.localeCompare(`${b.module}#${b.name}`))
+
+  const stubs = stubFiles.map(p => {
+    const content = readFileSync(p, 'utf8')
+    const exports = [...content.matchAll(/^export\s+(?:default\b|(?:type\s+|const\s+|function\s+)([\w$]+))/gm)]
+      .map(m => m[1] ?? 'default')
+    return {
+      path: rel(p),
+      kind: KNOWN_DEFINITIONS[p] ? 'known-types' : content.includes('build-time gates') ? 'gated-inert' : 'inferred',
+      exports: [...new Set(exports)].sort(),
+      referencedFrom: sortRefs(refsByTarget.get(p) ?? []),
+    }
+  })
+
+  const version = JSON.parse(readFileSync(join(REPO, 'package.json'), 'utf8')).version
+  const buildGated = gated.filter(g => g.gateKind === 'build')
+  const runtimeGated = gated.filter(g => g.gateKind === 'runtime')
+  const summary = {
+    sourceFiles: sourceFiles.length,
+    stubFiles: stubFiles.length,
+    gatedTargets: buildGated.length,
+    gatedTargetsSource: buildGated.filter(g => g.status === 'source').length,
+    gatedTargetsStub: buildGated.filter(g => g.status === 'stub').length,
+    gatedTargetsMissing: buildGated.filter(g => g.status === 'missing').length,
+    runtimeLazyTargets: runtimeGated.length,
+    missingExports: missingExportList.length,
+  }
+  writeFileSync(
+    join(REPO, 'stubs-manifest.json'),
+    JSON.stringify({ generatedBy: 'scripts/gen-stubs.ts', version, summary, gated, missingExports: missingExportList, stubs }, null, 2) + '\n',
+  )
+
+  const cell = (s: string) => s.replace(/\|/g, '\\|')
+  const md: string[] = [
+    '# Stub & gated-module inventory',
+    '',
+    `Generated by \`scripts/gen-stubs.ts\` (runs as \`prebuild\`) for v${version} — do not edit by hand.`,
+    'Machine-readable copy: `stubs-manifest.json`.',
+    '',
+    '- **source**: real module recovered from the official sourcemap',
+    '- **stub**: absent from the published build (DCE\'d by a build-time gate or ant-only); placeholder generated here',
+    '',
+    `Source files: ${summary.sourceFiles} · stub files: ${summary.stubFiles} · build-gated require() targets: ${summary.gatedTargets} ` +
+      `(source ${summary.gatedTargetsSource}, stub ${summary.gatedTargetsStub}${summary.gatedTargetsMissing ? `, missing ${summary.gatedTargetsMissing}` : ''})`,
+    '',
+    '## Build-gated require() targets',
+    '',
+    'Reached only when a build-time gate is on: `feature(…)` flags, or `process.env` checks the build folds (e.g. `USER_TYPE === \'ant\'`).',
+    '',
+    '| Target | Status | Gate | Required at |',
+    '|---|---|---|---|',
+    ...buildGated.map(g => `| \`${g.target}\` | ${g.status} | ${cell(g.gates.map(x => `\`${x}\``).join('<br>'))} | ${g.sites.join('<br>')} |`),
+    '',
+    '## Lazy require() under runtime conditions',
+    '',
+    'Not build gates — loaded on demand at runtime; listed so every require() target is accounted for.',
+    '',
+    '| Target | Status | Condition | Required at |',
+    '|---|---|---|---|',
+    ...runtimeGated.map(g => `| \`${g.target}\` | ${g.status} | ${cell(g.gates.map(x => `\`${x}\``).join('<br>'))} | ${g.sites.join('<br>')} |`),
+    '',
+    '## Exports missing from source modules',
+    '',
+    'Imported by gated code but absent from the published module (stripped internal-only exports). Default builds DCE the use; `--dev` builds append these as inert exports at bundle time.',
+    '',
+    '| Module | Export | Inert as | Imported by |',
+    '|---|---|---|---|',
+    ...missingExportList.map(e => `| \`${e.module}\` | ${e.name} | ${e.shape === 'noop' ? 'no-op function' : 'null'} | ${e.importedBy.join('<br>')} |`),
+    '',
+    '## Stub files',
+    '',
+    '| Stub | Kind | Exports | Referenced from |',
+    '|---|---|---|---|',
+    ...stubs.map(s => `| \`${s.path}\` | ${s.kind} | ${s.exports.join(', ') || '—'} | ${s.referencedFrom.join('<br>') || '—'} |`),
+    '',
+  ]
+  writeFileSync(join(REPO, 'STUBS.md'), md.join('\n'))
+  console.log(`Inventory: ${summary.gatedTargets} build-gated targets (${summary.gatedTargetsStub} stub), ${summary.stubFiles} stub files → STUBS.md, stubs-manifest.json`)
 }
