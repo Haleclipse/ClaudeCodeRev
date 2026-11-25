@@ -34,6 +34,7 @@ import {
 import type { TabStatusKind } from '../ink/hooks/use-tab-status.js'
 import { CostThresholdDialog } from '../components/CostThresholdDialog.js'
 import { IdleReturnDialog } from '../components/IdleReturnDialog.js'
+import { ResumeReturnDialog } from '../components/ResumeReturnDialog.js'
 import * as React from 'react'
 import {
   useEffect,
@@ -2036,6 +2037,11 @@ export function REPL({
     input: string
     idleMinutes: number
   } | null>(null)
+  // Resume-return dialog: shown after resuming an old, large session
+  const [resumeReturnPrompt, setResumeReturnPrompt] = useState<{
+    sessionAgeMinutes: number
+    estimatedTokens: number
+  } | null>(null)
   const skipIdleCheckRef = useRef(false)
   const lastQueryCompletionTimeRef = useRef(lastQueryCompletionTime)
   lastQueryCompletionTimeRef.current = lastQueryCompletionTime
@@ -2650,6 +2656,39 @@ export function REPL({
         getAppState: () => store.getState(),
         setAppState,
       })
+      // Resuming an old, large session re-sends the whole history against a
+      // cold prompt cache. Offer to resume from a summary instead.
+      if (getFeatureValue_CACHED_MAY_BE_STALE('tengu_gleaming_fair', false)) {
+        const thresholdMinutes = Number(
+          process.env.CLAUDE_CODE_RESUME_THRESHOLD_MINUTES ?? 70,
+        )
+        const tokenThreshold = Number(
+          process.env.CLAUDE_CODE_RESUME_TOKEN_THRESHOLD ?? 100_000,
+        )
+        // Skip anything from the last minute (e.g. messages written while
+        // resuming) so the age reflects the real last turn
+        const cutoff = Date.now() - 60_000
+        const lastTimestamp = initialMessages.findLast(
+          m =>
+            (m.type === 'user' || m.type === 'assistant') &&
+            Date.parse(m.timestamp) < cutoff,
+        )?.timestamp
+        if (lastTimestamp && !getGlobalConfig().resumeReturnDismissed) {
+          const sessionAgeMinutes =
+            (Date.now() - Date.parse(lastTimestamp)) / 60_000
+          if (sessionAgeMinutes >= thresholdMinutes) {
+            void import('../utils/tokens.js').then(
+              ({ tokenCountWithEstimation }) => {
+                const estimatedTokens =
+                  tokenCountWithEstimation(initialMessages)
+                if (estimatedTokens >= tokenThreshold) {
+                  setResumeReturnPrompt({ sessionAgeMinutes, estimatedTokens })
+                }
+              },
+            )
+          }
+        }
+      }
     }
     // Only run on mount - initialMessages shouldn't change during component lifetime
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2685,6 +2724,7 @@ export function REPL({
     | 'elicitation'
     | 'cost'
     | 'idle-return'
+    | 'resume-return'
     | 'init-onboarding'
     | 'ide-onboarding'
     | 'model-switch'
@@ -2721,6 +2761,7 @@ export function REPL({
     if (allowDialogsWithAnimation && elicitation.queue[0]) return 'elicitation'
     if (allowDialogsWithAnimation && showingCostDialog) return 'cost'
     if (allowDialogsWithAnimation && idleReturnPending) return 'idle-return'
+    if (allowDialogsWithAnimation && resumeReturnPrompt) return 'resume-return'
 
     if (
       feature('ULTRAPLAN') &&
@@ -4265,11 +4306,13 @@ export function REPL({
         speculationSessionTimeSavedMs: number
         setAppState: SetAppState
       },
-      options?: { fromKeybinding?: boolean },
+      options?: { fromKeybinding?: boolean; modelOverride?: string },
     ) => {
       // Re-pin scroll to bottom on submit so the user always sees the new
       // exchange (matches OpenCode's auto-scroll behavior).
       repinScroll()
+      // Typing past the resume-return dialog answers it implicitly
+      setResumeReturnPrompt(prev => (prev === null ? prev : null))
 
       // Resume loop mode if paused
       if (feature('PROACTIVE') || feature('KAIROS')) {
@@ -4694,7 +4737,8 @@ export function REPL({
         setToolJSX,
         getToolUseContext,
         messages: messagesRef.current,
-        mainLoopModel,
+        // e.g. resume-return runs /compact on Haiku
+        mainLoopModel: options?.modelOverride ?? mainLoopModel,
         pastedContents,
         ideSelection,
         setUserInputOnProcessing,
@@ -6583,6 +6627,49 @@ export function REPL({
                     }}
                   />
                 )}
+                {focusedInputDialog === 'resume-return' &&
+                  resumeReturnPrompt && (
+                    <ResumeReturnDialog
+                      sessionAgeMinutes={resumeReturnPrompt.sessionAgeMinutes}
+                      estimatedTokens={resumeReturnPrompt.estimatedTokens}
+                      onDone={async action => {
+                        const prompt = resumeReturnPrompt
+                        setResumeReturnPrompt(null)
+                        logEvent('tengu_resume_return_action', {
+                          action:
+                            action as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+                          sessionAgeMinutes: Math.round(
+                            prompt.sessionAgeMinutes,
+                          ),
+                          messageCount: messagesRef.current.length,
+                          estimatedTokens: prompt.estimatedTokens,
+                        })
+                        if (action === 'never') {
+                          saveGlobalConfig(current => {
+                            if (current.resumeReturnDismissed) return current
+                            return { ...current, resumeReturnDismissed: true }
+                          })
+                        }
+                        if (action === 'compact') {
+                          // Summarize on Haiku: cheap, and the point is to
+                          // avoid paying for the full history again
+                          const { getDefaultHaikuModel } = await import(
+                            '../utils/model/model.js'
+                          )
+                          void onSubmitRef.current(
+                            '/compact',
+                            {
+                              setCursorOffset: () => {},
+                              clearBuffer: () => {},
+                              resetHistory: () => {},
+                            },
+                            undefined,
+                            { modelOverride: getDefaultHaikuModel() },
+                          )
+                        }
+                      }}
+                    />
+                  )}
                 {focusedInputDialog === 'ide-onboarding' && (
                   <IdeOnboardingDialog
                     onDone={() => setShowIdeOnboarding(false)}

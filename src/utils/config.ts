@@ -425,6 +425,9 @@ export type GlobalConfig = {
   // Idle-return dialog tracking
   idleReturnDismissed?: boolean // "Don't ask again" picked
 
+  // Resume-return dialog tracking
+  resumeReturnDismissed?: boolean // "Don't ask again" picked
+
   // Opus 4.5 Pro migration tracking
   opusProMigrationComplete?: boolean
   opusProMigrationTimestamp?: number
