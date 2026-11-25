@@ -77,7 +77,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   TRANSCRIPT_CLASSIFIER: true,
   WORKFLOW_SCRIPTS: false, // official 2.1.88: gated modules absent from its sourcemap
   AGENT_MEMORY_SNAPSHOT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
-  AWAY_SUMMARY: true, // official 2.1.89: changed from 2.1.88 (bundle token-distance search)
+  AWAY_SUMMARY: false, // official 2.1.89: off (re-checked after porting: no away-summary code in the bundle)
   AGENT_TRIGGERS: true,
   AGENT_TRIGGERS_REMOTE: true,
   POWERSHELL_AUTO_MODE: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
