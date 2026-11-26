@@ -1012,8 +1012,8 @@ export class QueryEngine {
           // Handle max turns reached signal from query.ts
           else if (message.attachment.type === 'max_turns_reached') {
             maxTurnsReached = {
-              turnCount: message.attachment.turnCount,
-              maxTurns: message.attachment.maxTurns,
+              turnCount: message.attachment.turnCount as number,
+              maxTurns: message.attachment.maxTurns as number,
             }
             continue
           }

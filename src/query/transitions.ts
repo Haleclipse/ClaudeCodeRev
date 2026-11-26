@@ -1,7 +1,6 @@
 // @generated-stub — missing from sourcemap, see scripts/gen-stubs.ts
 // Type definitions inferred from codebase usage patterns
 
-export type Terminal = { type: 'terminal'; reason: string }
 export type Continue = { type: 'continue' }
 
 // Reasons queryLoop returns with (reported to SDK consumers as terminal_reason)
@@ -21,3 +20,11 @@ export const TERMINAL_REASONS = [
 ] as const
 
 export type TerminalReason = (typeof TERMINAL_REASONS)[number]
+
+// What queryLoop returns: the reason, plus the error (model_error) or the
+// turn count (max_turns)
+export type Terminal = {
+  reason: TerminalReason
+  error?: unknown
+  turnCount?: number
+}
