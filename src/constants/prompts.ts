@@ -13,6 +13,7 @@ import {
 } from '../tools/AgentTool/constants.js'
 import { FILE_WRITE_TOOL_NAME } from '../tools/FileWriteTool/prompt.js'
 import { FILE_READ_TOOL_NAME } from '../tools/FileReadTool/prompt.js'
+import { isRelativePathsEnabled } from '../utils/relativePaths.js'
 import { FILE_EDIT_TOOL_NAME } from '../tools/FileEditTool/constants.js'
 import { TODO_WRITE_TOOL_NAME } from '../tools/TodoWriteTool/constants.js'
 import { TASK_CREATE_TOOL_NAME } from '../tools/TaskCreateTool/constants.js'
@@ -771,7 +772,11 @@ export async function enhanceSystemPromptWithEnvDetails(
   enabledToolNames?: ReadonlySet<string>,
 ): Promise<string[]> {
   const notes = `Notes:
-- Agent threads always have their cwd reset between bash calls, as a result please only use absolute file paths.
+${
+  isRelativePathsEnabled()
+    ? '- The Bash tool resets to cwd between calls; do not rely on `cd` persisting. File-tool paths can be relative to cwd.'
+    : '- Agent threads always have their cwd reset between bash calls, as a result please only use absolute file paths.'
+}
 - In your final response, share file paths (always absolute, never relative) that are relevant to the task. Include code snippets only when the exact text is load-bearing (e.g., a bug you found, a function signature the caller asked for) — do not recap code you merely read.
 - For clear communication with the user the assistant MUST avoid using emojis.
 - Do not use a colon before tool calls. Text like "Let me read the file:" followed by a read tool call should just be "Let me read the file." with a period.`

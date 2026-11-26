@@ -1,5 +1,6 @@
 import { feature } from 'bun:bundle'
-import { extname, isAbsolute, resolve } from 'path'
+import { randomUUID } from 'crypto'
+import { extname } from 'path'
 import {
   fileHistoryEnabled,
   fileHistoryTrackEdit,
@@ -7,13 +8,13 @@ import {
 import { z } from 'zod/v4'
 import { buildTool, type ToolDef, type ToolUseContext } from '../../Tool.js'
 import type { NotebookCell, NotebookContent } from '../../types/notebook.js'
-import { getCwd } from '../../utils/cwd.js'
 import { isENOENT } from '../../utils/errors.js'
 import { getFileModificationTime, writeTextContent } from '../../utils/file.js'
 import { readFileSyncWithMetadata } from '../../utils/fileRead.js'
 import { safeParseJSON } from '../../utils/json.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { parseCellId } from '../../utils/notebook.js'
+import { expandPath } from '../../utils/path.js'
 import { checkWritePermissionForTool } from '../../utils/permissions/filesystem.js'
 import type { PermissionDecision } from '../../utils/permissions/PermissionResult.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
@@ -98,6 +99,13 @@ export const NotebookEditTool = buildTool({
   async prompt() {
     return PROMPT
   },
+  backfillObservableInput(input) {
+    // Expanded like Read/Edit/Write file_path, so hook allowlists can't be
+    // bypassed via ~ or relative paths.
+    if (typeof input.notebook_path === 'string') {
+      input.notebook_path = expandPath(input.notebook_path)
+    }
+  },
   userFacingName() {
     return 'Edit Notebook'
   },
@@ -177,9 +185,7 @@ export const NotebookEditTool = buildTool({
     { notebook_path, cell_type, cell_id, edit_mode = 'replace' },
     toolUseContext: ToolUseContext,
   ) {
-    const fullPath = isAbsolute(notebook_path)
-      ? notebook_path
-      : resolve(getCwd(), notebook_path)
+    const fullPath = expandPath(notebook_path)
 
     // SECURITY: Skip filesystem operations for UNC paths to prevent NTLM credential leaks.
     if (fullPath.startsWith('\\\\') || fullPath.startsWith('//')) {
@@ -304,9 +310,7 @@ export const NotebookEditTool = buildTool({
     _,
     parentMessage,
   ) {
-    const fullPath = isAbsolute(notebook_path)
-      ? notebook_path
-      : resolve(getCwd(), notebook_path)
+    const fullPath = expandPath(notebook_path)
 
     if (fileHistoryEnabled()) {
       await fileHistoryTrackEdit(
@@ -383,7 +387,7 @@ export const NotebookEditTool = buildTool({
         (notebook.nbformat === 4 && notebook.nbformat_minor >= 5)
       ) {
         if (edit_mode === 'insert') {
-          new_cell_id = Math.random().toString(36).substring(2, 15)
+          new_cell_id = randomUUID().slice(0, 8)
         } else if (cell_id !== null) {
           new_cell_id = cell_id
         }

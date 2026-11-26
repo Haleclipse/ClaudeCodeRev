@@ -40,6 +40,7 @@ import type { BashToolInput } from '../../tools/BashTool/BashTool.js'
 import { startSpeculativeClassifierCheck } from '../../tools/BashTool/bashPermissions.js'
 import { BASH_TOOL_NAME } from '../../tools/BashTool/toolName.js'
 import { FILE_EDIT_TOOL_NAME } from '../../tools/FileEditTool/constants.js'
+import type { Input as FileReadInput } from '../../tools/FileReadTool/FileReadTool.js'
 import { FILE_READ_TOOL_NAME } from '../../tools/FileReadTool/prompt.js'
 import { FILE_WRITE_TOOL_NAME } from '../../tools/FileWriteTool/prompt.js'
 import { NOTEBOOK_EDIT_TOOL_NAME } from '../../tools/NotebookEditTool/constants.js'
@@ -1161,7 +1162,7 @@ async function checkPermissionsAndCallTool(
         resultingMessages.push({
           message: createUserMessage({
             content:
-              'The PermissionDenied hook indicated this command is now approved. You may retry it if you would like.',
+              'The PermissionDenied hook indicated you may retry this tool call.',
             isMeta: true,
           }),
         })
@@ -1368,8 +1369,10 @@ async function checkPermissionsAndCallTool(
         ? mappedContent.length
         : jsonStringify(mappedContent).length
 
-    // Extract file extension for file-related tools
+    // Extract file extension (and path / command length) for file-related tools
     let fileExtension: ReturnType<typeof getFileExtensionForAnalytics>
+    let filePathLen: number | undefined
+    let bashCommandLen: number | undefined
     if (processedInput && typeof processedInput === 'object') {
       if (
         (tool.name === FILE_READ_TOOL_NAME ||
@@ -1380,19 +1383,21 @@ async function checkPermissionsAndCallTool(
         fileExtension = getFileExtensionForAnalytics(
           String(processedInput.file_path),
         )
+        filePathLen = String(processedInput.file_path).length
       } else if (
         tool.name === NOTEBOOK_EDIT_TOOL_NAME &&
         'notebook_path' in processedInput
       ) {
-        fileExtension = getFileExtensionForAnalytics(
-          String(processedInput.notebook_path),
-        )
+        const notebookPath = String(processedInput.notebook_path)
+        fileExtension = getFileExtensionForAnalytics(notebookPath)
+        filePathLen = notebookPath.length
       } else if (tool.name === BASH_TOOL_NAME && 'command' in processedInput) {
         const bashInput = processedInput as BashToolInput
         fileExtension = getFileExtensionsFromBashCommand(
           bashInput.command,
           bashInput._simulatedSedEdit?.filePath,
         )
+        bashCommandLen = bashInput.command.length
       }
     }
 
@@ -1405,6 +1410,14 @@ async function checkPermissionsAndCallTool(
       preToolHookDurationMs,
       toolResultSizeBytes,
       ...(fileExtension !== undefined && { fileExtension }),
+      ...(filePathLen !== undefined && { filePathLen }),
+      ...(bashCommandLen !== undefined && { bashCommandLen }),
+      ...(tool.name === FILE_READ_TOOL_NAME &&
+        processedInput &&
+        typeof processedInput === 'object' && {
+          readHasLimit: (processedInput as FileReadInput).limit !== undefined,
+          readHasOffset: (processedInput as FileReadInput).offset !== undefined,
+        }),
 
       queryChainId: toolUseContext.queryTracking
         ?.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
