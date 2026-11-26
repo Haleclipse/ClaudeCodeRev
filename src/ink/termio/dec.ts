@@ -20,6 +20,7 @@ export const DEC = {
   MOUSE_SGR: 1006,
   FOCUS_EVENTS: 1004,
   BRACKETED_PASTE: 2004,
+  THEME_NOTIFY: 2031,
   SYNCHRONIZED_UPDATE: 2026,
 } as const
 
@@ -40,6 +41,9 @@ export const EBP = decset(DEC.BRACKETED_PASTE)
 export const DBP = decreset(DEC.BRACKETED_PASTE)
 export const EFE = decset(DEC.FOCUS_EVENTS)
 export const DFE = decreset(DEC.FOCUS_EVENTS)
+// Terminal theme-change notifications (dark/light reports)
+export const ETN = decset(DEC.THEME_NOTIFY)
+export const DTN = decreset(DEC.THEME_NOTIFY)
 export const SHOW_CURSOR = decset(DEC.CURSOR_VISIBLE)
 export const HIDE_CURSOR = decreset(DEC.CURSOR_VISIBLE)
 export const ENTER_ALT_SCREEN = decset(DEC.ALT_SCREEN_CLEAR)

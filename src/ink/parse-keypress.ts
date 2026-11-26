@@ -49,6 +49,8 @@ const KITTY_FLAGS_RE = /^\x1b\[\?(\d+)u$/
 // Ctrl+F3 = CSI 1;5 R, etc.) — plain CSI row;col R is genuinely ambiguous.
 // eslint-disable-next-line no-control-regex
 const CURSOR_POSITION_RE = /^\x1b\[\?(\d+);(\d+)R$/
+// Theme-change report (DEC 2031): CSI ? 997 ; 1 n = dark, ; 2 n = light
+const THEME_NOTIFY_RE = /^\x1b\[\?997;([12])n$/
 // OSC response: OSC code ; data (BEL|ST)
 // eslint-disable-next-line no-control-regex
 const OSC_RESPONSE_RE = /^\x1b\](\d+);(.*?)(?:\x07|\x1b\\)$/s
@@ -104,6 +106,8 @@ export type TerminalResponse =
   | { type: 'kittyKeyboard'; flags: number }
   /** DSR: cursor position report (answer to CSI 6 n) */
   | { type: 'cursorPosition'; row: number; col: number }
+  /** Theme-change notification (DEC 2031): terminal switched dark/light */
+  | { type: 'themeNotify'; dark: boolean }
   /** OSC response: generic operating-system-command reply (e.g. OSC 11 bg color) */
   | { type: 'osc'; code: number; data: string }
   /** XTVERSION: terminal name/version string (answer to CSI > 0 q).
@@ -150,6 +154,10 @@ function parseTerminalResponse(s: string): TerminalResponse | null {
         row: parseInt(m[1]!, 10),
         col: parseInt(m[2]!, 10),
       }
+    }
+
+    if ((m = THEME_NOTIFY_RE.exec(s))) {
+      return { type: 'themeNotify', dark: m[1] === '1' }
     }
 
     return null

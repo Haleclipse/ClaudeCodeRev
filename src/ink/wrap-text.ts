@@ -40,7 +40,7 @@ function truncate(
 export default function wrapText(
   text: string,
   maxWidth: number,
-  wrapType: Styles['textWrap'],
+  wrapType: Styles['textWrap'] = 'wrap',
 ): string {
   if (wrapType === 'wrap') {
     return wrapAnsi(text, maxWidth, {

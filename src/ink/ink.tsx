@@ -104,6 +104,7 @@ import {
   DBP,
   DFE,
   DISABLE_MOUSE_TRACKING,
+  DTN,
   ENABLE_MOUSE_TRACKING,
   ENTER_ALT_SCREEN,
   EXIT_ALT_SCREEN,
@@ -1683,6 +1684,8 @@ export default class Ink {
         onStdinResume={this.reassertTerminalModes}
         onCursorDeclaration={this.setCursorDeclaration}
         dispatchKeyboardEvent={this.dispatchKeyboardEvent}
+        focusManager={this.focusManager}
+        rootNode={this.rootNode}
       >
         <TerminalWriteProvider value={this.writeRaw}>
           {node}
@@ -1741,6 +1744,8 @@ export default class Ink {
       writeSync(1, DISABLE_KITTY_KEYBOARD)
       // Disable focus events (DECSET 1004)
       writeSync(1, DFE)
+      // Disable theme-change notifications (DECSET 2031)
+      writeSync(1, DTN)
       // Disable bracketed paste mode
       writeSync(1, DBP)
       // Show cursor

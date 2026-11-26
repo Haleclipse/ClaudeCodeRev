@@ -17,11 +17,22 @@ export class FocusManager {
   private dispatchFocusEvent: (target: DOMElement, event: FocusEvent) => boolean
   private enabled = true
   private focusStack: DOMElement[] = []
+  private listeners = new Set<() => void>()
 
   constructor(
     dispatchFocusEvent: (target: DOMElement, event: FocusEvent) => boolean,
   ) {
     this.dispatchFocusEvent = dispatchFocusEvent
+  }
+
+  /** Subscribe to activeElement changes (useSyncExternalStore-compatible). */
+  subscribe = (listener: () => void): (() => void) => {
+    this.listeners.add(listener)
+    return () => this.listeners.delete(listener)
+  }
+
+  private notify(): void {
+    for (const listener of this.listeners) listener()
   }
 
   focus(node: DOMElement): void {
@@ -39,6 +50,7 @@ export class FocusManager {
     }
     this.activeElement = node
     this.dispatchFocusEvent(node, new FocusEvent('focus', previous))
+    this.notify()
   }
 
   blur(): void {
@@ -47,6 +59,7 @@ export class FocusManager {
     const previous = this.activeElement
     this.activeElement = null
     this.dispatchFocusEvent(previous, new FocusEvent('blur', null))
+    this.notify()
   }
 
   /**
@@ -76,9 +89,11 @@ export class FocusManager {
       if (isInTree(candidate, root)) {
         this.activeElement = candidate
         this.dispatchFocusEvent(candidate, new FocusEvent('focus', removed))
+        this.notify()
         return
       }
     }
+    this.notify()
   }
 
   handleAutoFocus(node: DOMElement): void {

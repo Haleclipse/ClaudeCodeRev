@@ -6262,7 +6262,7 @@ export function REPL({
                     : inProgressToolUseIDs
                 }
                 isMessageSelectorVisible={isMessageSelectorVisible}
-                conversationId={conversationId}
+                conversationId={viewingAgentTaskId ?? conversationId}
                 screen={screen}
                 streamingToolUses={streamingToolUses}
                 showAllInTranscript={showAllInTranscript}

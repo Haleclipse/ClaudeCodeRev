@@ -14,6 +14,8 @@ import {
   type ParsedMouse,
   parseMultipleKeypresses,
 } from '../parse-keypress.js'
+import type { DOMElement } from '../dom.js'
+import type { FocusManager } from '../focus.js'
 import reconciler from '../reconciler.js'
 import {
   finishSelection,
@@ -31,6 +33,7 @@ import {
   setTerminalFocused,
 } from '../terminal-focus-state.js'
 import { TerminalQuerier, xtversion } from '../terminal-querier.js'
+import { notifyTerminalThemeChange } from '../terminal-theme.js'
 import {
   DISABLE_KITTY_KEYBOARD,
   DISABLE_MODIFY_OTHER_KEYS,
@@ -43,8 +46,10 @@ import {
   DBP,
   DFE,
   DISABLE_MOUSE_TRACKING,
+  DTN,
   EBP,
   EFE,
+  ETN,
   HIDE_CURSOR,
   SHOW_CURSOR,
 } from '../termio/dec.js'
@@ -120,6 +125,10 @@ type Props = {
   // Dispatch a keyboard event through the DOM tree. Called for each
   // parsed key alongside the legacy EventEmitter path.
   readonly dispatchKeyboardEvent: (parsedKey: ParsedKey) => void
+  // Exposed through AppContext for useFocus. Optional so testing.tsx
+  // doesn't stub them.
+  readonly focusManager?: FocusManager
+  readonly rootNode?: DOMElement
 }
 
 // Multi-click detection thresholds. 500ms is the macOS default; a small
@@ -200,6 +209,8 @@ export default class App extends PureComponent<Props, State> {
         <AppContext.Provider
           value={{
             exit: this.handleExit,
+            focusManager: this.props.focusManager,
+            rootNode: this.props.rootNode,
           }}
         >
           <StdinContext.Provider
@@ -299,6 +310,8 @@ export default class App extends PureComponent<Props, State> {
         this.props.stdout.write(EBP)
         // Enable terminal focus reporting (DECSET 1004)
         this.props.stdout.write(EFE)
+        // Enable terminal theme-change notifications (DECSET 2031)
+        this.props.stdout.write(ETN)
         // Enable extended key reporting so ctrl+shift+<letter> is
         // distinguishable from ctrl+<letter>. We write both the kitty stack
         // push (CSI >1u) and xterm modifyOtherKeys level 2 (CSI >4;2m) —
@@ -341,6 +354,8 @@ export default class App extends PureComponent<Props, State> {
       this.props.stdout.write(DISABLE_KITTY_KEYBOARD)
       // Disable terminal focus reporting (DECSET 1004)
       this.props.stdout.write(DFE)
+      // Disable terminal theme-change notifications (DECSET 2031)
+      this.props.stdout.write(DTN)
       // Disable bracketed paste mode
       this.props.stdout.write(DBP)
       stdin.setRawMode(false)
@@ -562,6 +577,11 @@ function processKeysInBatch(
     // Terminal responses (DECRPM, DA1, OSC replies, etc.) are not user
     // input — route them to the querier to resolve pending promises.
     if (item.kind === 'response') {
+      // Theme-change reports are unsolicited — not a querier reply
+      if (item.response.type === 'themeNotify') {
+        notifyTerminalThemeChange()
+        continue
+      }
       app.querier.onResponse(item.response)
       continue
     }

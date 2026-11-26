@@ -83,6 +83,10 @@ export type DOMElement = {
   // Only set on ink-root. The document owns focus — any node can
   // reach it by walking parentNode, like browser getRootNode().
   focusManager?: FocusManager
+  // Set on every ancestor of an absolute-positioned node. hitTest descends
+  // into such subtrees even when the point is outside this node's box, since
+  // absolute children can overflow their parent.
+  hasAbsoluteDescendant?: boolean
   // React component stack captured at createInstance time (reconciler.ts),
   // e.g. ['ToolUseLoader', 'Messages', 'REPL']. Only populated when
   // CLAUDE_CODE_DEBUG_REPAINTS is set. Used by findOwnerChainAtRow to
@@ -131,6 +135,16 @@ export const createNode = (nodeName: ElementNames): DOMElement => {
   return node
 }
 
+// Mark `node` and its ancestors as containing an absolute-positioned
+// descendant; stops at the first ancestor already marked.
+function markHasAbsoluteDescendant(node: DOMElement | undefined): void {
+  let current = node
+  while (current && !current.hasAbsoluteDescendant) {
+    current.hasAbsoluteDescendant = true
+    current = current.parentNode
+  }
+}
+
 export const appendChildNode = (
   node: DOMElement,
   childNode: DOMElement,
@@ -149,6 +163,13 @@ export const appendChildNode = (
     )
   }
 
+  if (
+    childNode.style.position === 'absolute' ||
+    childNode.hasAbsoluteDescendant
+  ) {
+    markHasAbsoluteDescendant(node)
+  }
+
   markDirty(node)
 }
 
@@ -162,6 +183,12 @@ export const insertBeforeNode = (
   }
 
   newChildNode.parentNode = node
+  if (
+    newChildNode.style.position === 'absolute' ||
+    (newChildNode.nodeName !== '#text' && newChildNode.hasAbsoluteDescendant)
+  ) {
+    markHasAbsoluteDescendant(node)
+  }
 
   const index = node.childNodes.indexOf(beforeChildNode)
 
@@ -269,7 +296,12 @@ export const setStyle = (node: DOMNode, style: Styles): void => {
   if (stylesEqual(node.style, style)) {
     return
   }
+  const becameAbsolute =
+    style.position === 'absolute' && node.style.position !== 'absolute'
   node.style = style
+  if (becameAbsolute && node.parentNode) {
+    markHasAbsoluteDescendant(node.parentNode)
+  }
   markDirty(node)
 }
 
@@ -309,7 +341,7 @@ function shallowEqual<T extends object>(
 
   // Compare each property
   for (const key of aKeys) {
-    if (a[key] !== b[key]) return false
+    if (!Object.hasOwn(b, key) || a[key] !== b[key]) return false
   }
 
   return true

@@ -926,7 +926,7 @@ function TwoColumnRow({
     active: isFocused,
   })
   return (
-    <Box ref={cursorRef} flexDirection="row">
+    <Box ref={cursorRef} flexDirection="row" flexShrink={0}>
       {children}
     </Box>
   )

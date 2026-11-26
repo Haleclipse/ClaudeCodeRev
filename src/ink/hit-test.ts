@@ -10,7 +10,9 @@ import { nodeCache } from './node-cache.js'
  * coordinates with all offsets (including scrollTop translation) already
  * applied. Children are traversed in reverse so later siblings (painted on
  * top) win. Nodes not in nodeCache (not rendered this frame, or lacking a
- * yogaNode) are skipped along with their subtrees.
+ * yogaNode) are skipped along with their subtrees. Subtrees with
+ * absolute-positioned descendants are searched even outside their own rect
+ * (the descendant may overflow), and such an overflow hit takes precedence.
  *
  * Returns the hit node even if it has no onClick — dispatchClick walks up
  * via parentNode to find handlers.
@@ -22,22 +24,40 @@ export function hitTest(
 ): DOMElement | null {
   const rect = nodeCache.get(node)
   if (!rect) return null
-  if (
-    col < rect.x ||
-    col >= rect.x + rect.width ||
-    row < rect.y ||
-    row >= rect.y + rect.height
-  ) {
-    return null
-  }
+  const inside =
+    col >= rect.x &&
+    col < rect.x + rect.width &&
+    row >= rect.y &&
+    row < rect.y + rect.height
+  // Absolute-positioned descendants can overflow this box, so keep looking
+  // even when the point is outside it.
+  if (!inside && !node.hasAbsoluteDescendant) return null
+  let hit: DOMElement | null = null
+  let hitViaOverflow = false
   // Later siblings paint on top; reversed traversal returns topmost hit.
   for (let i = node.childNodes.length - 1; i >= 0; i--) {
     const child = node.childNodes[i]!
     if (child.nodeName === '#text') continue
-    const hit = hitTest(child, col, row)
-    if (hit) return hit
+    const childRect = nodeCache.get(child)
+    if (!childRect) continue
+    const insideChild =
+      col >= childRect.x &&
+      col < childRect.x + childRect.width &&
+      row >= childRect.y &&
+      row < childRect.y + childRect.height
+    if (!insideChild && !child.hasAbsoluteDescendant) continue
+    // Once a sibling is hit, only overflowing absolute content can still win
+    if (hit !== null && insideChild) continue
+    const childHit = hitTest(child, col, row)
+    if (!childHit) continue
+    const viaOverflow = !insideChild
+    if (hit === null || (viaOverflow && !hitViaOverflow)) {
+      hit = childHit
+      hitViaOverflow = viaOverflow
+    }
+    if (hitViaOverflow) break
   }
-  return node
+  return hit ?? (inside ? node : null)
 }
 
 /**

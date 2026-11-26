@@ -33,6 +33,8 @@ type UseSearchInputOptions = {
   /** Allow multi-line queries: a trailing `\` before Enter, or Shift/Meta+Enter,
    *  inserts a newline instead of submitting. */
   multiline?: boolean
+  /** Called on Space while the query is empty (the space is not inserted). */
+  onSpaceOnEmpty?: () => void
 }
 
 type UseSearchInputReturn = {
@@ -70,6 +72,8 @@ const UNHANDLED_SPECIAL_KEYS = new Set([
   'wheelup',
   'wheeldown',
   'mouse',
+  'clear',
+  'enter',
   'f1',
   'f2',
   'f3',
@@ -94,6 +98,7 @@ export function useSearchInput({
   initialQuery = '',
   backspaceExitsOnEmpty = true,
   multiline = false,
+  onSpaceOnEmpty,
 }: UseSearchInputOptions): UseSearchInputReturn {
   const { columns: terminalColumns } = useTerminalSize()
   const effectiveColumns = columns ?? terminalColumns
@@ -362,6 +367,12 @@ export function useSearchInput({
 
     // Tab: ignore
     if (e.key === 'tab') {
+      return
+    }
+
+    if (onSpaceOnEmpty && e.key === ' ' && query === '') {
+      e.preventDefault()
+      onSpaceOnEmpty()
       return
     }
 

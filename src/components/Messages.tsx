@@ -352,13 +352,16 @@ const MAX_MESSAGES_TO_SHOW_IN_TRANSCRIPT_MODE = 30
 // jump from ~200 rendered messages to the full history, orphaning
 // in-progress badge snapshots in scrollback.
 //
-// The cap scales with terminal height (at most 200): a short terminal can't
-// show 200 messages anyway, and everything above the viewport is already in
-// native scrollback.
+// In fullscreen the cap scales with terminal height (at most 200): a short
+// terminal can't show 200 messages anyway. Outside fullscreen it is a fixed
+// 200.
 function getMaxMessagesWithoutVirtualization(terminalRows: number): number {
-  return Math.min(200, terminalRows)
+  return isFullscreenEnvEnabled()
+    ? Math.min(MAX_MESSAGES_WITHOUT_VIRTUALIZATION, terminalRows)
+    : MAX_MESSAGES_WITHOUT_VIRTUALIZATION
 }
 const MESSAGE_CAP_STEP = 50
+const MAX_MESSAGES_WITHOUT_VIRTUALIZATION = 200
 
 export type SliceAnchor = { uuid: string; idx: number } | null
 
@@ -370,16 +373,19 @@ export function computeSliceStart(
   step = MESSAGE_CAP_STEP,
 ): number {
   const anchor = anchorRef.current
+  // Fast path: the anchor is still at its stored index
   const anchorIdx = anchor
-    ? collapsed.findIndex(m => m.uuid === anchor.uuid)
+    ? collapsed[anchor.idx]?.uuid === anchor.uuid
+      ? anchor.idx
+      : collapsed.findIndex(m => m.uuid === anchor.uuid)
     : -1
-  // Anchor found → use it. Anchor lost → fall back to stored index
-  // (clamped) so collapse-regrouping uuid churn doesn't reset to 0.
+  // Anchor found → use it. Anchor lost → keep the stored index while it is
+  // still in range, so collapse-regrouping uuid churn doesn't reset to 0.
   let start =
     anchorIdx >= 0
       ? anchorIdx
-      : anchor
-        ? Math.min(anchor.idx, Math.max(0, collapsed.length - cap))
+      : anchor && anchor.idx < collapsed.length
+        ? anchor.idx
         : 0
   if (collapsed.length - start > cap + step) {
     start = collapsed.length - cap
@@ -450,22 +456,41 @@ const MessagesImpl = ({
   // so scrollRef's presence is the signal.
   const virtualScrollRuntimeGate = scrollRef != null && !disableVirtualScroll
   const renderCap = getMaxMessagesWithoutVirtualization(rows)
+  // Anchors for the non-virtualized slices: raw messages (pre-trim below)
+  // and the collapsed list actually rendered. Monotonic advance only —
+  // mutation during render is idempotent (safe under StrictMode
+  // double-render). See getMaxMessagesWithoutVirtualization comment above for
+  // why this replaced count-based slicing.
+  const rawSliceAnchorRef = useRef<SliceAnchor>(null)
+  const sliceAnchorRef = useRef<SliceAnchor>(null)
+  // Reset both anchors when the conversation changes, and the collapsed one
+  // when verbose toggles (it changes grouping).
+  const anchoredConversationIdRef = useRef(conversationId)
+  const anchoredVerboseRef = useRef(verbose)
+  if (anchoredConversationIdRef.current !== conversationId) {
+    anchoredConversationIdRef.current = conversationId
+    rawSliceAnchorRef.current = null
+    sliceAnchorRef.current = null
+  }
+  if (anchoredVerboseRef.current !== verbose) {
+    anchoredVerboseRef.current = verbose
+    sliceAnchorRef.current = null
+  }
   // Non-virtualized path: only the tail can ever be rendered (see
   // computeSliceStart), so pre-trim to twice the render cap before
   // normalizing and the O(n) passes below. The 2× margin leaves room for the
-  // anchor slice and for messages that grouping/collapsing merge away.
-  const preCapWindow =
-    !virtualScrollRuntimeGate &&
-    !disableRenderCap &&
-    messages.length > renderCap * 2
-      ? renderCap * 2
+  // anchor slice and for messages that grouping/collapsing merge away. The
+  // pre-trim is anchored too, so its start doesn't move on every append.
+  const rawSliceStart =
+    !virtualScrollRuntimeGate && !disableRenderCap
+      ? computeSliceStart(messages, rawSliceAnchorRef, renderCap * 2)
       : 0
 
   const normalizedMessages = useMemo(() => {
-    const capped = preCapWindow > 0
-    const window = capped ? messages.slice(-preCapWindow) : messages
+    const capped = rawSliceStart > 0
+    const window = capped ? messages.slice(rawSliceStart) : messages
     return normalizeMessages(window, capped).filter(isNotEmptyMessage)
-  }, [messages, preCapWindow])
+  }, [messages, rawSliceStart])
 
   // Check if streaming thinking should be visible (streaming or within 30s timeout)
   const isStreamingThinkingVisible = useMemo(() => {
@@ -571,12 +596,6 @@ const MessagesImpl = ({
   const isTranscriptMode = screen === 'transcript'
   const shouldTruncate =
     isTranscriptMode && !showAllInTranscript && !virtualScrollRuntimeGate
-
-  // Anchor for the first rendered message in the non-virtualized cap slice.
-  // Monotonic advance only — mutation during render is idempotent (safe
-  // under StrictMode double-render). See getMaxMessagesWithoutVirtualization
-  // comment above for why this replaced count-based slicing.
-  const sliceAnchorRef = useRef<SliceAnchor>(null)
 
   // Expensive message transforms — filter, reorder, group, collapse, lookups.
   // All O(n) over 27k messages. Split from the renderRange slice so scrolling

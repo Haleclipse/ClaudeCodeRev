@@ -421,6 +421,7 @@ export function FullscreenLayout({
             flexDirection="column"
             width="100%"
             flexGrow={1}
+            flexShrink={0}
             overflowY="hidden"
           >
             {bottom}

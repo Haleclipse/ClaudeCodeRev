@@ -19,6 +19,7 @@ import {
   DBP,
   DFE,
   DISABLE_MOUSE_TRACKING,
+  DTN,
   EXIT_ALT_SCREEN,
   SHOW_CURSOR,
 } from '../ink/termio/dec.js'
@@ -110,6 +111,8 @@ function cleanupTerminalModes(): void {
     writeSync(1, DISABLE_KITTY_KEYBOARD)
     // Disable focus events (DECSET 1004)
     writeSync(1, DFE)
+    // Disable theme-change notifications (DECSET 2031)
+    writeSync(1, DTN)
     // Disable bracketed paste mode
     writeSync(1, DBP)
     // Show cursor
