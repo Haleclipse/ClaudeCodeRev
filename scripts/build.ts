@@ -83,7 +83,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   POWERSHELL_AUTO_MODE: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   TEAMMEM: true,
   REVIEW_ARTIFACT: false, // official 2.1.88: gated modules absent from its sourcemap
-  ULTRAPLAN: false, // official 2.1.88: bundle token-distance search; module-presence evidence was a false positive
+  ULTRAPLAN: true, // official 2.1.91: on (gated ultraplan code is in the bundle — tengu_ultraplan_keyword, ultraplan-launch/choice dialogs; 2.1.88–2.1.90 off: bundle token-distance search, module-presence evidence was a false positive)
   ULTRATHINK: true,
   TORCH: false, // official 2.1.88: gated modules absent from its sourcemap
   VERIFICATION_AGENT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)

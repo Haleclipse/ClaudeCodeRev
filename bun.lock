@@ -15,7 +15,7 @@
         "@anthropic-ai/foundry-sdk": "0.2.3",
         "@anthropic-ai/mcpb": "1.1.1",
         "@anthropic-ai/sandbox-runtime": "0.0.46",
-        "@anthropic-ai/sdk": "0.74.0",
+        "@anthropic-ai/sdk": "0.80.0",
         "@anthropic-ai/vertex-sdk": "0.14.0",
         "@aws-sdk/client-bedrock": "3.936.0",
         "@aws-sdk/client-bedrock-runtime": "3.936.0",
@@ -179,7 +179,7 @@
     "@anthropic-ai/foundry-sdk": "0.2.3",
     "@anthropic-ai/mcpb": "1.1.1",
     "@anthropic-ai/sandbox-runtime": "0.0.46",
-    "@anthropic-ai/sdk": "0.74.0",
+    "@anthropic-ai/sdk": "0.80.0",
     "@anthropic-ai/vertex-sdk": "0.14.0",
     "@aws-crypto/sha256-js": "4.0.0",
     "@aws-sdk/client-bedrock": "3.936.0",
@@ -472,7 +472,7 @@
 
     "@anthropic-ai/sandbox-runtime": ["@anthropic-ai/sandbox-runtime@0.0.46", "", { "dependencies": { "@pondwader/socks5-server": "^1.0.10", "@types/lodash-es": "^4.17.12", "commander": "^12.1.0", "lodash-es": "^4.17.23", "shell-quote": "^1.8.3", "zod": "^3.24.1" }, "bin": { "srt": "dist/cli.js" } }, "sha512-FeVZ4rbdiHNPiMtf70xkiwogDGXYcCKCPmYjrED2HGNlk5jOabgrlvUROz0SsVksIh24SVRuTwNTK/yGBFm/5w=="],
 
-    "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.74.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-srbJV7JKsc5cQ6eVuFzjZO7UR3xEPJqPamHFIe29bs38Ij2IripoAhC0S5NslNbaFUYqBKypmmpzMTpqfHEUDw=="],
+    "@anthropic-ai/sdk": ["@anthropic-ai/sdk@0.80.0", "", { "dependencies": { "json-schema-to-ts": "^3.1.1" }, "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" }, "optionalPeers": ["zod"], "bin": { "anthropic-ai-sdk": "bin/cli" } }, "sha512-WeXLn7zNVk3yjeshn+xZHvld6AoFUOR3Sep6pSoHho5YbSi6HwcirqgPA5ccFuW8QTVJAAU7N8uQQC6Wa9TG+g=="],
 
     "@anthropic-ai/vertex-sdk": ["@anthropic-ai/vertex-sdk@0.14.0", "", { "dependencies": { "@anthropic-ai/sdk": ">=0.50.3 <1", "google-auth-library": "^9.4.2" } }, "sha512-YIonqYEwQ9ILvpeOUBRBCv+91nzIs/MAZIAJ6yyJ3muwoTbZdEu54A2HcM4nRHH+Gy1vxz0FVau6aGSayXNeWQ=="],
 
