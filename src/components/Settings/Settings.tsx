@@ -13,6 +13,7 @@ import { Tabs, Tab } from '../design-system/Tabs.js'
 import { Status, buildDiagnostics } from './Status.js'
 import { Config } from './Config.js'
 import { Usage } from './Usage.js'
+import { Stats } from '../Stats.js'
 import type {
   LocalJSXCommandContext,
   CommandResultDisplay,
@@ -24,7 +25,7 @@ type Props = {
     options?: { display?: CommandResultDisplay },
   ) => void
   context: LocalJSXCommandContext
-  defaultTab: 'Status' | 'Config' | 'Usage' | 'Gates'
+  defaultTab: 'Status' | 'Config' | 'Usage' | 'Stats' | 'Gates'
 }
 
 export function Settings({
@@ -74,13 +75,15 @@ export function Settings({
 
   // Disable when submenu is open so the submenu's Dialog can handle ESC,
   // and when Config's search mode is active so its useInput handler
-  // (clear query → exit search) processes Escape first.
+  // (clear query → exit search) processes Escape first. Stats binds its own
+  // Esc (closing with "Stats dialog dismissed").
   useKeybinding('confirm:no', handleEscape, {
     context: 'Settings',
     isActive:
       !tabsHidden &&
       !(selectedTab === 'Config' && configOwnsEsc) &&
-      !(selectedTab === 'Gates' && gatesOwnsEsc),
+      !(selectedTab === 'Gates' && gatesOwnsEsc) &&
+      selectedTab !== 'Stats',
   })
 
   const tabs = [
@@ -100,6 +103,9 @@ export function Settings({
     </Tab>,
     <Tab key="usage" title="Usage">
       <Usage />
+    </Tab>,
+    <Tab key="stats" title="Stats">
+      <Stats onClose={onClose} />
     </Tab>,
     ...("external" === 'ant'
       ? [
@@ -122,7 +128,12 @@ export function Settings({
         hidden={tabsHidden}
         // Config has interactive content — start with header unfocused so
         // left/right/tab cycle option values instead of switching tabs.
-        initialHeaderFocused={defaultTab !== 'Config' && defaultTab !== 'Gates'}
+        // Stats renders its own nested Tabs (Overview/Models).
+        initialHeaderFocused={
+          defaultTab !== 'Config' &&
+          defaultTab !== 'Gates' &&
+          defaultTab !== 'Stats'
+        }
         // Inside a Modal, skip the Tabs-level cap so tall tabs (Status's
         // MCP list) flow to their natural height for the Modal's ScrollBox
         // to scroll. Config/Gates still get contentHeight above — they

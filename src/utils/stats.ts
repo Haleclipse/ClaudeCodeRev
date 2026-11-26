@@ -845,8 +845,19 @@ function processedStatsToClaudeCodeStats(
  * Get the next day after a given date string (YYYY-MM-DD format).
  */
 function getNextDay(dateStr: string): string {
+  // YYYY-MM-DD parses as UTC midnight; step in UTC so the local timezone / DST
+  // can't shift the result onto the wrong date.
   const date = new Date(dateStr)
-  date.setDate(date.getDate() + 1)
+  date.setUTCDate(date.getUTCDate() + 1)
+  return toDateString(date)
+}
+
+/**
+ * Get the day before a given date string (YYYY-MM-DD format).
+ */
+function getPreviousDay(dateStr: string): string {
+  const date = new Date(dateStr)
+  date.setUTCDate(date.getUTCDate() - 1)
   return toDateString(date)
 }
 
@@ -861,34 +872,30 @@ function calculateStreaks(dailyActivity: DailyActivity[]): StreakInfo {
     }
   }
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-
   // Calculate current streak (working backwards from today)
   let currentStreak = 0
   let currentStreakStart: string | null = null
-  const checkDate = new Date(today)
+  // Start from today's UTC date string (activity dates are UTC, see
+  // toDateString) rather than local midnight, whose UTC date is the previous
+  // day in timezones ahead of UTC; step back one UTC day at a time.
+  let checkDate = getTodayDateString()
 
   // Build a set of active dates for quick lookup
   const activeDates = new Set(dailyActivity.map(d => d.date))
 
-  while (true) {
-    const dateStr = toDateString(checkDate)
-    if (!activeDates.has(dateStr)) {
-      break
-    }
+  while (activeDates.has(checkDate)) {
     currentStreak++
-    currentStreakStart = dateStr
-    checkDate.setDate(checkDate.getDate() - 1)
+    currentStreakStart = checkDate
+    checkDate = getPreviousDay(checkDate)
   }
 
   // Calculate longest streak
   let longestStreak = 0
   let longestStreakStart: string | null = null
   let longestStreakEnd: string | null = null
+  const sortedDates = Array.from(activeDates).sort()
 
-  if (dailyActivity.length > 0) {
-    const sortedDates = Array.from(activeDates).sort()
+  if (sortedDates.length > 0) {
     let tempStreak = 1
     let tempStart = sortedDates[0]!
 

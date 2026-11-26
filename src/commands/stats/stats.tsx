@@ -1,7 +1,7 @@
 import * as React from 'react'
-import { Stats } from '../../components/Stats.js'
+import { Settings } from '../../components/Settings/Settings.js'
 import type { LocalJSXCommandCall } from '../../types/command.js'
 
-export const call: LocalJSXCommandCall = async onDone => {
-  return <Stats onClose={onDone} />
+export const call: LocalJSXCommandCall = async (onDone, context) => {
+  return <Settings onClose={onDone} context={context} defaultTab="Stats" />
 }
