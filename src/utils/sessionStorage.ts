@@ -2090,6 +2090,10 @@ function findLatestMessage<T extends { timestamp: string }>(
   return latest
 }
 
+// Max gap between a message and the timestamp-matched parent that replaces a
+// missing parentUuid target in buildConversationChain.
+const CHAIN_TIMESTAMP_FALLBACK_WINDOW_MS = 5000
+
 /**
  * Builds a conversation chain from a leaf message to root
  * @param messages Map of all messages
@@ -2115,12 +2119,46 @@ export function buildConversationChain(
     }
     seen.add(currentMsg.uuid)
     transcript.push(currentMsg)
-    currentMsg = currentMsg.parentUuid
-      ? messages.get(currentMsg.parentUuid)
-      : undefined
+    const parentUuid = currentMsg.parentUuid
+    if (!parentUuid) break
+    let parent = messages.get(parentUuid)
+    if (!parent) {
+      // The parent entry is missing (e.g. an async transcript write failed),
+      // which would cut the chain here and drop everything before it. Re-attach
+      // to the closest earlier message by timestamp instead.
+      parent = findTimestampFallbackParent(messages, currentMsg, seen)
+      if (parent) logEvent('tengu_chain_timestamp_fallback', {})
+    }
+    currentMsg = parent
   }
   transcript.reverse()
   return recoverOrphanedParallelToolResults(messages, transcript, seen)
+}
+
+/**
+ * Closest message (not already in the chain) whose timestamp is at most
+ * CHAIN_TIMESTAMP_FALLBACK_WINDOW_MS before `child`.
+ */
+function findTimestampFallbackParent(
+  messages: Map<UUID, TranscriptMessage>,
+  child: TranscriptMessage,
+  seen: Set<UUID>,
+): TranscriptMessage | undefined {
+  const childTime = new Date(child.timestamp).getTime()
+  if (Number.isNaN(childTime)) return undefined
+  let best: TranscriptMessage | undefined
+  let bestDelta = Infinity
+  for (const candidate of messages.values()) {
+    if (seen.has(candidate.uuid)) continue
+    const time = new Date(candidate.timestamp).getTime()
+    if (Number.isNaN(time)) continue
+    const delta = childTime - time
+    if (delta >= 0 && delta <= CHAIN_TIMESTAMP_FALLBACK_WINDOW_MS && delta < bestDelta) {
+      bestDelta = delta
+      best = candidate
+    }
+  }
+  return best
 }
 
 /**
