@@ -735,6 +735,10 @@ export const hasPermissionsToUseTool: CanUseToolFn = async (
           yoloDecision as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         toolName: sanitizeToolNameForAnalytics(tool.name),
         inProtectedNamespace: isInProtectedNamespace(),
+        // Why the tool needed approval in the first place (rule, mode,
+        // safetyCheck, ...), before the classifier decided.
+        originalDecisionReasonType: result.decisionReason
+          ?.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         // msg_id of the agent completion that produced this tool_use —
         // the action at the bottom of the classifier transcript.
         agentMsgId: assistantMessage.message

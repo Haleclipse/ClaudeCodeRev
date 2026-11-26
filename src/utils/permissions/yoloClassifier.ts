@@ -13,7 +13,10 @@ import {
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { logEvent } from '../../services/analytics/index.js'
 import type { AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS } from '../../services/analytics/metadata.js'
-import { getCacheControl } from '../../services/api/claude.js'
+import {
+  getCacheControl,
+  getExtraBodyParams,
+} from '../../services/api/claude.js'
 import { parsePromptTooLongTokenCounts } from '../../services/api/errors.js'
 import { getDefaultMaxRetries } from '../../services/api/withRetry.js'
 import type { Tool, ToolPermissionContext, Tools } from '../../Tool.js'
@@ -801,6 +804,7 @@ async function classifyYoloActionXml(
         signal,
         ...(mode !== 'fast' && { stop_sequences: ['</block>'] }),
         querySource: 'auto_mode',
+        extraBodyParams: getExtraBodyParams(),
       }
       const stage1Raw = await sideQuery(stage1Opts)
       stage1DurationMs = Date.now() - stage1Start
@@ -887,6 +891,7 @@ async function classifyYoloActionXml(
       maxRetries: getDefaultMaxRetries(),
       signal,
       querySource: 'auto_mode' as const,
+      extraBodyParams: getExtraBodyParams(),
     }
     const stage2Raw = await sideQuery(stage2Opts)
     const stage2DurationMs = Date.now() - stage2Start
@@ -1166,6 +1171,7 @@ export async function classifyYoloAction(
       maxRetries: getDefaultMaxRetries(),
       signal,
       querySource: 'auto_mode' as const,
+      extraBodyParams: getExtraBodyParams(),
     }
     const result = await sideQuery(sideQueryOpts)
     void maybeDumpAutoMode(sideQueryOpts, result, start)
@@ -1375,7 +1381,7 @@ function resolveTwoStageClassifier():
     'tengu_auto_mode_config',
     {} as AutoModeConfig,
   )
-  return config?.twoStageClassifier
+  return config?.twoStageClassifier ?? true
 }
 
 /**

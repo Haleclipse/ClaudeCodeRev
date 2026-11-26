@@ -11,12 +11,12 @@ import type { ConnectedMCPServer, MCPServerConnection } from './types.js'
 // Mirror of AutoModeEnabledState in permissionSetup.ts — inlined because that
 // file pulls in too many deps for this thin IPC module.
 type AutoModeEnabledState = 'enabled' | 'disabled' | 'opt-in'
-function readAutoModeEnabledState(): AutoModeEnabledState | undefined {
+function readAutoModeEnabledState(): AutoModeEnabledState {
   const v = getFeatureValue_CACHED_MAY_BE_STALE<{ enabled?: string }>(
     'tengu_auto_mode_config',
     {},
   )?.enabled
-  return v === 'enabled' || v === 'disabled' || v === 'opt-in' ? v : undefined
+  return v === 'enabled' || v === 'disabled' || v === 'opt-in' ? v : 'opt-in'
 }
 
 export const LogEventNotificationSchema = lazySchema(() =>
@@ -98,12 +98,9 @@ export function setupVscodeSdkMcp(sdkClients: MCPServerConnection[]): void {
         false,
       ),
     }
-    // Tri-state: 'enabled' | 'disabled' | 'opt-in'. Omit if unknown so VSCode
-    // fails closed (treats absent as 'disabled').
-    const autoModeState = readAutoModeEnabledState()
-    if (autoModeState !== undefined) {
-      gates.tengu_auto_mode_state = autoModeState
-    }
+    // Tri-state: 'enabled' | 'disabled' | 'opt-in' (unknown → 'opt-in', the
+    // same default as permissionSetup).
+    gates.tengu_auto_mode_state = readAutoModeEnabledState()
     void client.client.notification({
       method: 'experiment_gates',
       params: { gates },
