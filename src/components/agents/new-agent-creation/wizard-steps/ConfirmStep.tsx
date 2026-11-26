@@ -37,7 +37,13 @@ export function ConfirmStep({
   useKeybinding('confirm:no', goBack, { context: 'Confirmation' })
 
   const handleKeyDown = (e: KeyboardEvent) => {
-    if (e.key === 's' || e.key === 'return') {
+    if (e.key === 'return') {
+      e.preventDefault()
+      onSave()
+      return
+    }
+    if (e.ctrl || e.meta) return
+    if (e.key === 's') {
       e.preventDefault()
       onSave()
     } else if (e.key === 'e') {

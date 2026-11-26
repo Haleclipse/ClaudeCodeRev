@@ -536,7 +536,7 @@ export function RemoteSessionDetailDialog({
     } else if (e.key === 'left' && onBack) {
       e.preventDefault()
       onBack()
-    } else if (e.key === 't' && !isTeleporting) {
+    } else if (e.key === 't' && !e.ctrl && !e.meta && !isTeleporting) {
       e.preventDefault()
       void handleTeleport()
     } else if (e.key === 'return') {

@@ -106,7 +106,7 @@ export function ShellDetailDialog({
     } else if (e.key === 'left' && onBack) {
       e.preventDefault()
       onBack()
-    } else if (e.key === 'x' && shell.status === 'running' && onKillShell) {
+    } else if (e.key === 'x' && !e.ctrl && !e.meta && shell.status === 'running' && onKillShell) {
       e.preventDefault()
       onKillShell()
     }

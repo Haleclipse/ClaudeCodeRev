@@ -326,7 +326,7 @@ export function BackgroundTasksDialog({
     const currentSelection = allSelectableItems[selectedIndex]
     if (!currentSelection) return // everything below requires a selection
 
-    if (e.key === 'x') {
+    if (e.key === 'x' && !e.ctrl && !e.meta) {
       e.preventDefault()
       if (
         currentSelection.type === 'local_bash' &&
@@ -376,7 +376,7 @@ export function BackgroundTasksDialog({
       }
     }
 
-    if (e.key === 'f') {
+    if (e.key === 'f' && !e.ctrl && !e.meta) {
       if (
         currentSelection.type === 'in_process_teammate' &&
         currentSelection.status === 'running'

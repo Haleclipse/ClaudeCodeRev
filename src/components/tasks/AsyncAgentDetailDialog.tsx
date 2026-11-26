@@ -62,7 +62,7 @@ export function AsyncAgentDetailDialog({
     } else if (e.key === 'left' && onBack) {
       e.preventDefault()
       onBack()
-    } else if (e.key === 'x' && agent.status === 'running' && onKillAgent) {
+    } else if (e.key === 'x' && !e.ctrl && !e.meta && agent.status === 'running' && onKillAgent) {
       e.preventDefault()
       onKillAgent()
     }

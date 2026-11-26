@@ -59,7 +59,7 @@ function MobileQRCode({ onDone }: Props): React.ReactNode {
   useKeybinding('confirm:no', handleClose, { context: 'Confirmation' })
 
   function handleKeyDown(e: KeyboardEvent): void {
-    if (e.key === 'q' || (e.ctrl && e.key === 'c')) {
+    if ((e.key === 'q' && !e.ctrl && !e.meta) || (e.ctrl && e.key === 'c')) {
       e.preventDefault()
       onDone()
       return

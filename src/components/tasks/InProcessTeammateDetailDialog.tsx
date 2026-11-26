@@ -54,10 +54,10 @@ export function InProcessTeammateDetailDialog({
     } else if (e.key === 'left' && onBack) {
       e.preventDefault()
       onBack()
-    } else if (e.key === 'x' && teammate.status === 'running' && onKill) {
+    } else if (e.key === 'x' && !e.ctrl && !e.meta && teammate.status === 'running' && onKill) {
       e.preventDefault()
       onKill()
-    } else if (e.key === 'f' && teammate.status === 'running' && onForeground) {
+    } else if (e.key === 'f' && !e.ctrl && !e.meta && teammate.status === 'running' && onForeground) {
       e.preventDefault()
       onForeground()
     }

@@ -220,7 +220,7 @@ function CopyPicker({
   }
 
   function handleKeyDown(e: KeyboardEvent): void {
-    if (e.key === 'w') {
+    if (e.key === 'w' && !e.ctrl && !e.meta) {
       e.preventDefault()
       void handleWrite(focusedRef.current)
     }

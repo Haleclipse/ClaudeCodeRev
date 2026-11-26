@@ -191,6 +191,8 @@ export function useBackgroundTaskNavigation(options?: {
     // 'f' to view selected teammate's transcript (only in selecting mode)
     if (
       e.key === 'f' &&
+      !e.ctrl &&
+      !e.meta &&
       viewSelectionMode === 'selecting-agent' &&
       teammateCount > 0
     ) {
@@ -227,6 +229,8 @@ export function useBackgroundTaskNavigation(options?: {
     // k to kill selected teammate (only in selecting mode)
     if (
       e.key === 'k' &&
+      !e.ctrl &&
+      !e.meta &&
       viewSelectionMode === 'selecting-agent' &&
       selectedIPAgentIndex >= 0
     ) {
