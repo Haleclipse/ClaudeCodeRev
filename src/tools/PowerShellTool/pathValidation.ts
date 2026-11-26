@@ -22,6 +22,7 @@ import {
   checkPathSafetyForAutoEdit,
   checkReadableInternalPath,
   matchingRuleForInput,
+  normalizeCaseForComparison,
   pathInAllowedWorkingPath,
 } from '../../utils/permissions/filesystem.js'
 import type { PermissionResult } from '../../utils/permissions/PermissionResult.js'
@@ -1727,6 +1728,41 @@ function checkPathConstraintsForStatement(
     // Port: remove-item (and aliases rm/del/ri/rd/rmdir/erase → resolveToCanonical)
     // on a dangerous path → deny (not ask). User cannot approve system32 deletion.
     const isRemoval = resolveToCanonical(cmd.name) === 'remove-item'
+
+    // SECURITY: `Remove-Item -Recurse` (any abbreviation: -r, -rec, ...) on the
+    // working directory or one of its ancestors wipes the project including
+    // .git and .claude. Not a system path, so it isn't hard-denied — ask.
+    if (isRemoval) {
+      const hasRecurse = cmd.args.some(arg => {
+        const normalized = (
+          arg.length > 0 ? '-' + arg.slice(1) : arg
+        ).toLowerCase()
+        const colonIndex = normalized.indexOf(':')
+        const name =
+          colonIndex > 0 ? normalized.slice(0, colonIndex) : normalized
+        return name.length >= 2 && '-recurse'.startsWith(name)
+      })
+      if (hasRecurse) {
+        const normalizedCwd = normalizeCaseForComparison(cwd)
+        for (const filePath of paths) {
+          const absolute = isAbsolute(filePath)
+            ? resolve(filePath)
+            : resolve(cwd, filePath)
+          const target = normalizeCaseForComparison(absolute)
+          if (
+            target === normalizedCwd ||
+            normalizedCwd.startsWith(target + '/') ||
+            normalizedCwd.startsWith(target + '\\')
+          ) {
+            firstAsk ??= {
+              behavior: 'ask',
+              message: `Remove-Item -Recurse targeting '${filePath}' would delete the working directory including .git and .claude — requires manual approval`,
+            }
+            break
+          }
+        }
+      }
+    }
 
     for (const filePath of paths) {
       // Hard-deny removal of dangerous system paths (/, ~, /etc, etc.).

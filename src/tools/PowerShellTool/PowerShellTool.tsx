@@ -49,7 +49,10 @@ import type { ExecResult } from '../../utils/ShellCommand.js'
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
 import { semanticBoolean } from '../../utils/semanticBoolean.js'
 import { semanticNumber } from '../../utils/semanticNumber.js'
-import { getCachedPowerShellPath } from '../../utils/shell/powershellDetection.js'
+import {
+  getCachedPowerShellPath,
+  getPowerShellEdition,
+} from '../../utils/shell/powershellDetection.js'
 import { EndTruncatingAccumulator } from '../../utils/stringUtils.js'
 import { getTaskOutputPath } from '../../utils/task/diskOutput.js'
 import { TaskOutput } from '../../utils/task/TaskOutput.js'
@@ -835,6 +838,8 @@ export const PowerShellTool = buildTool({
         stderr_length: finalStderr.length,
         exit_code: result.code,
         interrupted: result.interrupted,
+        powershell_edition: ((await getPowerShellEdition()) ??
+          'unknown') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       })
 
       return {

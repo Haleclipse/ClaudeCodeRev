@@ -57,10 +57,6 @@ import {
 } from './readOnlyValidation.js'
 import { POWERSHELL_TOOL_NAME } from './toolName.js'
 
-// Matches `$var = `, `$var += `, `$env:X = `, `$x ??= ` etc. Used to strip
-// nested assignment prefixes in the parse-failed fallback path.
-const PS_ASSIGN_PREFIX_RE = /^\$[\w:]+\s*(?:[+\-*/%]|\?\?)?\s*=\s*/
-
 /**
  * Cmdlets that can place a file at a caller-specified path. The
  * git-internal-paths guard checks whether any arg is a git-internal path
@@ -781,73 +777,54 @@ export async function powershellToolHasPermission(
     // pieces. Instead: collapse backtick-newline (line continuation) so
     // `Invoke-Ex`<nl>pression` rejoins, strip remaining backticks (escape
     // chars — ``x → x), then split on actual statement/grouping separators.
+    // Block comments (<# ... #>) are blanked out first so a comment can't sit
+    // between a separator and the cmdlet name.
     const backtickStripped = command
+      .replace(/<#[\s\S]*?#>/g, ' ')
       .replace(/`[\r\n]+\s*/g, '')
       .replace(/`/g, '')
     for (const fragment of backtickStripped.split(/[;|\n\r{}()&]+/)) {
       const trimmedFrag = fragment.trim()
       if (!trimmedFrag) continue // skip empty fragments
-      // Skip the full command ONLY if it starts with a cmdlet name (no
-      // assignment prefix). The full command was already checked at 2a, but
-      // 2a uses the raw text — $x %= iex as first token `$x` misses the
-      // deny(iex:*) rule. If normalization would change the fragment
-      // (assignment prefix, dot-source), don't skip — let it be re-checked
-      // after normalization. (bug #10/#24)
-      if (
-        trimmedFrag === command &&
-        !/^\$[\w:]/.test(trimmedFrag) &&
-        !/^[&.]\s/.test(trimmedFrag)
-      ) {
-        continue
-      }
-      // SECURITY: Normalize invocation-operator and assignment prefixes before
-      // rule matching (findings #5/#22). The splitter gives us the raw fragment
-      // text; matchingRulesForInput extracts the first token as the cmdlet name.
-      // Without normalization:
-      //   `$x = Invoke-Expression 'p'` → first token `$x` → deny(iex:*) misses
-      //   `. Invoke-Expression 'p'`    → first token `.`  → deny(iex:*) misses
-      //   `& 'Invoke-Expression' 'p'`  → first token `&` removed by split but
-      //                                  `'Invoke-Expression'` retains quotes
-      //                                  → deny(iex:*) misses
-      // The parse-succeeded path handles these via AST (parser.ts:839 strips
-      // quotes from rawNameUnstripped; invocation operators are separate AST
-      // nodes). This fallback mirrors that normalization.
-      // Loop strips nested assignments: $x = $y = iex → $y = iex → iex
-      let normalized = trimmedFrag
-      let m: RegExpMatchArray | null
-      while ((m = normalized.match(PS_ASSIGN_PREFIX_RE))) {
-        normalized = normalized.slice(m[0].length)
-      }
-      normalized = normalized.replace(/^[&.]\s+/, '') // & cmd, . cmd (dot-source)
-      const rawFirst = normalized.split(/\s+/)[0] ?? ''
-      const firstTok = rawFirst.replace(/^['"]|['"]$/g, '')
-      const normalizedFrag = firstTok + normalized.slice(rawFirst.length)
-      // SECURITY: parse-independent dangerous-removal hard-deny. The
-      // isDangerousRemovalPath check in checkPathConstraintsForStatement
-      // requires a valid AST; when pwsh times out or is unavailable,
-      // `Remove-Item /` degrades from hard-deny to generic ask. Check
-      // raw positional args here so root/home/system deletion is denied
-      // regardless of parser availability. Conservative: only positional
-      // args (skip -Param tokens); over-deny in degraded state is safe
-      // (same deny-downgrade rationale as the sub-command scan above).
-      if (resolveToCanonical(firstTok) === 'remove-item') {
-        for (const arg of normalized.split(/\s+/).slice(1)) {
-          if (PS_TOKENIZER_DASH_CHARS.has(arg[0] ?? '')) continue
-          if (isDangerousRemovalRawPath(arg)) {
-            return dangerousRemovalDeny(arg)
+      // SECURITY: try every token position as the start of a command, not just
+      // the first. Assignment prefixes (`$x = iex 'p'`, `$x = $y = iex`),
+      // invocation operators (`& 'iex'`, `. iex`) and anything else in front
+      // of the cmdlet name would otherwise hide it from the prefix matcher —
+      // enumerating positions covers all of them without normalizing each
+      // syntax (findings #5/#22, bug #10/#24). Over-deny is acceptable here:
+      // parse-failed is already a degraded state and this is a
+      // deny-DOWNGRADE fix.
+      const tokens = trimmedFrag.split(/\s+/)
+      for (let i = 0; i < tokens.length; i++) {
+        const tok = tokens[i]!.replace(/^['"]|['"]$/g, '')
+        if (!tok) continue
+        // SECURITY: parse-independent dangerous-removal hard-deny. The
+        // isDangerousRemovalPath check in checkPathConstraintsForStatement
+        // requires a valid AST; when pwsh times out or is unavailable,
+        // `Remove-Item /` degrades from hard-deny to generic ask. Check
+        // raw positional args here so root/home/system deletion is denied
+        // regardless of parser availability. Conservative: only positional
+        // args (skip -Param tokens); over-deny in degraded state is safe.
+        if (resolveToCanonical(tok) === 'remove-item') {
+          for (const arg of tokens.slice(i + 1)) {
+            if (PS_TOKENIZER_DASH_CHARS.has(arg[0] ?? '')) continue
+            if (isDangerousRemovalRawPath(arg)) {
+              return dangerousRemovalDeny(arg)
+            }
           }
         }
-      }
-      const { matchingDenyRules: fragDenyRules } = matchingRulesForInput(
-        { command: normalizedFrag },
-        toolPermissionContext,
-        'prefix',
-      )
-      if (fragDenyRules[0] !== undefined) {
-        return {
-          behavior: 'deny',
-          message: `Permission to use ${POWERSHELL_TOOL_NAME} with command ${command} has been denied.`,
-          decisionReason: { type: 'rule', rule: fragDenyRules[0] },
+        const candidate = [tok, ...tokens.slice(i + 1)].join(' ')
+        const { matchingDenyRules: fragDenyRules } = matchingRulesForInput(
+          { command: candidate },
+          toolPermissionContext,
+          'prefix',
+        )
+        if (fragDenyRules[0] !== undefined) {
+          return {
+            behavior: 'deny',
+            message: `Permission to use ${POWERSHELL_TOOL_NAME} with command ${command} has been denied.`,
+            decisionReason: { type: 'rule', rule: fragDenyRules[0] },
+          }
         }
       }
     }
@@ -958,6 +935,24 @@ export async function powershellToolHasPermission(
       type: 'other' as const,
       reason:
         'Command contains a `#Requires` directive that may trigger module loading',
+    }
+    decisions.push({
+      behavior: 'ask',
+      message: createPermissionRequestMessage(
+        POWERSHELL_TOOL_NAME,
+        decisionReason,
+      ),
+      decisionReason,
+      suggestions: suggestionForExactCommand(command),
+    })
+  }
+  // SECURITY: `cmd &` (background job operator) runs the pipeline in a child
+  // PowerShell process — always ask.
+  if (parsed.hasBackgroundJob) {
+    const decisionReason: PermissionDecisionReason = {
+      type: 'other' as const,
+      reason:
+        'Command uses the background job operator (`&`) which spawns a child PowerShell process',
     }
     decisions.push({
       behavior: 'ask',
@@ -1216,21 +1211,29 @@ export async function powershellToolHasPermission(
           'Command writes to a git-internal path (HEAD, objects/, refs/, hooks/, .git/) and runs git. This could plant a malicious hook that git then executes.',
       })
     }
-    // SECURITY: Archive-extraction TOCTOU. isCurrentDirectoryBareGitRepo
-    // checks at permission-eval time; `tar -xf x.tar; git status` extracts
-    // bare-repo indicators AFTER the check, BEFORE git runs. Unlike write
-    // cmdlets (where we inspect args for git-internal paths), archive
-    // contents are opaque — any extraction in a compound with git must ask.
-    const hasArchiveExtractor = allSubCommands.some(({ element }) =>
-      GIT_SAFETY_ARCHIVE_EXTRACTORS.has(element.name.toLowerCase()),
+  }
+
+  // SECURITY: Archive-extraction TOCTOU. Path checks run at permission-eval
+  // time; `tar -xf x.tar; <anything>` extracts AFTER the check, BEFORE the
+  // later sub-commands run. Archive contents are opaque — with git they may
+  // plant bare-repo indicators (isCurrentDirectoryBareGitRepo already ran);
+  // with any other command they may plant symlinks/config files that redirect
+  // its path operations. Any extraction in a compound must ask. The name is
+  // matched by its basename so `C:\tools\tar.exe` / `./7z` count too.
+  const hasArchiveExtractor = allSubCommands.some(({ element }) => {
+    const name = element.name.toLowerCase()
+    const base = name.slice(
+      Math.max(name.lastIndexOf('\\'), name.lastIndexOf('/')) + 1,
     )
-    if (hasArchiveExtractor) {
-      decisions.push({
-        behavior: 'ask',
-        message:
-          'Compound command extracts an archive and runs git. Archive contents may plant bare-repository indicators (HEAD, hooks/, refs/) that git then treats as the repository root.',
-      })
-    }
+    return GIT_SAFETY_ARCHIVE_EXTRACTORS.has(base)
+  })
+  if (hasArchiveExtractor && allSubCommands.length > 1) {
+    decisions.push({
+      behavior: 'ask',
+      message: hasGitSubCommand
+        ? 'Compound command extracts an archive and runs git. Archive contents may plant bare-repository indicators (HEAD, hooks/, refs/) that git then treats as the repository root.'
+        : 'Compound command extracts an archive followed by other commands. Archive contents (symlinks, config files) cannot be validated and may redirect subsequent path operations.',
+    })
   }
 
   // .git/ writes are dangerous even WITHOUT a git subcommand — a planted

@@ -146,6 +146,7 @@ export const ARG_GATED_CMDLETS = new Set([
   'ipconfig',
   'hostname',
   'route',
+  'arp',
 ])
 
 /**

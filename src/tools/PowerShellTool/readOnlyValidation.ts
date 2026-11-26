@@ -18,6 +18,7 @@ import {
   getPipelineSegments,
   isNullRedirectionTarget,
   isPowerShellParameter,
+  PS_TOKENIZER_DASH_CHARS,
 } from '../../utils/powershell/parser.js'
 import type { ExternalCommandConfig } from '../../utils/shell/readOnlyCommandValidation.js'
 import {
@@ -27,7 +28,11 @@ import {
   GIT_READ_ONLY_COMMANDS,
   validateFlags,
 } from '../../utils/shell/readOnlyCommandValidation.js'
-import { COMMON_PARAMETERS } from './commonParameters.js'
+import {
+  COMMON_PARAMETERS,
+  isActionPreferenceParameter,
+  SAFE_ACTION_PREFERENCE_VALUES,
+} from './commonParameters.js'
 
 const DOTNET_READ_ONLY_FLAGS = new Set([
   '--version',
@@ -607,11 +612,6 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
         '-DestinationPrefix',
       ],
     },
-    'get-dnsclientcache': {
-      // SECURITY: -CimSession/-ThrottleLimit excluded. -CimSession connects to
-      // a remote host (network request). Previously empty config = all flags OK.
-      safeFlags: ['-Entry', '-Name', '-Type', '-Status', '-Section', '-Data'],
-    },
     'get-dnsclient': {
       safeFlags: ['-InterfaceIndex', '-InterfaceAlias'],
     },
@@ -701,7 +701,8 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       // are SKIPPED. Reject any positional argument — only bare `ipconfig` or
       // `ipconfig /all` (read-only display) allowed. Windows ipconfig only uses
       // /flags (display), macOS ipconfig uses subcommands (get/set/waitall).
-      safeFlags: ['/all', '/displaydns', '/allcompartments'],
+      // /displaydns is excluded: the DNS cache reveals browsing history.
+      safeFlags: ['/all', '/allcompartments'],
       additionalCommandIsDangerousCallback: (
         _cmd: string,
         element?: ParsedCommandElement,
@@ -770,7 +771,15 @@ export const CMDLET_ALLOWLIST: Record<string, CommandConfig> = Object.assign(
       allowAllFlags: true,
     },
     arp: {
-      safeFlags: ['-a', '-g', '-v', '-N'],
+      safeFlags: ['-a', '-g', '-v', '-n'],
+      // SECURITY: positional args (host / interface addresses) are not
+      // validated by safeFlags; only bare flags are read-only display.
+      additionalCommandIsDangerousCallback: (
+        _cmd: string,
+        element?: ParsedCommandElement,
+      ) => {
+        return (element?.args ?? []).some(a => !a.startsWith('-'))
+      },
     },
     route: {
       safeFlags: ['print', 'PRINT', '-4', '-6'],
@@ -1305,6 +1314,35 @@ export function isReadOnlyCommand(
 }
 
 /**
+ * SECURITY: an action-preference common parameter (-ErrorAction and friends,
+ * their aliases and abbreviations) with a value outside the safe set — e.g.
+ * `-ErrorAction Break` enters the debugger and hangs the session. Accepts
+ * both `-ErrorAction:Break` and `-ErrorAction Break`.
+ */
+function hasUnsafeActionPreference(args: string[]): boolean {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]!
+    if (!PS_TOKENIZER_DASH_CHARS.has(arg[0]!)) continue
+    const normalized = arg[0] === '-' ? arg : '-' + arg.slice(1)
+    const colonIndex = normalized.indexOf(':')
+    const name = (
+      colonIndex > 0 ? normalized.slice(0, colonIndex) : normalized
+    ).toLowerCase()
+    if (!isActionPreferenceParameter(name)) continue
+    const value = (
+      colonIndex > 0 ? normalized.slice(colonIndex + 1) : (args[i + 1] ?? '')
+    )
+      .toLowerCase()
+      .replace(/^['"]|['"]$/g, '')
+      .trim()
+    if (value.length > 0 && !SAFE_ACTION_PREFERENCE_VALUES.has(value)) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
  * Checks if a single command element is in the allowlist and passes flag validation.
  */
 export function isAllowlistedCommand(
@@ -1461,6 +1499,10 @@ export function isAllowlistedCommand(
   // Verb-Noun canonical name (either directly or via alias).
   const isCmdlet = canonical.includes('-')
 
+  if (isCmdlet && hasUnsafeActionPreference(cmd.args)) {
+    return false
+  }
+
   // SECURITY: if allowAllFlags is set, skip flag validation (command's entire
   // flag surface is read-only). Otherwise, missing/empty safeFlags means
   // "positional args only, reject all flags" — NOT "accept everything".
@@ -1504,9 +1546,13 @@ export function isAllowlistedCommand(
       // comparison (safeFlags entries are always written with ASCII `-`).
       // Native-exe safeFlags are stored with `/` (e.g. '/FO') — don't touch.
       let paramName = isCmdlet ? '-' + arg.slice(1) : arg
-      const colonIndex = paramName.indexOf(':')
-      if (colonIndex > 0) {
-        paramName = paramName.substring(0, colonIndex)
+      // `-Param:value` (cmdlets) and `/FLAG:value` (native exes) — other
+      // native flags keep their full text.
+      if (isCmdlet || arg.startsWith('/')) {
+        const colonIndex = paramName.indexOf(':')
+        if (colonIndex > 0) {
+          paramName = paramName.substring(0, colonIndex)
+        }
       }
 
       // -ErrorAction/-Verbose/-Debug etc. are accepted by every cmdlet via
@@ -1520,9 +1566,11 @@ export function isAllowlistedCommand(
       if (isCmdlet && COMMON_PARAMETERS.has(paramLower)) {
         continue
       }
-      const isSafe = config.safeFlags.some(
-        flag => flag.toLowerCase() === paramLower,
-      )
+      // Cmdlet parameters are case-insensitive; native-exe flags are compared
+      // exactly (arp -n vs -N differ).
+      const isSafe = isCmdlet
+        ? config.safeFlags.some(flag => flag.toLowerCase() === paramLower)
+        : config.safeFlags.includes(paramName)
       if (!isSafe) {
         return false
       }
@@ -1792,6 +1840,28 @@ function isDockerSafe(args: string[]): boolean {
   // elementTypes gate one layer up.
   for (const arg of args) {
     if (arg.includes('$')) {
+      return false
+    }
+  }
+
+  // SECURITY: options that point docker at another daemon or config: -H /
+  // --host, -c / --context (also bundled in short-flag clusters), --config,
+  // --tls*. A read-only subcommand against a remote host is still a network
+  // request with local credentials.
+  for (const arg of args) {
+    if (arg[0] === '-' && arg[1] !== '-') {
+      for (let i = 1; i < arg.length; i++) {
+        if (arg[i] === 'H') return false
+        if (arg[i]?.toLowerCase() === 'c') return false
+      }
+    }
+    const lower = arg.toLowerCase()
+    if (
+      lower.startsWith('--host') ||
+      lower.startsWith('--context') ||
+      lower.startsWith('--config') ||
+      lower.startsWith('--tls')
+    ) {
       return false
     }
   }
