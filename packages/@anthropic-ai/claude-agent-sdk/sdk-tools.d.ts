@@ -2214,6 +2214,10 @@ export interface BashOutput {
    * Total size of the output in bytes (set when output is too large for inline)
    */
   persistedOutputSize?: number;
+  /**
+   * Model-facing note listing readFileState entries whose mtime bumped during this command (set when WRITE_COMMAND_MARKERS matches)
+   */
+  staleReadFileStateHint?: string;
 }
 export interface ExitPlanModeOutput {
   /**

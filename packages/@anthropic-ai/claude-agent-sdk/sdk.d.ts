@@ -243,6 +243,7 @@ declare namespace coreTypes {
         HookEvent,
         HookInput,
         HookJSONOutput,
+        HookPermissionDecision,
         InstructionsLoadedHookInput,
         JsonSchemaOutputFormat,
         McpClaudeAIProxyServerConfig,
@@ -288,6 +289,7 @@ declare namespace coreTypes {
         SDKAssistantMessage,
         SDKAuthStatusMessage,
         SDKCompactBoundaryMessage,
+        SDKDeferredToolUse,
         SDKElicitationCompleteMessage,
         SDKFilesPersistedEvent,
         SDKHookProgressMessage,
@@ -554,6 +556,31 @@ export declare type GetSessionMessagesOptions = {
     includeSystemMessages?: boolean;
 };
 
+/**
+ * Reads a subagent's conversation messages from its JSONL transcript file.
+ *
+ * Parses the subagent transcript, builds the conversation chain via parentUuid
+ * links, and returns user/assistant messages in chronological order.
+ *
+ * @param sessionId - UUID of the parent session
+ * @param agentId - ID of the subagent
+ * @param options - Optional dir, limit, and offset
+ * @returns Array of user/assistant messages, or empty array if not found
+ */
+export declare function getSubagentMessages(_sessionId: string, _agentId: string, _options?: GetSubagentMessagesOptions): Promise<SessionMessage[]>;
+
+/**
+ * Options for retrieving subagent messages.
+ */
+export declare type GetSubagentMessagesOptions = {
+    /** Project directory to find the session in. If omitted, searches all projects. */
+    dir?: string;
+    /** Maximum number of messages to return. */
+    limit?: number;
+    /** Number of messages to skip from the start. */
+    offset?: number;
+};
+
 export declare const HOOK_EVENTS: readonly ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification", "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop", "StopFailure", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "PermissionRequest", "PermissionDenied", "Setup", "TeammateIdle", "TaskCreated", "TaskCompleted", "Elicitation", "ElicitationResult", "ConfigChange", "WorktreeCreate", "WorktreeRemove", "InstructionsLoaded", "CwdChanged", "FileChanged"];
 
 /**
@@ -578,6 +605,8 @@ export declare type HookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailu
 export declare type HookInput = PreToolUseHookInput | PostToolUseHookInput | PostToolUseFailureHookInput | PermissionDeniedHookInput | NotificationHookInput | UserPromptSubmitHookInput | SessionStartHookInput | SessionEndHookInput | StopHookInput | StopFailureHookInput | SubagentStartHookInput | SubagentStopHookInput | PreCompactHookInput | PostCompactHookInput | PermissionRequestHookInput | SetupHookInput | TeammateIdleHookInput | TaskCreatedHookInput | TaskCompletedHookInput | ElicitationHookInput | ElicitationResultHookInput | ConfigChangeHookInput | InstructionsLoadedHookInput | WorktreeCreateHookInput | WorktreeRemoveHookInput | CwdChangedHookInput | FileChangedHookInput;
 
 export declare type HookJSONOutput = AsyncHookJSONOutput | SyncHookJSONOutput;
+
+export declare type HookPermissionDecision = 'allow' | 'deny' | 'ask' | 'defer';
 
 export declare type InferShape<T extends AnyZodRawShape> = {
     [K in keyof T]: T[K] extends {
@@ -643,6 +672,26 @@ export declare type ListSessionsOptions = {
      * include sessions from all git worktree paths. Defaults to `true`.
      */
     includeWorktrees?: boolean;
+};
+
+/**
+ * Lists subagent IDs for a given session by scanning the subagents directory.
+ *
+ * Subagent transcripts are stored at
+ * `~/.claude/projects/<dir>/<sessionId>/subagents/agent-<agentId>.jsonl`.
+ *
+ * @param sessionId - UUID of the session
+ * @param options - Optional dir to narrow the project search
+ * @returns Array of subagent ID strings, or empty array if none found
+ */
+export declare function listSubagents(_sessionId: string, _options?: ListSubagentsOptions): Promise<string[]>;
+
+/**
+ * Options for listing subagents.
+ */
+export declare type ListSubagentsOptions = {
+    /** Project directory to find the session in. If omitted, searches all projects. */
+    dir?: string;
 };
 
 export declare type McpClaudeAIProxyServerConfig = {
@@ -1488,7 +1537,7 @@ export declare type PreToolUseHookInput = BaseHookInput & {
 
 export declare type PreToolUseHookSpecificOutput = {
     hookEventName: 'PreToolUse';
-    permissionDecision?: PermissionBehavior;
+    permissionDecision?: HookPermissionDecision;
     permissionDecisionReason?: string;
     updatedInput?: Record<string, unknown>;
     additionalContext?: string;
@@ -2207,6 +2256,12 @@ declare type SDKControlStopTaskRequest = {
     task_id: string;
 };
 
+export declare type SDKDeferredToolUse = {
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
+};
+
 /**
  * Emitted when an MCP server confirms that a URL-mode elicitation is complete.
  */
@@ -2426,6 +2481,7 @@ export declare type SDKResultSuccess = {
     modelUsage: Record<string, ModelUsage>;
     permission_denials: SDKPermissionDenial[];
     structured_output?: unknown;
+    deferred_tool_use?: SDKDeferredToolUse;
     fast_mode_state?: FastModeState;
     uuid: UUID;
     session_id: string;
@@ -2705,6 +2761,7 @@ export declare type SDKUserMessageReplay = {
     uuid: UUID;
     session_id: string;
     isReplay: true;
+    file_attachments?: unknown[];
 };
 
 export declare type SessionEndHookInput = BaseHookInput & {
@@ -2791,7 +2848,7 @@ export declare interface Settings {
      */
     respectGitignore?: boolean;
     /**
-     * Number of days to retain chat transcripts (default: 30). Setting to 0 disables session persistence entirely: no transcripts are written and existing transcripts are deleted at startup.
+     * Number of days to retain chat transcripts before automatic cleanup (default: 30). Minimum 1. Use a large value for long retention; use --no-session-persistence to disable transcript writes entirely.
      */
     cleanupPeriodDays?: number;
     /**
@@ -3717,9 +3774,9 @@ export declare interface Settings {
      */
     forceLoginMethod?: 'claudeai' | 'console';
     /**
-     * Organization UUID to use for OAuth login
+     * Organization UUID to require for OAuth login. Accepts a single UUID string or an array of UUIDs (any one is permitted). When set in managed settings, login fails if the authenticated account does not belong to a listed organization.
      */
-    forceLoginOrgUUID?: string;
+    forceLoginOrgUUID?: string | string[];
     /**
      * Path to a script that outputs OpenTelemetry headers
      */
@@ -3843,6 +3900,10 @@ export declare interface Settings {
      * Persisted effort level for supported models.
      */
     effortLevel?: 'low' | 'medium' | 'high';
+    /**
+     * Auto-compact window size
+     */
+    autoCompactWindow?: number;
     /**
      * Advisor model for the server-side advisor tool.
      */

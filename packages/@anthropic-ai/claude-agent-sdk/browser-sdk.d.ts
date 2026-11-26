@@ -8,8 +8,8 @@
  * Compiled by scripts/build-ant-sdk-typings.sh; see build-agent-sdk.sh for the
  * path rewrite and copy into the package.
  */
-import type { CanUseTool, HookCallbackMatcher, HookEvent, McpServerConfig, Query, SDKUserMessage } from './agentSdkTypes.js';
-export type { CanUseTool, HookCallbackMatcher, HookEvent, McpSdkServerConfigWithInstance, McpServerConfig, Query, SDKAssistantMessage, SDKMessage, SDKResultMessage, SDKSystemMessage, SDKUserMessage, } from './agentSdkTypes.js';
+import type { CanUseTool, HookCallbackMatcher, HookEvent, McpServerConfig, OnElicitation, Query, SDKUserMessage } from './agentSdkTypes.js';
+export type { CanUseTool, ElicitationRequest, ElicitationResult, HookCallbackMatcher, HookEvent, McpSdkServerConfigWithInstance, McpServerConfig, OnElicitation, Query, SDKAssistantMessage, SDKMessage, SDKResultMessage, SDKSystemMessage, SDKUserMessage, } from './agentSdkTypes.js';
 export { createSdkMcpServer, tool } from './agentSdkTypes.js';
 export type OAuthCredential = {
     type: 'oauth';
@@ -32,6 +32,7 @@ export type BrowserQueryOptions = {
     hooks?: Partial<Record<HookEvent, HookCallbackMatcher[]>>;
     mcpServers?: Record<string, McpServerConfig>;
     jsonSchema?: Record<string, unknown>;
+    onElicitation?: OnElicitation;
 };
 /**
  * Create a Claude Code query using WebSocket transport in the browser.

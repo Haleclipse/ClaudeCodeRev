@@ -43,7 +43,7 @@ rebuild/
 ├── src/                    # Recovered source (1902 files + 142 stubs)
 ├── packages/               # Local packages
 │   ├── @ant/               # Anthropic internal packages (from sourcemap)
-│   ├── @anthropic-ai/      # claude-agent-sdk (from npm tgz)
+│   ├── @anthropic-ai/      # claude-agent-sdk, types only (scripts/sync-agent-sdk-types.ts; version tracks the CLI)
 │   ├── audio-capture/      # Native audio module + platform binaries
 │   ├── color-diff-napi/    # TS port of native color-diff
 │   ├── modifiers-napi/     # TS port of native key modifiers
