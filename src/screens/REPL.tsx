@@ -3433,7 +3433,6 @@ export function REPL({
             Array.from(
               toolPermissionContext.additionalWorkingDirectories.keys(),
             ),
-            toolUseContext.options.mcpClients,
           ),
           getUserContext(),
           getSystemContext(),
@@ -3801,7 +3800,6 @@ export function REPL({
             Array.from(
               toolPermissionContext.additionalWorkingDirectories.keys(),
             ),
-            freshMcpClients,
           ),
           getUserContext(),
           getSystemContext(),
@@ -7094,7 +7092,6 @@ export function REPL({
                         Array.from(
                           appState.toolPermissionContext.additionalWorkingDirectories.keys(),
                         ),
-                        context.options.mcpClients,
                       )
                       const systemPrompt = buildEffectiveSystemPrompt({
                         mainThreadAgentDefinition: undefined,

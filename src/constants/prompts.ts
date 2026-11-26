@@ -27,10 +27,6 @@ import {
 import { getSkillToolCommands } from 'src/commands.js'
 import { SKILL_TOOL_NAME } from '../tools/SkillTool/constants.js'
 import { getOutputStyleConfig } from './outputStyles.js'
-import type {
-  MCPServerConnection,
-  ConnectedMCPServer,
-} from '../services/mcp/types.js'
 import { GLOB_TOOL_NAME } from 'src/tools/GlobTool/prompt.js'
 import { GREP_TOOL_NAME } from 'src/tools/GrepTool/prompt.js'
 import { hasEmbeddedSearchTools } from 'src/utils/embeddedTools.js'
@@ -55,7 +51,6 @@ import { shouldUseGlobalCacheScope } from '../utils/betas.js'
 import { isForkSubagentEnabled } from '../tools/AgentTool/forkSubagent.js'
 import {
   systemPromptSection,
-  DANGEROUS_uncachedSystemPromptSection,
   resolveSystemPromptSections,
 } from './systemPromptSections.js'
 import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js'
@@ -63,7 +58,6 @@ import { TICK_TAG } from './xml.js'
 import { logForDebugging } from '../utils/debug.js'
 import { loadMemoryPrompt } from '../memdir/memdir.js'
 import { isUndercover } from '../utils/undercover.js'
-import { isMcpInstructionsDeltaEnabled } from '../utils/mcpInstructionsDelta.js'
 
 // Dead code elimination: conditional imports for feature-gated modules
 /* eslint-disable @typescript-eslint/no-require-imports */
@@ -159,13 +153,6 @@ function getOutputStyleSection(
 
   return `# Output Style: ${outputStyleConfig.name}
 ${outputStyleConfig.prompt}`
-}
-
-function getMcpInstructionsSection(
-  mcpClients: MCPServerConnection[] | undefined,
-): string | null {
-  if (!mcpClients || mcpClients.length === 0) return null
-  return getMcpInstructions(mcpClients)
 }
 
 export function prependBullets(items: Array<string | string[]>): string[] {
@@ -452,7 +439,6 @@ export async function getSystemPrompt(
   tools: Tools,
   model: string,
   additionalWorkingDirectories?: string[],
-  mcpClients?: MCPServerConnection[],
 ): Promise<string[]> {
   if (isEnvTruthy(process.env.CLAUDE_CODE_SIMPLE)) {
     return [
@@ -483,11 +469,6 @@ ${CYBER_RISK_INSTRUCTION}`,
       await loadMemoryPrompt(),
       envInfo,
       getLanguageSection(settings.language),
-      // When delta enabled, instructions are announced via persisted
-      // mcp_instructions_delta attachments (attachments.ts) instead.
-      isMcpInstructionsDeltaEnabled()
-        ? null
-        : getMcpInstructionsSection(mcpClients),
       getScratchpadInstructions(),
       getFunctionResultClearingSection(model),
       SUMMARIZE_TOOL_RESULTS_SECTION,
@@ -512,19 +493,8 @@ ${CYBER_RISK_INSTRUCTION}`,
     systemPromptSection('output_style', () =>
       getOutputStyleSection(outputStyleConfig),
     ),
-    // When delta enabled, instructions are announced via persisted
-    // mcp_instructions_delta attachments (attachments.ts) instead of this
-    // per-turn recompute, which busts the prompt cache on late MCP connect.
-    // Gate check inside compute (not selecting between section variants)
-    // so a mid-session gate flip doesn't read a stale cached value.
-    DANGEROUS_uncachedSystemPromptSection(
-      'mcp_instructions',
-      () =>
-        isMcpInstructionsDeltaEnabled()
-          ? null
-          : getMcpInstructionsSection(mcpClients),
-      'MCP servers connect/disconnect between turns',
-    ),
+    // MCP server instructions are announced via persisted
+    // mcp_instructions_delta attachments (attachments.ts), not a section here.
     systemPromptSection('bg-job-dir', () => getBgJobDirSection()),
     systemPromptSection('scratchpad', () => getScratchpadInstructions()),
     systemPromptSection('frc', () => getFunctionResultClearingSection(model)),
@@ -582,33 +552,6 @@ ${CYBER_RISK_INSTRUCTION}`,
     // --- Dynamic content (registry-managed) ---
     ...resolvedDynamicSections,
   ].filter(s => s !== null)
-}
-
-function getMcpInstructions(mcpClients: MCPServerConnection[]): string | null {
-  const connectedClients = mcpClients.filter(
-    (client): client is ConnectedMCPServer => client.type === 'connected',
-  )
-
-  const clientsWithInstructions = connectedClients.filter(
-    client => client.instructions,
-  )
-
-  if (clientsWithInstructions.length === 0) {
-    return null
-  }
-
-  const instructionBlocks = clientsWithInstructions
-    .map(client => {
-      return `## ${client.name}
-${client.instructions}`
-    })
-    .join('\n\n')
-
-  return `# MCP Server Instructions
-
-The following MCP servers have provided instructions for how to use their tools and resources:
-
-${instructionBlocks}`
 }
 
 export async function computeEnvInfo(

@@ -13,6 +13,13 @@
 export const DEFAULT_MAX_RESULT_SIZE_CHARS = 50_000
 
 /**
+ * Upper bound for an MCP tool's `_meta["anthropic/maxResultSizeChars"]`
+ * override. Tools with an override use this (instead of
+ * DEFAULT_MAX_RESULT_SIZE_CHARS) as their persistence-threshold ceiling.
+ */
+export const MAX_MCP_RESULT_SIZE_CHARS_OVERRIDE = 500_000
+
+/**
  * Maximum size for tool results in tokens.
  * Based on analysis of tool result sizes, we set this to a reasonable upper bound
  * to prevent excessively large tool results from consuming too much context.

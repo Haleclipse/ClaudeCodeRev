@@ -25,19 +25,6 @@ export function systemPromptSection(
 }
 
 /**
- * Create a volatile system prompt section that recomputes every turn.
- * This WILL break the prompt cache when the value changes.
- * Requires a reason explaining why cache-breaking is necessary.
- */
-export function DANGEROUS_uncachedSystemPromptSection(
-  name: string,
-  compute: ComputeFn,
-  _reason: string,
-): SystemPromptSection {
-  return { name, compute, cacheBreak: true }
-}
-
-/**
  * Resolve all system prompt sections, returning prompt strings.
  */
 export async function resolveSystemPromptSections(

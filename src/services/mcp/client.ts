@@ -44,6 +44,7 @@ import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
 import type { Command } from '../../commands.js'
 import { getOauthConfig } from '../../constants/oauth.js'
 import { PRODUCT_URL } from '../../constants/product.js'
+import { MAX_MCP_RESULT_SIZE_CHARS_OVERRIDE } from '../../constants/toolLimits.js'
 import type { AppState } from '../../state/AppState.js'
 import {
   type Tool,
@@ -1764,6 +1765,15 @@ export const fetchToolsForClient = memoizeWithLRU(
       return toolsToProcess
         .map((tool): Tool => {
           const fullyQualifiedName = buildMcpToolName(client.name, tool.name)
+          // Per-tool result size override (#1): positive _meta value, capped
+          // at MAX_MCP_RESULT_SIZE_CHARS_OVERRIDE, which also becomes the
+          // persistence-threshold ceiling.
+          const maxResultSizeOverride =
+            tool._meta?.['anthropic/maxResultSizeChars']
+          const hasMaxResultSizeOverride =
+            typeof maxResultSizeOverride === 'number' &&
+            Number.isFinite(maxResultSizeOverride) &&
+            maxResultSizeOverride > 0
           return {
             ...MCPTool,
             // In skip-prefix mode, use the original name for model invocation so MCP tools
@@ -1805,6 +1815,15 @@ export const fetchToolsForClient = memoizeWithLRU(
             isOpenWorld() {
               return tool.annotations?.openWorldHint ?? false
             },
+            maxResultSizeChars: hasMaxResultSizeOverride
+              ? Math.min(
+                  maxResultSizeOverride,
+                  MAX_MCP_RESULT_SIZE_CHARS_OVERRIDE,
+                )
+              : MCPTool.maxResultSizeChars,
+            persistenceThresholdCeiling: hasMaxResultSizeOverride
+              ? MAX_MCP_RESULT_SIZE_CHARS_OVERRIDE
+              : undefined,
             isSearchOrReadCommand() {
               return classifyMcpToolForCollapse(client.name, tool.name)
             },

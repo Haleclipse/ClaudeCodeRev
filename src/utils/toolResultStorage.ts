@@ -55,6 +55,7 @@ const PERSIST_THRESHOLD_OVERRIDE_FLAG = 'tengu_satin_quoll'
 export function getPersistenceThreshold(
   toolName: string,
   declaredMaxResultSizeChars: number,
+  ceiling: number = DEFAULT_MAX_RESULT_SIZE_CHARS,
 ): number {
   // Infinity = hard opt-out. Read self-bounds via maxTokens; persisting its
   // output to a file the model reads back with Read is circular. Checked
@@ -74,7 +75,7 @@ export function getPersistenceThreshold(
   ) {
     return override
   }
-  return Math.min(declaredMaxResultSizeChars, DEFAULT_MAX_RESULT_SIZE_CHARS)
+  return Math.min(declaredMaxResultSizeChars, ceiling)
 }
 
 // Result of persisting a tool result to disk
@@ -206,6 +207,7 @@ export async function processToolResultBlock<T>(
   tool: {
     name: string
     maxResultSizeChars: number
+    persistenceThresholdCeiling?: number
     mapToolResultToToolResultBlockParam: (
       result: T,
       toolUseID: string,
@@ -221,7 +223,11 @@ export async function processToolResultBlock<T>(
   return maybePersistLargeToolResult(
     toolResultBlock,
     tool.name,
-    getPersistenceThreshold(tool.name, tool.maxResultSizeChars),
+    getPersistenceThreshold(
+      tool.name,
+      tool.maxResultSizeChars,
+      tool.persistenceThresholdCeiling,
+    ),
   )
 }
 
@@ -233,11 +239,16 @@ export async function processPreMappedToolResultBlock(
   toolResultBlock: ToolResultBlockParam,
   toolName: string,
   maxResultSizeChars: number,
+  persistenceThresholdCeiling?: number,
 ): Promise<ToolResultBlockParam> {
   return maybePersistLargeToolResult(
     toolResultBlock,
     toolName,
-    getPersistenceThreshold(toolName, maxResultSizeChars),
+    getPersistenceThreshold(
+      toolName,
+      maxResultSizeChars,
+      persistenceThresholdCeiling,
+    ),
   )
 }
 

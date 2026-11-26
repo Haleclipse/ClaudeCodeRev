@@ -1492,6 +1492,7 @@ async function checkPermissionsAndCallTool(
             preMappedBlock,
             tool.name,
             tool.maxResultSizeChars,
+            tool.persistenceThresholdCeiling,
           )
         : await processToolResultBlock(tool, toolUseResult, toolUseID)
 

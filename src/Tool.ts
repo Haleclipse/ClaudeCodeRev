@@ -477,6 +477,12 @@ export type Tool<
    */
   maxResultSizeChars: number
   /**
+   * Ceiling for the persistence threshold; defaults to
+   * DEFAULT_MAX_RESULT_SIZE_CHARS. Raised for MCP tools that declare a
+   * maxResultSizeChars override in _meta.
+   */
+  persistenceThresholdCeiling?: number
+  /**
    * When true, enables strict mode for this tool, which causes the API to
    * more strictly adhere to tool instructions and parameter schemas.
    * Only applied when the tengu_tool_pear is enabled.

@@ -224,20 +224,6 @@ export function excludeStalePluginClients(
 }
 
 /**
- * Checks if a tool name belongs to a specific MCP server
- * @param toolName The tool name to check
- * @param serverName The server name to match against
- * @returns True if the tool belongs to the specified server
- */
-export function isToolFromMcpServer(
-  toolName: string,
-  serverName: string,
-): boolean {
-  const info = mcpInfoFromString(toolName)
-  return info?.serverName === serverName
-}
-
-/**
  * Checks if a tool belongs to any MCP server
  * @param tool The tool to check
  * @returns True if the tool is from an MCP server

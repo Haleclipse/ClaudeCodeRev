@@ -192,7 +192,6 @@ async function buildCacheSafeParams(
       context.options.tools,
       context.options.mainLoopModel,
       [],
-      context.options.mcpClients,
     ),
     getUserContext(),
     getSystemContext(),

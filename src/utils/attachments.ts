@@ -171,7 +171,6 @@ import {
 } from './toolSearch.js'
 import {
   getMcpInstructionsDelta,
-  isMcpInstructionsDeltaEnabled,
   type ClientSideInstruction,
 } from './mcpInstructionsDelta.js'
 import { CLAUDE_IN_CHROME_MCP_SERVER_NAME } from './claudeInChrome/common.js'
@@ -1581,15 +1580,13 @@ export function getAgentListingDeltaAttachment(
   ]
 }
 
-// Exported for compact.ts / reactiveCompact.ts — single source of truth for the gate.
+// Exported for compact.ts / reactiveCompact.ts.
 export function getMcpInstructionsDeltaAttachment(
   mcpClients: MCPServerConnection[],
   tools: Tools,
   model: string,
   messages: Message[] | undefined,
 ): Attachment[] {
-  if (!isMcpInstructionsDeltaEnabled()) return []
-
   // The chrome ToolSearch hint is client-authored and ToolSearch-conditional;
   // actual server `instructions` are unconditional. Decide the chrome part
   // here, pass it into the pure diff as a synthesized entry.

@@ -320,7 +320,6 @@ export class QueryEngine {
       additionalWorkingDirectories: Array.from(
         initialAppState.toolPermissionContext.additionalWorkingDirectories.keys(),
       ),
-      mcpClients,
       customSystemPrompt: customPrompt,
     })
     headlessProfilerCheckpoint('after_getSystemPrompt')
