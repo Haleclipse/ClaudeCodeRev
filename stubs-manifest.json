@@ -2,7 +2,7 @@
   "generatedBy": "scripts/gen-stubs.ts",
   "version": "2.1.89",
   "summary": {
-    "sourceFiles": 1904,
+    "sourceFiles": 1903,
     "stubFiles": 168,
     "gatedTargets": 124,
     "gatedTargetsSource": 43,
@@ -291,7 +291,7 @@
       ]
     },
     {
-      "target": "src/commands/ultraplanCommand.tsx",
+      "target": "src/commands/ultraplan.tsx",
       "status": "source",
       "gateKind": "build",
       "gates": [
