@@ -103,7 +103,7 @@ export function modelSupportsISP(model: string): boolean {
   if (provider === 'foundry') {
     return true
   }
-  if (provider === 'firstParty') {
+  if (provider === 'firstParty' || provider === 'anthropicAws') {
     return !canonical.includes('claude-3-')
   }
   return (
@@ -128,7 +128,7 @@ export function modelSupportsContextManagement(model: string): boolean {
   if (provider === 'foundry') {
     return true
   }
-  if (provider === 'firstParty') {
+  if (provider === 'firstParty' || provider === 'anthropicAws') {
     return !canonical.includes('claude-3-')
   }
   return (
@@ -142,8 +142,13 @@ export function modelSupportsContextManagement(model: string): boolean {
 export function modelSupportsStructuredOutputs(model: string): boolean {
   const canonical = getCanonicalName(model)
   const provider = getAPIProvider()
-  // Structured outputs only supported on firstParty and Foundry (not Bedrock/Vertex yet)
-  if (provider !== 'firstParty' && provider !== 'foundry') {
+  // Structured outputs only supported on firstParty, Claude Platform on AWS and
+  // Foundry (not Bedrock/Vertex yet)
+  if (
+    provider !== 'firstParty' &&
+    provider !== 'anthropicAws' &&
+    provider !== 'foundry'
+  ) {
     return false
   }
   return (
@@ -160,10 +165,15 @@ export function modelSupportsStructuredOutputs(model: string): boolean {
 export function modelSupportsAutoMode(model: string): boolean {
   if (feature('TRANSCRIPT_CLASSIFIER')) {
     const m = getCanonicalName(model)
-    // External: firstParty-only at launch (PI probes not wired for
-    // Bedrock/Vertex/Foundry yet). Checked before allowModels so the GB
+    const provider = getAPIProvider()
+    // External: firstParty / Claude Platform on AWS only (PI probes not wired
+    // for Bedrock/Vertex/Foundry yet). Checked before allowModels so the GB
     // override can't enable auto mode on unsupported providers.
-    if (process.env.USER_TYPE !== 'ant' && getAPIProvider() !== 'firstParty') {
+    if (
+      process.env.USER_TYPE !== 'ant' &&
+      provider !== 'firstParty' &&
+      provider !== 'anthropicAws'
+    ) {
       return false
     }
     // GrowthBook override: tengu_auto_mode_config.allowModels force-enables
@@ -213,8 +223,11 @@ export function getToolSearchBetaHeader(): string {
  * and may not be supported by proxies or other providers.
  */
 export function shouldIncludeFirstPartyOnlyBetas(): boolean {
+  const provider = getAPIProvider()
   return (
-    (getAPIProvider() === 'firstParty' || getAPIProvider() === 'foundry') &&
+    (provider === 'firstParty' ||
+      provider === 'anthropicAws' ||
+      provider === 'foundry') &&
     !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS)
   )
 }
@@ -225,8 +238,9 @@ export function shouldIncludeFirstPartyOnlyBetas(): boolean {
  * treatment data is firstParty-only.
  */
 export function shouldUseGlobalCacheScope(): boolean {
+  const provider = getAPIProvider()
   return (
-    getAPIProvider() === 'firstParty' &&
+    (provider === 'firstParty' || provider === 'anthropicAws') &&
     !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS)
   )
 }

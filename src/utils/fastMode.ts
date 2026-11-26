@@ -109,9 +109,10 @@ export function getFastModeUnavailableReason(): string | null {
     }
   }
 
-  // Only available for 1P (not Bedrock/Vertex/Foundry)
+  // Only available for 1P (not Bedrock/Vertex/Foundry/Claude Platform on AWS)
   if (getAPIProvider() !== 'firstParty') {
-    const reason = 'Fast mode is not available on Bedrock, Vertex, or Foundry'
+    const reason =
+      'Fast mode is not available on Bedrock, Vertex, Foundry, or Claude Platform on AWS'
     logForDebugging(`Fast mode unavailable: ${reason}`)
     return reason
   }

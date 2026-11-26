@@ -169,8 +169,8 @@ export const WebSearchTool = buildTool({
     const provider = getAPIProvider()
     const model = getMainLoopModel()
 
-    // Enable for firstParty
-    if (provider === 'firstParty') {
+    // Enable for firstParty and Claude Platform on AWS
+    if (provider === 'firstParty' || provider === 'anthropicAws') {
       return true
     }
 

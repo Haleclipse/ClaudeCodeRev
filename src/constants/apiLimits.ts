@@ -92,3 +92,14 @@ export const PDF_AT_MENTION_INLINE_THRESHOLD = 10
  * We validate client-side to provide a clear error message.
  */
 export const API_MAX_MEDIA_PER_REQUEST = 100
+
+/**
+ * Media item limit for requests that use the 1M context window.
+ */
+export const API_MAX_MEDIA_PER_REQUEST_1M = 600
+
+/**
+ * When the limit is exceeded, strip this many items beyond it so the next few
+ * turns don't hit the limit again right away.
+ */
+export const MEDIA_STRIP_HEADROOM = 20

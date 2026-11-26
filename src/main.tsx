@@ -685,6 +685,12 @@ export function startDeferredPrefetches(): void {
     void prefetchAwsCredentialsAndBedRockInfoIfSafe()
   }
   if (
+    isEnvTruthy(process.env.CLAUDE_CODE_USE_ANTHROPIC_AWS) &&
+    !isEnvTruthy(process.env.CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH)
+  ) {
+    void prefetchAwsCredentialsAndBedRockInfoIfSafe()
+  }
+  if (
     isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX) &&
     !isEnvTruthy(process.env.CLAUDE_CODE_SKIP_VERTEX_AUTH)
   ) {

@@ -107,12 +107,10 @@ export async function getAnthropicClient({
     'User-Agent': getUserAgent(),
     'X-Claude-Code-Session-Id': getSessionId(),
     ...customHeaders,
-    ...(containerId ? { 'x-claude-remote-container-id': containerId } : {}),
-    ...(remoteSessionId
-      ? { 'x-claude-remote-session-id': remoteSessionId }
-      : {}),
+    ...(containerId && { 'x-claude-remote-container-id': containerId }),
+    ...(remoteSessionId && { 'x-claude-remote-session-id': remoteSessionId }),
     // SDK consumers can identify their app/library for backend analytics
-    ...(clientApp ? { 'x-client-app': clientApp } : {}),
+    ...(clientApp && { 'x-client-app': clientApp }),
   }
 
   // Log API client configuration for HFI debugging
@@ -218,6 +216,31 @@ export async function getAnthropicClient({
     // we have always been lying about the return type - this doesn't support batching or models
     return new AnthropicFoundry(foundryArgs) as unknown as Anthropic
   }
+  if (isEnvTruthy(process.env.CLAUDE_CODE_USE_ANTHROPIC_AWS)) {
+    const { AnthropicAws } = await import('@anthropic-ai/aws-sdk')
+    const awsArgs: ConstructorParameters<typeof AnthropicAws>[0] = {
+      ...ARGS,
+      ...(isEnvTruthy(process.env.CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH) && {
+        skipAuth: true,
+      }),
+      ...(isDebugToStdErr() && { logger: createStderrLogger() }),
+    }
+
+    // Without an API key, sign requests with AWS credentials (same refresh
+    // path as Bedrock)
+    if (
+      !process.env.ANTHROPIC_AWS_API_KEY &&
+      !isEnvTruthy(process.env.CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH)
+    ) {
+      const cachedCredentials = await refreshAndGetAwsCredentials()
+      if (cachedCredentials) {
+        awsArgs.awsAccessKey = cachedCredentials.accessKeyId
+        awsArgs.awsSecretAccessKey = cachedCredentials.secretAccessKey
+        awsArgs.awsSessionToken = cachedCredentials.sessionToken
+      }
+    }
+    return new AnthropicAws(awsArgs) as unknown as Anthropic
+  }
   if (isEnvTruthy(process.env.CLAUDE_CODE_USE_VERTEX)) {
     // Refresh GCP credentials if gcpAuthRefresh is configured and credentials are expired
     // This is similar to how we handle AWS credential refresh for Bedrock
@@ -305,9 +328,9 @@ export async function getAnthropicClient({
       : undefined,
     // Set baseURL from OAuth config when using staging OAuth
     ...(process.env.USER_TYPE === 'ant' &&
-    isEnvTruthy(process.env.USE_STAGING_OAUTH)
-      ? { baseURL: getOauthConfig().BASE_API_URL }
-      : {}),
+      isEnvTruthy(process.env.USE_STAGING_OAUTH) && {
+        baseURL: getOauthConfig().BASE_API_URL,
+      }),
     ...ARGS,
     ...(isDebugToStdErr() && { logger: createStderrLogger() }),
   }
@@ -361,10 +384,13 @@ function buildFetch(
 ): ClientOptions['fetch'] {
   // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
   const inner = fetchOverride ?? globalThis.fetch
-  // Only send to the first-party API — Bedrock/Vertex/Foundry don't log it
-  // and unknown headers risk rejection by strict proxies (inc-4029 class).
+  // Only send to the first-party API (and Claude Platform on AWS at its default
+  // endpoint) — Bedrock/Vertex/Foundry don't log it and unknown headers risk
+  // rejection by strict proxies (inc-4029 class).
+  const provider = getAPIProvider()
   const injectClientRequestId =
-    getAPIProvider() === 'firstParty' && isFirstPartyAnthropicBaseUrl()
+    (provider === 'firstParty' && isFirstPartyAnthropicBaseUrl()) ||
+    (provider === 'anthropicAws' && !process.env.ANTHROPIC_AWS_BASE_URL)
   return (input, init) => {
     // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
     const headers = new Headers(init?.headers)

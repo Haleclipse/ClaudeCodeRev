@@ -18,6 +18,7 @@ const GHA_SUBPROCESS_SCRUB = [
   'CLAUDE_CODE_OAUTH_TOKEN',
   'ANTHROPIC_AUTH_TOKEN',
   'ANTHROPIC_FOUNDRY_API_KEY',
+  'ANTHROPIC_AWS_API_KEY',
   'ANTHROPIC_CUSTOM_HEADERS',
 
   // OTLP exporter headers — documented to carry Authorization=Bearer tokens

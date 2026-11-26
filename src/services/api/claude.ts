@@ -66,6 +66,7 @@ import {
   CAPPED_DEFAULT_MAX_TOKENS,
   getModelMaxOutputTokens,
   getSonnet1mExpTreatmentEnabled,
+  has1mContext,
 } from '../../utils/context.js'
 import { resolveAppliedEffort } from '../../utils/effort.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
@@ -188,7 +189,11 @@ import {
   isDeferredToolsDeltaEnabled,
   isToolSearchEnabled,
 } from 'src/utils/toolSearch.js'
-import { API_MAX_MEDIA_PER_REQUEST } from '../../constants/apiLimits.js'
+import {
+  API_MAX_MEDIA_PER_REQUEST,
+  API_MAX_MEDIA_PER_REQUEST_1M,
+  MEDIA_STRIP_HEADROOM,
+} from '../../constants/apiLimits.js'
 import { ADVISOR_BETA_HEADER } from '../../constants/betas.js'
 import {
   formatDeferredToolLine,
@@ -951,11 +956,13 @@ function isToolResult(
 
 /**
  * Ensures messages contain at most `limit` media items (images + documents).
- * Strips oldest media first to preserve the most recent.
+ * Strips oldest media first to preserve the most recent. When over the limit,
+ * `headroom` additional items are stripped as well.
  */
 export function stripExcessMediaItems(
   messages: (UserMessage | AssistantMessage)[],
   limit: number,
+  headroom = 0,
 ): (UserMessage | AssistantMessage)[] {
   let toRemove = 0
   for (const msg of messages) {
@@ -971,6 +978,7 @@ export function stripExcessMediaItems(
   }
   toRemove -= limit
   if (toRemove <= 0) return messages
+  toRemove += headroom
 
   return messages.map(msg => {
     if (toRemove <= 0) return msg
@@ -1306,12 +1314,18 @@ async function* queryModel(
   }
 
   // Strip excess media items before making the API call.
-  // The API rejects requests with >100 media items but returns a confusing error.
-  // Rather than erroring (which is hard to recover from in Cowork/CCD), we
-  // silently drop the oldest media items to stay within the limit.
+  // The API rejects requests with >100 media items (600 with the 1M context
+  // window) but returns a confusing error. Rather than erroring (which is hard
+  // to recover from in Cowork/CCD), we silently drop the oldest media items to
+  // stay within the limit.
+  const uses1mContext =
+    has1mContext(options.model) ||
+    betas.includes(CONTEXT_1M_BETA_HEADER) ||
+    getSonnet1mExpTreatmentEnabled(options.model)
   messagesForAPI = stripExcessMediaItems(
     messagesForAPI,
-    API_MAX_MEDIA_PER_REQUEST,
+    uses1mContext ? API_MAX_MEDIA_PER_REQUEST_1M : API_MAX_MEDIA_PER_REQUEST,
+    MEDIA_STRIP_HEADROOM,
   )
 
   // Instrumentation: Track message count after normalization
@@ -1377,17 +1391,6 @@ async function* queryModel(
     skipGlobalCacheForSystemPrompt: needsToolBasedCacheMarker,
     querySource: options.querySource,
   })
-  // No system blocks to carry a cache breakpoint (e.g. side queries that skip
-  // the system prompt prefix): mark the last tool schema instead so the tool
-  // definitions still hit the prompt cache.
-  if (enablePromptCaching && system.length === 0 && toolSchemas.length > 0) {
-    const lastTool = toolSchemas.at(-1)
-    if (lastTool && !('cache_control' in lastTool)) {
-      lastTool.cache_control = getCacheControl({
-        querySource: options.querySource,
-      })
-    }
-  }
   const useBetas = betas.length > 0
 
   // Build minimal context for detailed tracing (when beta tracing is enabled)
@@ -1820,9 +1823,12 @@ async function* queryModel(
 
         // Generate and track client request ID so timeouts (which return no
         // server request ID) can still be correlated with server logs.
-        // First-party only — 3P providers don't log it (inc-4029 class).
+        // First-party (and Claude Platform on AWS at its default endpoint)
+        // only — 3P providers don't log it (inc-4029 class).
+        const provider = getAPIProvider()
         clientRequestId =
-          getAPIProvider() === 'firstParty' && isFirstPartyAnthropicBaseUrl()
+          (provider === 'firstParty' && isFirstPartyAnthropicBaseUrl()) ||
+          (provider === 'anthropicAws' && !process.env.ANTHROPIC_AWS_BASE_URL)
             ? randomUUID()
             : undefined
 

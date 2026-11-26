@@ -99,6 +99,13 @@ const TEAMMATE_ENV_VARS = [
   'CLAUDE_CODE_USE_BEDROCK',
   'CLAUDE_CODE_USE_VERTEX',
   'CLAUDE_CODE_USE_FOUNDRY',
+  'CLAUDE_CODE_USE_ANTHROPIC_AWS',
+  // Claude Platform on AWS endpoint, workspace, auth and region
+  'ANTHROPIC_AWS_WORKSPACE_ID',
+  'ANTHROPIC_AWS_BASE_URL',
+  'ANTHROPIC_AWS_API_KEY',
+  'CLAUDE_CODE_SKIP_ANTHROPIC_AWS_AUTH',
+  'AWS_REGION',
   // Custom API endpoint
   'ANTHROPIC_BASE_URL',
   // Config directory override
