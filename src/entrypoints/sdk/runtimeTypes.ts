@@ -1,7 +1,7 @@
 // @generated-stub — missing from sourcemap, see scripts/gen-stubs.ts
 // Type definitions inferred from codebase usage patterns
 
-export type EffortLevel = 'low' | 'medium' | 'high'
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max'
 export type AnyZodRawShape = Record<string, unknown>
 export type InferShape<T> = T
 export type NonNullableUsage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
