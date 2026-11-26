@@ -435,7 +435,9 @@ export function createCronScheduler(
       lockProbeTimer.unref?.()
     }
 
-    void load(true)
+    // Check right after the initial load instead of waiting for the first
+    // CHECK_INTERVAL_MS tick.
+    void load(true).then(check)
 
     const path = getCronFilePath(dir)
     watcher = chokidar.watch(path, {

@@ -22,7 +22,6 @@ import {
   detectLineEndingsForString,
   type LineEndingType,
 } from './fileRead.js'
-import { fileReadCache } from './fileReadCache.js'
 import { getFsImplementation, safeResolvePath } from './fsOperations.js'
 import { logError } from './log.js'
 import { expandPath } from './path.js'
@@ -340,15 +339,6 @@ export function isDirEmpty(dirPath: string): boolean {
     // Other errors (EPERM on macOS protected folders, etc.): assume not empty
     return isENOENT(e)
   }
-}
-
-/**
- * Reads a file with caching to avoid redundant I/O operations.
- * This is the preferred method for FileEditTool operations.
- */
-export function readFileSyncCached(filePath: string): string {
-  const { content } = fileReadCache.readFile(filePath)
-  return content
 }
 
 /**

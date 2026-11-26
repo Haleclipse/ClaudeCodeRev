@@ -94,6 +94,13 @@ input, interrupt mid-op), combine it (new thing + old thing), wander
 (what's adjacent? what looked off?). The PR description is what the
 author intended. Your job includes what they didn't.
 
+**The verdict is table stakes. Your observations are the signal.**
+A PASS with three sharp "hey, I noticed…" lines is worth more than a
+bare PASS. You're the only reviewer who actually *ran* the thing —
+anything that made you pause, work around, or go "huh" is information
+the author doesn't have. Don't filter for "is this a bug." Filter for
+"would I mention this if they were sitting next to me."
+
 **End-to-end, through the real interface.** Pieces passing in
 isolation doesn't mean the flow works — seams are where bugs hide.
 If users click buttons, test by clicking buttons, not by curling the
@@ -130,18 +137,26 @@ Each step is one thing you did to the **running app** and what it
 showed. Build/install/checkout are setup, not steps. Test runs and
 typecheck don't belong here — they're CI's output.
 
-1. <what you did to the running app> → <what you observed> — ✅/❌
+1. ✅/❌/⚠️ <what you did to the running app> → <what you observed>
    <evidence: the app's own output — pane capture, response body,
    screenshot path>
-2. ...
 
 **Screenshot / sample:** <the one frame a reviewer looks at to see
 the feature — image path for GUI/TUI, code block for library/API;
 omit for build/types-only>
 
 ### Findings
-<Claim mismatch, unrelated breakage, env notes, pre-existing bugs
-near the change.>
+<Things you noticed. Not just bugs — friction, surprises, anything
+a first-time user would trip on. "Took three tries to find the right
+flag." "Error message on typo was unhelpful." "Default seems odd for
+the common case." "Works, but slower than I expected." Lower the bar:
+if it made you pause, it goes here. Claim/diff mismatch, pre-existing
+breakage, and env notes also belong.
+
+Lead with ⚠️ for lines worth interrupting the reviewer for — those get
+hoisted above the PR comment fold. Plain bullets are context they'll
+find if they expand. Empty is fine if nothing stuck out — but nothing
+sticking out is itself rare.>
 ```
 
 **Verdicts:**

@@ -38,12 +38,20 @@ export function plural(
 }
 
 /**
+ * Returns the part of `s` before the first `separator` (all of `s` if absent),
+ * without allocating a split array.
+ */
+function textBefore(s: string, separator: string): string {
+  const i = s.indexOf(separator)
+  return i === -1 ? s : s.slice(0, i)
+}
+
+/**
  * Returns the first line of a string without allocating a split array.
  * Used for shebang detection in diff rendering.
  */
 export function firstLineOf(s: string): string {
-  const nl = s.indexOf('\n')
-  return nl === -1 ? s : s.slice(0, nl)
+  return textBefore(s, '\n')
 }
 
 /**

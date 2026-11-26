@@ -129,11 +129,11 @@ export async function readCronTasks(dir?: string): Promise<CronTask[]> {
       cron: t.cron,
       prompt: t.prompt,
       createdAt: t.createdAt,
-      ...(typeof t.lastFiredAt === 'number'
-        ? { lastFiredAt: t.lastFiredAt }
-        : {}),
-      ...(t.recurring ? { recurring: true } : {}),
-      ...(t.permanent ? { permanent: true } : {}),
+      ...(typeof t.lastFiredAt === 'number' && {
+        lastFiredAt: t.lastFiredAt,
+      }),
+      ...(t.recurring && { recurring: true }),
+      ...(t.permanent && { permanent: true }),
     })
   }
   return out
@@ -206,10 +206,10 @@ export async function addCronTask(
     cron,
     prompt,
     createdAt: Date.now(),
-    ...(recurring ? { recurring: true } : {}),
+    ...(recurring && { recurring: true }),
   }
   if (!durable) {
-    addSessionCronTask({ ...task, ...(agentId ? { agentId } : {}) })
+    addSessionCronTask({ ...task, ...(agentId && { agentId }) })
     return id
   }
   const tasks = await readCronTasks()
@@ -346,8 +346,8 @@ export type CronJitterConfig = {
 }
 
 export const DEFAULT_CRON_JITTER_CONFIG: CronJitterConfig = {
-  recurringFrac: 0.1,
-  recurringCapMs: 15 * 60 * 1000,
+  recurringFrac: 0.5,
+  recurringCapMs: 30 * 60 * 1000,
   oneShotMaxMs: 90 * 1000,
   oneShotFloorMs: 0,
   oneShotMinuteMod: 30,
@@ -372,8 +372,8 @@ function jitterFrac(taskId: string): number {
  * The delay is proportional to the current gap between fires
  * ({@link CronJitterConfig.recurringFrac}, capped at
  * {@link CronJitterConfig.recurringCapMs}) so at defaults an hourly task
- * spreads across [:00, :06) but a per-minute task only spreads by a few
- * seconds.
+ * spreads across [:00, :30) but a per-minute task only spreads by up to
+ * half a minute.
  *
  * Only used for recurring tasks. One-shot tasks use
  * {@link oneShotJitteredNextCronRunMs} (backward jitter, minute-gated).

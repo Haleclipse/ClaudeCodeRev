@@ -111,10 +111,12 @@ export function MessageRatingProvider({
 
   const rateMessage = useCallback(
     (messageUuid: string, sentiment: MessageSentiment) => {
-      if (ratingsRef.current.get(messageUuid) === sentiment) return
+      // Rating the same way again clears the rating
+      const cleared = ratingsRef.current.get(messageUuid) === sentiment
       setRatings(prev => {
         const next = new Map(prev)
-        next.set(messageUuid, sentiment)
+        if (cleared) next.delete(messageUuid)
+        else next.set(messageUuid, sentiment)
         return next
       })
       logEvent('tengu_message_rated', {
@@ -122,13 +124,16 @@ export function MessageRatingProvider({
           messageUuid as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         sentiment:
           sentiment as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        cleared,
       })
-      addNotification({
-        key: 'message-rated',
-        text: 'thanks for improving claude!',
-        color: 'success',
-        priority: 'immediate',
-      })
+      if (!cleared) {
+        addNotification({
+          key: 'message-rated',
+          text: 'thanks for improving claude!',
+          color: 'success',
+          priority: 'immediate',
+        })
+      }
     },
     [addNotification],
   )

@@ -1,4 +1,4 @@
-import axios, { type AxiosError } from 'axios'
+import axios from 'axios'
 import type { StdoutMessage } from 'src/entrypoints/sdk/controlTypes.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../../utils/diagLogs.js'
@@ -339,16 +339,29 @@ export class SSETransport implements Transport {
   private async readStream(body: ReadableStream<Uint8Array>): Promise<void> {
     const reader = body.getReader()
     const decoder = new TextDecoder()
-    let buffer = ''
+    // Pending text as chunks; joined and parsed only once a chunk can complete
+    // a frame (a blank line). Re-scanning a growing string on every chunk was
+    // quadratic for large frames split across many reads.
+    let chunks: string[] = []
+    let endsWithNewline = false
 
     try {
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
 
-        buffer += decoder.decode(value, STREAM_DECODE_OPTS)
-        const { frames, remaining } = parseSSEFrames(buffer)
-        buffer = remaining
+        const text = decoder.decode(value, STREAM_DECODE_OPTS)
+        if (!text) continue
+        const completesFrame =
+          (endsWithNewline && text[0] === '\n') || text.includes('\n\n')
+        chunks.push(text)
+        if (!completesFrame) {
+          endsWithNewline = text.endsWith('\n')
+          continue
+        }
+        const { frames, remaining } = parseSSEFrames(chunks.join(''))
+        chunks = remaining ? [remaining] : []
+        endsWithNewline = remaining.endsWith('\n')
 
         for (const frame of frames) {
           // Any frame (including keepalive comments) proves the connection is alive
@@ -627,9 +640,8 @@ export class SSETransport implements Transport {
           attempt,
         })
       } catch (error) {
-        const axiosError = error as AxiosError
         logForDebugging(
-          `SSETransport: POST error: ${axiosError.message}, attempt ${attempt}/${POST_MAX_RETRIES}`,
+          `SSETransport: POST error: ${errorMessage(error)}, attempt ${attempt}/${POST_MAX_RETRIES}`,
         )
         logForDiagnosticsNoPII('warn', 'cli_sse_post_network_error', {
           attempt,

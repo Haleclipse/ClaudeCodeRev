@@ -524,6 +524,7 @@ ${CYBER_RISK_INSTRUCTION}`,
           : getMcpInstructionsSection(mcpClients),
       'MCP servers connect/disconnect between turns',
     ),
+    systemPromptSection('bg-job-dir', () => getBgJobDirSection()),
     systemPromptSection('scratchpad', () => getScratchpadInstructions()),
     systemPromptSection('frc', () => getFunctionResultClearingSection(model)),
     systemPromptSection(
@@ -794,6 +795,13 @@ export async function enhanceSystemPromptWithEnvDetails(
     ...(discoverSkillsGuidance !== null ? [discoverSkillsGuidance] : []),
     envInfo,
   ]
+}
+
+/**
+ * Background-job directory section. Not populated in external builds.
+ */
+function getBgJobDirSection(): string | null {
+  return null
 }
 
 /**

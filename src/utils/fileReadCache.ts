@@ -92,5 +92,14 @@ class FileReadCache {
   }
 }
 
+/**
+ * Reads a file with caching to avoid redundant I/O operations.
+ * This is the preferred method for FileEditTool operations.
+ */
+export function readFileSyncCached(filePath: string): string {
+  const { content } = fileReadCache.readFile(filePath)
+  return content
+}
+
 // Export a singleton instance
 export const fileReadCache = new FileReadCache()

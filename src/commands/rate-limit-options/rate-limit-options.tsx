@@ -56,6 +56,10 @@ function RateLimitOptionsMenu({
     'tengu_jade_anvil_4',
     false,
   )
+  const upgradeUnavailable = getFeatureValue_CACHED_MAY_BE_STALE(
+    'tengu_slate_harbor',
+    false,
+  )
 
   const options = useMemo<
     OptionWithDescription<RateLimitOptionsMenuOptionType>[]
@@ -99,7 +103,12 @@ function RateLimitOptionsMenu({
       }
     }
 
-    if (!isMax20x && !isTeamOrEnterprise && upgrade.isEnabled()) {
+    if (
+      !isMax20x &&
+      !isTeamOrEnterprise &&
+      upgrade.isEnabled() &&
+      !upgradeUnavailable
+    ) {
       actionOptions.push({
         label: 'Upgrade your plan',
         value: 'upgrade',

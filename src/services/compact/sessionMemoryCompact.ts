@@ -441,13 +441,14 @@ function createCompactionResultFromSessionMemory(
   hookResults: HookResultMessage[],
   transcriptPath: string,
   agentId?: AgentId,
+  replStateCleared?: boolean,
 ): CompactionResult {
   const preCompactTokenCount = tokenCountFromLastAPIResponse(messages)
 
   const boundaryMarker = createCompactBoundaryMessage(
     'auto',
     preCompactTokenCount ?? 0,
-    messages[messages.length - 1]?.uuid,
+    messages.at(-1)?.uuid,
   )
   const preCompactDiscovered = extractDiscoveredToolNames(messages)
   if (preCompactDiscovered.size > 0) {
@@ -466,6 +467,7 @@ function createCompactionResultFromSessionMemory(
     true,
     transcriptPath,
     true,
+    replStateCleared,
   )
 
   if (wasTruncated) {
@@ -483,11 +485,12 @@ function createCompactionResultFromSessionMemory(
 
   const planAttachment = createPlanAttachmentIfNeeded(agentId)
   const attachments = planAttachment ? [planAttachment] : []
+  const postCompactTokenCount = estimateMessageTokens(summaryMessages)
 
   return {
     boundaryMarker: annotateBoundaryWithPreservedSegment(
       boundaryMarker,
-      summaryMessages[summaryMessages.length - 1]!.uuid,
+      summaryMessages.at(-1)!.uuid,
       messagesToKeep,
     ),
     summaryMessages,
@@ -497,8 +500,8 @@ function createCompactionResultFromSessionMemory(
     preCompactTokenCount,
     // SM-compact has no compact-API-call, so postCompactTokenCount (kept for
     // event continuity) and truePostCompactTokenCount converge to the same value.
-    postCompactTokenCount: estimateMessageTokens(summaryMessages),
-    truePostCompactTokenCount: estimateMessageTokens(summaryMessages),
+    postCompactTokenCount,
+    truePostCompactTokenCount: postCompactTokenCount,
   }
 }
 
@@ -515,6 +518,7 @@ export async function trySessionMemoryCompaction(
   messages: Message[],
   agentId?: AgentId,
   autoCompactThreshold?: number,
+  replStateCleared?: boolean,
 ): Promise<CompactionResult | null> {
   if (!shouldUseSessionMemoryCompaction()) {
     return null
@@ -595,6 +599,7 @@ export async function trySessionMemoryCompaction(
       hookResults,
       transcriptPath,
       agentId,
+      replStateCleared,
     )
 
     const postCompactMessages = buildPostCompactMessages(compactionResult)

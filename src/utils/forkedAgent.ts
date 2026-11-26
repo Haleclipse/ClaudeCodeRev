@@ -25,6 +25,7 @@ import type { AgentDefinition } from '../tools/AgentTool/loadAgentsDir.js'
 import type { AgentId } from '../types/ids.js'
 import type { Message } from '../types/message.js'
 import { createChildAbortController } from './abortController.js'
+import { uniq } from './array.js'
 import { logForDebugging } from './debug.js'
 import { cloneFileStateCache } from './fileStateCache.js'
 import type { REPLHookContext } from './hooks/postSamplingHooks.js'
@@ -66,6 +67,10 @@ export type CacheSafeParams = {
   /** Parent context messages for prompt cache sharing */
   forkContextMessages: Message[]
 }
+
+// Turn cap for forks that don't pass maxTurns. Hitting it is logged
+// (tengu_forked_agent_default_turns_exceeded).
+const DEFAULT_FORK_MAX_TURNS = 50
 
 // Slot written by handleStopHooks after each turn so post-turn forks
 // (promptSuggestion, postTurnSummary, /btw) can share the main loop's
@@ -157,13 +162,10 @@ export function createGetAppStateWithAllowedTools(
         ...appState.toolPermissionContext,
         alwaysAllowRules: {
           ...appState.toolPermissionContext.alwaysAllowRules,
-          command: [
-            ...new Set([
-              ...(appState.toolPermissionContext.alwaysAllowRules.command ||
-                []),
-              ...allowedTools,
-            ]),
-          ],
+          command: uniq([
+            ...(appState.toolPermissionContext.alwaysAllowRules.command || []),
+            ...allowedTools,
+          ]),
         },
       },
     }
@@ -535,11 +537,11 @@ export async function runForkedAgent({
       ),
     )
     // Track the last recorded message UUID for parent chain continuity
-    lastRecordedUuid =
-      initialMessages.length > 0
-        ? initialMessages[initialMessages.length - 1]!.uuid
-        : null
+    lastRecordedUuid = initialMessages.at(-1)?.uuid ?? null
   }
+
+  const turnLimit = maxTurns ?? DEFAULT_FORK_MAX_TURNS
+  let turnCount = 0
 
   // Run the query loop with isolated context (cache-safe params preserved)
   try {
@@ -552,7 +554,7 @@ export async function runForkedAgent({
       toolUseContext: isolatedToolUseContext,
       querySource,
       maxOutputTokensOverride: maxOutputTokens,
-      maxTurns,
+      maxTurns: turnLimit,
       skipCacheWrite,
     })) {
       // Extract real usage from message_delta stream events (final usage per API call)
@@ -570,6 +572,7 @@ export async function runForkedAgent({
       if (message.type === 'stream_request_start') {
         continue
       }
+      if (message.type === 'assistant') turnCount++
 
       logForDebugging(
         `Forked agent [${forkLabel}] received message: type=${message.type}`,
@@ -609,6 +612,16 @@ export async function runForkedAgent({
   )
 
   const durationMs = Date.now() - startTime
+
+  if (maxTurns === undefined && turnCount >= DEFAULT_FORK_MAX_TURNS) {
+    logEvent('tengu_forked_agent_default_turns_exceeded', {
+      forkLabel:
+        forkLabel as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      querySource:
+        querySource as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      turnCount,
+    })
+  }
 
   // Log the fork query metrics with full NonNullableUsage
   logForkAgentQueryEvent({
@@ -679,12 +692,10 @@ function logForkAgentQueryEvent({
     cacheHitRate,
 
     // Query tracking
-    ...(queryTracking
-      ? {
-          queryChainId:
-            queryTracking.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          queryDepth: queryTracking.depth,
-        }
-      : {}),
+    ...(queryTracking && {
+      queryChainId:
+        queryTracking.chainId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      queryDepth: queryTracking.depth,
+    }),
   })
 }

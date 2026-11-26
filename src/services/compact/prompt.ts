@@ -339,6 +339,9 @@ export function getCompactUserSummaryMessage(
   suppressFollowUpQuestions?: boolean,
   transcriptPath?: string,
   recentMessagesPreserved?: boolean,
+  // Whether compaction also reset REPL VM state. Only consumed where the REPL
+  // tool is available; external builds always pass false.
+  _replStateCleared?: boolean,
 ): string {
   const formattedSummary = formatCompactSummary(summary)
 

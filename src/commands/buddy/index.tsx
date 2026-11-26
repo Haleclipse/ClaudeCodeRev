@@ -50,13 +50,40 @@ const buddy = {
   type: 'local-jsx',
   name: 'buddy',
   description: 'Hatch a coding companion · pet, off',
-  isHidden: !isBuddyTeaserWindow(),
+  argumentHint: '[pet|off]',
+  get isHidden() {
+    return !isBuddyTeaserWindow()
+  },
   immediate: true,
   load: () =>
     Promise.resolve({
       async call(onDone, context, args) {
         const config = getGlobalConfig()
         const arg = args?.trim()
+
+        if (arg === 'off') {
+          if (config.companionMuted !== true) {
+            saveGlobalConfig(c => ({ ...c, companionMuted: true }))
+          }
+          onDone('companion muted', { display: 'system' })
+          return null
+        }
+
+        if (arg === 'on') {
+          if (config.companionMuted === true) {
+            saveGlobalConfig(c => ({ ...c, companionMuted: false }))
+          }
+          onDone('companion unmuted', { display: 'system' })
+          return null
+        }
+
+        // Outside the teaser window only mute/unmute work
+        if (!isBuddyTeaserWindow()) {
+          onDone('buddy is unavailable on this configuration', {
+            display: 'system',
+          })
+          return null
+        }
 
         if (arg === 'pet') {
           const companion = getCompanion()
@@ -72,22 +99,6 @@ const buddy = {
           context.setAppState(prev => ({ ...prev, companionPetAt: Date.now() }))
           triggerPetReaction(setCompanionReaction(context.setAppState))
           onDone(`petted ${companion.name}`, { display: 'system' })
-          return null
-        }
-
-        if (arg === 'off') {
-          if (config.companionMuted !== true) {
-            saveGlobalConfig(c => ({ ...c, companionMuted: true }))
-          }
-          onDone('companion muted', { display: 'system' })
-          return null
-        }
-
-        if (arg === 'on') {
-          if (config.companionMuted === true) {
-            saveGlobalConfig(c => ({ ...c, companionMuted: false }))
-          }
-          onDone('companion unmuted', { display: 'system' })
           return null
         }
 

@@ -146,7 +146,7 @@ export async function toolToAPISchema(
   // so including it preserves their GB-flip cache stability.
   const cacheKey =
     'inputJSONSchema' in tool && tool.inputJSONSchema
-      ? `${tool.name}:${jsonStringify(tool.inputJSONSchema)}`
+      ? `${tool.name}:${stringifySchemaCached(tool.inputJSONSchema)}`
       : tool.name
   const cache = getToolSchemaCache()
   let base = cache.get(cacheKey)
@@ -272,6 +272,19 @@ function logStripOnce(stripped: string[]): void {
   logForDebugging(
     `[betas] Stripped from tool schemas: [${stripped.join(', ')}] (CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS=1)`,
   )
+}
+
+// Serialized inputJSONSchema per schema object. toolToAPISchema runs for
+// every tool on every request; schema objects are stable, so stringify each
+// one once instead of on every cache-key lookup.
+const schemaJsonCache = new WeakMap<object, string>()
+function stringifySchemaCached(schema: object): string {
+  let json = schemaJsonCache.get(schema)
+  if (json === undefined) {
+    json = jsonStringify(schema)
+    schemaJsonCache.set(schema, json)
+  }
+  return json
 }
 
 /**

@@ -27,7 +27,6 @@ import type { ProcessUserInputContext } from './processUserInput.js'
 export async function processBashCommand(
   inputString: string,
   precedingInputBlocks: ContentBlockParam[],
-  attachmentMessages: AttachmentMessage[],
   context: ProcessUserInputContext,
   setToolJSX: SetToolJSXFn,
 ): Promise<{
@@ -156,7 +155,6 @@ export async function processBashCommand(
       messages: [
         createSyntheticUserCaveatMessage(),
         userMessage,
-        ...attachmentMessages,
         createUserMessage({
           content: `<bash-stdout>${stdout}</bash-stdout><bash-stderr>${escapeXml(stderr)}</bash-stderr>`,
         }),
@@ -171,7 +169,6 @@ export async function processBashCommand(
             createSyntheticUserCaveatMessage(),
             userMessage,
             createUserInterruptionMessage({ toolUse: false }),
-            ...attachmentMessages,
           ],
           shouldQuery: false,
         }
@@ -180,7 +177,6 @@ export async function processBashCommand(
         messages: [
           createSyntheticUserCaveatMessage(),
           userMessage,
-          ...attachmentMessages,
           createUserMessage({
             content: `<bash-stdout>${escapeXml(e.stdout)}</bash-stdout><bash-stderr>${escapeXml(e.stderr)}</bash-stderr>`,
           }),
@@ -192,7 +188,6 @@ export async function processBashCommand(
       messages: [
         createSyntheticUserCaveatMessage(),
         userMessage,
-        ...attachmentMessages,
         createUserMessage({
           content: `<bash-stderr>Command failed: ${escapeXml(errorMessage(e))}</bash-stderr>`,
         }),

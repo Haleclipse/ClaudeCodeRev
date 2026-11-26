@@ -632,6 +632,8 @@ export async function compactConversation(
           summary,
           suppressFollowUpQuestions,
           transcriptPath,
+          undefined,
+          false,
         ),
         isCompactSummary: true,
         isVisibleInTranscriptOnly: true,
@@ -1046,7 +1048,13 @@ export async function partialCompactConversation(
     const transcriptPath = getTranscriptPath()
     const summaryMessages: UserMessage[] = [
       createUserMessage({
-        content: getCompactUserSummaryMessage(summary, false, transcriptPath),
+        content: getCompactUserSummaryMessage(
+          summary,
+          false,
+          transcriptPath,
+          undefined,
+          false,
+        ),
         isCompactSummary: true,
         ...(messagesToKeep.length > 0
           ? {

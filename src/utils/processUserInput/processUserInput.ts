@@ -477,6 +477,21 @@ async function processUserInputBase(
     return addImageMetadataMessage(slashResult, imageMetadataTexts)
   }
 
+  // Bash commands — run before attachment loading: `!` input never carries
+  // attachments.
+  if (inputString !== null && mode === 'bash') {
+    const { processBashCommand } = await import('./processBashCommand.js')
+    return addImageMetadataMessage(
+      await processBashCommand(
+        inputString,
+        precedingInputBlocks,
+        context,
+        setToolJSX,
+      ),
+      imageMetadataTexts,
+    )
+  }
+
   // For slash commands, attachments will be extracted within getMessagesForSlashCommand
   // (also for block-only input with no trailing text, e.g. a pasted image)
   const shouldExtractAttachments =
@@ -497,21 +512,6 @@ async function processUserInputBase(
       )
     : []
   queryCheckpoint('query_attachment_loading_end')
-
-  // Bash commands
-  if (inputString !== null && mode === 'bash') {
-    const { processBashCommand } = await import('./processBashCommand.js')
-    return addImageMetadataMessage(
-      await processBashCommand(
-        inputString,
-        precedingInputBlocks,
-        attachmentMessages,
-        context,
-        setToolJSX,
-      ),
-      imageMetadataTexts,
-    )
-  }
 
   // Slash commands
   // Skip for remote bridge messages — input from CCR clients is plain text

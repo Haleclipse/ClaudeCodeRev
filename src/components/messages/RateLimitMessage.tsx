@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { extraUsage } from 'src/commands/extra-usage/index.js'
 import { Box, Text } from 'src/ink.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { useClaudeAiLimits } from 'src/services/claudeAiLimitsHook.js'
 import { shouldProcessMockLimits } from 'src/services/rateLimitMocking.js' // Used for /mock-limits command
 import {
@@ -71,7 +72,14 @@ export function RateLimitMessage({
   const rateLimitTier = getRateLimitTier()
   const isTeamOrEnterprise =
     subscriptionType === 'team' || subscriptionType === 'enterprise'
-  const isMax20x = rateLimitTier === 'default_claude_max_20x'
+  // tengu_slate_harbor: upgrades unavailable — treat everyone like the top
+  // tier so no upgrade upsell is shown
+  const upgradeUnavailable = getFeatureValue_CACHED_MAY_BE_STALE(
+    'tengu_slate_harbor',
+    false,
+  )
+  const isMax20x =
+    rateLimitTier === 'default_claude_max_20x' || upgradeUnavailable
   // Always show upsell when using /mock-limits command, otherwise show for subscribers
   const shouldShowUpsell = shouldProcessMockLimits() || isClaudeAISubscriber()
 

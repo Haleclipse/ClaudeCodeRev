@@ -113,19 +113,27 @@ export async function registerSession(): Promise<boolean> {
  * can surface it. Best-effort: silently no-op if name is falsy, the
  * file doesn't exist (session not registered), or read/write fails.
  */
+// Serializes read-modify-write cycles on the PID file so concurrent updates
+// (e.g. session id and name changing together) don't drop each other's fields.
+let pidFileWriteQueue: Promise<void> = Promise.resolve()
+
 async function updatePidFile(patch: Record<string, unknown>): Promise<void> {
   const pidFile = join(getSessionsDir(), `${process.pid}.json`)
-  try {
-    const data = jsonParse(await readFile(pidFile, 'utf8')) as Record<
-      string,
-      unknown
-    >
-    await writeFile(pidFile, jsonStringify({ ...data, ...patch }))
-  } catch (e) {
-    logForDebugging(
-      `[concurrentSessions] updatePidFile failed: ${errorMessage(e)}`,
-    )
-  }
+  const write = pidFileWriteQueue.then(async () => {
+    try {
+      const data = jsonParse(await readFile(pidFile, 'utf8')) as Record<
+        string,
+        unknown
+      >
+      await writeFile(pidFile, jsonStringify({ ...data, ...patch }))
+    } catch (e) {
+      logForDebugging(
+        `[concurrentSessions] updatePidFile failed: ${errorMessage(e)}`,
+      )
+    }
+  })
+  pidFileWriteQueue = write
+  await write
 }
 
 export async function updateSessionName(
