@@ -5,12 +5,12 @@ import {
   BRIDGE_READY_INDICATOR,
   BRIDGE_SPINNER_FRAMES,
 } from '../constants/figures.js'
+import { getRemoteSessionUrl } from '../constants/product.js'
 import { stringWidth } from '../ink/stringWidth.js'
 import { logForDebugging } from '../utils/debug.js'
 import {
   buildActiveFooterText,
   buildBridgeConnectUrl,
-  buildBridgeSessionUrl,
   buildIdleFooterText,
   FAILED_FOOTER_TEXT,
   formatDuration,
@@ -59,7 +59,6 @@ export function createBridgeLogger(options: {
   // Connect URL (built in printBanner with correct base for staging/prod)
   let connectUrl = ''
   let cachedIngressUrl = ''
-  let cachedEnvironmentId = ''
   let activeSessionUrl: string | null = null
 
   // QR code lines for the current URL
@@ -294,7 +293,6 @@ export function createBridgeLogger(options: {
   return {
     printBanner(config: BridgeConfig, environmentId: string): void {
       cachedIngressUrl = config.sessionIngressUrl
-      cachedEnvironmentId = environmentId
       connectUrl = buildBridgeConnectUrl(environmentId, cachedIngressUrl)
       regenerateQr(connectUrl)
 
@@ -394,11 +392,7 @@ export function createBridgeLogger(options: {
       // Multi-session: keep footer/QR on the environment connect URL so users
       // can spawn more sessions. Per-session links are in the bullet list.
       if (sessionMax <= 1) {
-        activeSessionUrl = buildBridgeSessionUrl(
-          sessionId,
-          cachedEnvironmentId,
-          cachedIngressUrl,
-        )
+        activeSessionUrl = getRemoteSessionUrl(sessionId, cachedIngressUrl)
         regenerateQr(activeSessionUrl)
       }
       renderStatusLine()

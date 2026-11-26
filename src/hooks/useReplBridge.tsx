@@ -130,6 +130,9 @@ export function useReplBridge(
 
       const outboundOnly = replBridgeOutboundOnly
       function notifyBridgeFailed(detail?: string): void {
+        logForDebugging(
+          `[bridge:repl] notifyBridgeFailed detail="${detail}" outboundOnly=${outboundOnly}`,
+        )
         if (outboundOnly) return
         addNotification({
           key: 'bridge-failed',
@@ -243,6 +246,9 @@ export function useReplBridge(
               logForDebugging(
                 `[bridge:repl] Injecting inbound user message: ${preview}${uuid ? ` uuid=${uuid}` : ''}`,
               )
+              // Sender session for messages relayed from a peer Claude
+              // session (UDS inbox); unset in external builds.
+              let peerFrom: string | undefined = undefined
               enqueue({
                 value: content,
                 mode: 'prompt' as const,
@@ -253,7 +259,11 @@ export function useReplBridge(
                 // This keeps exit-word suppression and immediate-command blocks
                 // intact for any code path that checks skipSlashCommands directly.
                 skipSlashCommands: true,
-                bridgeOrigin: true,
+                // Peer-session messages are injected as meta instead of
+                // bridge-origin.
+                ...(peerFrom
+                  ? { origin: { kind: 'peer', from: peerFrom }, isMeta: true }
+                  : { bridgeOrigin: true }),
               })
             } catch (e) {
               logForDebugging(
@@ -268,6 +278,9 @@ export function useReplBridge(
             state: BridgeState,
             detail?: string,
           ): void {
+            logForDebugging(
+              `[bridge:repl] handleStateChange state=${state} detail="${detail}" cancelled=${cancelled} outboundOnly=${outboundOnly}`,
+            )
             if (cancelled) return
             if (outboundOnly) {
               logForDebugging(
@@ -652,10 +665,10 @@ export function useReplBridge(
                     input,
                     tool_use_id: toolUseId,
                     description,
-                    ...(permissionSuggestions
-                      ? { permission_suggestions: permissionSuggestions }
-                      : {}),
-                    ...(blockedPath ? { blocked_path: blockedPath } : {}),
+                    ...(permissionSuggestions && {
+                      permission_suggestions: permissionSuggestions,
+                    }),
+                    ...(blockedPath && { blocked_path: blockedPath }),
                   },
                 })
               },

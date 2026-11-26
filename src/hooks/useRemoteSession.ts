@@ -144,8 +144,16 @@ export function useRemoteSession({
 
   // Initialize and connect to remote session
   useEffect(() => {
-    // Skip if not in remote mode
+    // Not in remote mode (or the config went away): reset connection state
+    // so nothing stale from a previous session lingers.
     if (!config) {
+      setConnStatus('disconnected')
+      setIsLoading(false)
+      hasUpdatedTitleRef.current = false
+      isCompactingRef.current = false
+      runningTaskIdsRef.current.clear()
+      writeTaskCount()
+      setInProgressToolUseIDs?.(prev => (prev.size > 0 ? new Set() : prev))
       return
     }
 

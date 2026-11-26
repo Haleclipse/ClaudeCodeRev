@@ -37,7 +37,6 @@ import {
 } from '../../utils/format.js'
 import { getGlobalConfig } from '../../utils/config.js'
 import Link from '../../ink/components/Link.js'
-import ThemedText from '../design-system/ThemedText.js'
 import { CtrlOToExpand } from '../CtrlOToExpand.js'
 import { useAppStateStore } from '../../state/AppState.js'
 import { isBackgroundTask, type TaskState } from '../../tasks/types.js'
@@ -505,11 +504,18 @@ function BridgeStatusMessage({
       <Box minWidth={2} />
       <Box flexDirection="column">
         <Text>
-          <ThemedText color="suggestion">/remote-control</ThemedText> is active.
-          Code in CLI or at
+          /remote-control is active
+          <Text dimColor>
+            {' · Code in CLI or at '}
+            <Link url={message.url}>{message.url}</Link>
+          </Text>
         </Text>
-        <Link url={message.url}>{message.url}</Link>
-        {message.upgradeNudge && <Text dimColor>⎿ {message.upgradeNudge}</Text>}
+        {message.upgradeNudge && (
+          <Box flexDirection="row">
+            <Text dimColor>{'⎿  '}</Text>
+            <Text dimColor>{message.upgradeNudge}</Text>
+          </Box>
+        )}
       </Box>
     </Box>
   )

@@ -55,18 +55,23 @@ export async function checkBackgroundRemoteSessionEligibility({
     return errors
   }
 
-  const [needsLogin, hasRemoteEnv, repository] = await Promise.all([
+  const [needsLogin, repository] = await Promise.all([
     checkNeedsClaudeAiLogin(),
-    checkHasRemoteEnvironment(),
     detectCurrentRepositoryWithHost(),
   ])
 
   if (needsLogin) {
     errors.push({ type: 'not_logged_in' })
-  }
-
-  if (!hasRemoteEnv) {
-    errors.push({ type: 'no_remote_environment' })
+  } else {
+    // Only query environments with a valid login. checkHasRemoteEnvironment
+    // rethrows 401s, which are reported as not_logged_in.
+    try {
+      if (!(await checkHasRemoteEnvironment())) {
+        errors.push({ type: 'no_remote_environment' })
+      }
+    } catch {
+      errors.push({ type: 'not_logged_in' })
+    }
   }
 
   // When bundle seeding is on, in-git-repo is enough — CCR can seed from

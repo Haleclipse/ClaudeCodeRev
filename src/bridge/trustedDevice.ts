@@ -32,7 +32,7 @@ import { jsonStringify } from '../utils/slowOperations.js'
 
 const TRUSTED_DEVICE_GATE = 'tengu_sessions_elevated_auth_enforcement'
 
-function isGateEnabled(): boolean {
+export function isTrustedDeviceGateEnabled(): boolean {
   return getFeatureValue_CACHED_MAY_BE_STALE(TRUSTED_DEVICE_GATE, false)
 }
 
@@ -52,7 +52,7 @@ const readStoredToken = memoize((): string | undefined => {
 })
 
 export function getTrustedDeviceToken(): string | undefined {
-  if (!isGateEnabled()) {
+  if (!isTrustedDeviceGateEnabled()) {
     return undefined
   }
   return readStoredToken()
@@ -70,7 +70,7 @@ export function clearTrustedDeviceTokenCache(): void {
  * enrollment completion would otherwise still read the old cached token).
  */
 export function clearTrustedDeviceToken(): void {
-  if (!isGateEnabled()) {
+  if (!isTrustedDeviceGateEnabled()) {
     return
   }
   const secureStorage = getSecureStorage()

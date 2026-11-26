@@ -47,6 +47,10 @@ export async function checkHasRemoteEnvironment(): Promise<boolean> {
     const environments = await fetchEnvironments()
     return environments.length > 0
   } catch (error) {
+    // Auth failure isn't "no environments" — let the caller report it
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      throw error
+    }
     logForDebugging(`checkHasRemoteEnvironment failed: ${errorMessage(error)}`)
     return false
   }

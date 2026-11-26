@@ -1,7 +1,4 @@
-import {
-  getClaudeAiBaseUrl,
-  getRemoteSessionUrl,
-} from '../constants/product.js'
+import { getClaudeAiBaseUrl } from '../constants/product.js'
 import { stringWidth } from '../ink/stringWidth.js'
 import { formatDuration, truncateToWidth } from '../utils/format.js'
 import { getGraphemeSegmenter } from '../utils/intl.js'
@@ -41,20 +38,7 @@ export function buildBridgeConnectUrl(
   ingressUrl?: string,
 ): string {
   const baseUrl = getClaudeAiBaseUrl(undefined, ingressUrl)
-  return `${baseUrl}/code?bridge=${environmentId}`
-}
-
-/**
- * Build the session URL shown when a session is attached. Delegates to
- * getRemoteSessionUrl for the cse_→session_ prefix translation, then appends
- * the v1-specific ?bridge={environmentId} query.
- */
-export function buildBridgeSessionUrl(
-  sessionId: string,
-  environmentId: string,
-  ingressUrl?: string,
-): string {
-  return `${getRemoteSessionUrl(sessionId, ingressUrl)}?bridge=${environmentId}`
+  return `${baseUrl}/code?environment=${environmentId}`
 }
 
 /** Compute the glimmer index for a reverse-sweep shimmer animation. */

@@ -3944,11 +3944,18 @@ function runHeadlessStreaming(
                     const fields = extractInboundMessageFields(msg)
                     if (!fields) return
                     const { content, uuid } = fields
+                    // Sender session for messages relayed from a peer Claude
+                    // session (UDS inbox); unset in external builds.
+                    const peerFrom: string | undefined = undefined
                     enqueue({
                       value: content,
                       mode: 'prompt' as const,
                       uuid,
                       skipSlashCommands: true,
+                      ...(peerFrom && {
+                        origin: { kind: 'peer', from: peerFrom },
+                        isMeta: true,
+                      }),
                     })
                     void run()
                   },

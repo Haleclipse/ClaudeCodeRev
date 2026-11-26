@@ -40,7 +40,10 @@ import { buildCCRv2SdkUrl } from './workSecret.js'
 import { toCompatSessionId } from './sessionIdCompat.js'
 import { FlushGate } from './flushGate.js'
 import { createTokenRefreshScheduler } from './jwtUtils.js'
-import { getTrustedDeviceToken } from './trustedDevice.js'
+import {
+  getTrustedDeviceToken,
+  isTrustedDeviceGateEnabled,
+} from './trustedDevice.js'
 import {
   getEnvLessBridgeConfig,
   type EnvLessBridgeConfig,
@@ -75,6 +78,7 @@ import type {
 import type { PermissionMode } from '../utils/permissions/PermissionMode.js'
 
 const ANTHROPIC_VERSION = '2023-06-01'
+const UNTRUSTED_DEVICE_MESSAGE = 'run /login to enroll this device'
 
 // Telemetry discriminator for ws_connected. 'initial' is the default and
 // never passed to rebuildTransport (which can only be called post-init);
@@ -215,9 +219,19 @@ export async function initEnvLessBridgeCore(
     'fetchRemoteCredentials',
     cfg,
   )
-  if (!credentials) {
-    onStateChange?.('failed', 'Remote credentials fetch failed — see debug log')
-    logBridgeSkip('v2_remote_creds_failed', undefined, true)
+  if (!credentials || isTerminalCredentialsFailure(credentials)) {
+    const failureMessage = credentials
+      ? UNTRUSTED_DEVICE_MESSAGE
+      : 'Remote credentials fetch failed — see debug log'
+    logForDebugging(
+      `[remote-bridge] Creds failed; onStateChange ${onStateChange ? 'set' : 'UNSET'}, msg="${failureMessage}"`,
+    )
+    onStateChange?.('failed', failureMessage)
+    logBridgeSkip(
+      credentials ? 'v2_remote_creds_untrusted_device' : 'v2_remote_creds_failed',
+      undefined,
+      true,
+    )
     void archiveSession(
       sessionId,
       baseUrl,
@@ -370,6 +384,10 @@ export async function initEnvLessBridgeCore(
             cfg,
           )
           if (!fresh || tornDown) return
+          if (isTerminalCredentialsFailure(fresh)) {
+            if (!tornDown) onStateChange?.('failed', UNTRUSTED_DEVICE_MESSAGE)
+            return
+          }
           await rebuildTransport(fresh, 'proactive_refresh')
           logForDebugging(
             '[remote-bridge] Transport rebuilt (proactive refresh)',
@@ -590,6 +608,10 @@ export async function initEnvLessBridgeCore(
         if (!tornDown) {
           onStateChange?.('failed', 'JWT refresh failed after 401')
         }
+        return
+      }
+      if (isTerminalCredentialsFailure(fresh)) {
+        if (!tornDown) onStateChange?.('failed', UNTRUSTED_DEVICE_MESSAGE)
         return
       }
       // If 401 interrupted the initial flush, writeBatch may have silently
@@ -948,7 +970,9 @@ export {
 import {
   createCodeSession,
   fetchRemoteCredentials as fetchRemoteCredentialsRaw,
+  isTerminalCredentialsFailure,
   type RemoteCredentials,
+  type TerminalCredentialsFailure,
 } from './codeSessionApi.js'
 import { getBridgeBaseUrlOverride } from './bridgeConfig.js'
 
@@ -960,7 +984,7 @@ export async function fetchRemoteCredentials(
   baseUrl: string,
   accessToken: string,
   timeoutMs: number,
-): Promise<RemoteCredentials | null> {
+): Promise<RemoteCredentials | TerminalCredentialsFailure | null> {
   const creds = await fetchRemoteCredentialsRaw(
     sessionId,
     baseUrl,
@@ -969,6 +993,11 @@ export async function fetchRemoteCredentials(
     getTrustedDeviceToken(),
   )
   if (!creds) return null
+  // Untrusted device is only terminal while the trusted-device gate is on;
+  // otherwise it's an ordinary failure.
+  if (isTerminalCredentialsFailure(creds)) {
+    return isTrustedDeviceGateEnabled() ? creds : null
+  }
   return getBridgeBaseUrlOverride()
     ? { ...creds, api_base_url: baseUrl }
     : creds

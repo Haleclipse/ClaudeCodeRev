@@ -845,6 +845,9 @@ export async function pollRemoteSessionEvents(
   afterId: string | null = null,
   opts?: { skipMetadata?: boolean },
 ): Promise<PollRemoteSessionResponse> {
+  // Long-running local pollers (ultraplan, remote agent tasks) can outlive
+  // the access token; refresh before reading it.
+  await checkAndRefreshOAuthTokenIfNeeded()
   const accessToken = getClaudeAIOAuthTokens()?.accessToken
   if (!accessToken) {
     throw new Error('No access token for polling')
