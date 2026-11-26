@@ -477,8 +477,8 @@ async function processUserInputBase(
     return addImageMetadataMessage(slashResult, imageMetadataTexts)
   }
 
-  // For slash commands, attachments will be extracted within getMessagesForSlashCommand
-  // (also for block-only input with no trailing text, e.g. a pasted image)
+  // For slash commands, attachments will be extracted within getMessagesForSlashCommand.
+  // Block-only input with no trailing text (e.g. a pasted image) extracts them here.
   const shouldExtractAttachments =
     !skipAttachments &&
     (mode !== 'prompt' || effectiveSkipSlash || !inputString?.startsWith('/'))

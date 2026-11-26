@@ -221,7 +221,7 @@ export function AssistantTextMessage({
       // Rating: hovering the message swaps the dot for ↑ and shows ↓ under
       // it (gated; inferred to share the MESSAGE_ACTIONS flag). Hover needs
       // mouse events, which only the fullscreen renderer delivers.
-      const showRating = feature('MESSAGE_ACTIONS')
+      const ratingVisible = feature('MESSAGE_ACTIONS')
         ? isFullscreenEnvEnabled() &&
           messageUuid !== undefined &&
           rateMessage !== null &&
@@ -233,21 +233,21 @@ export function AssistantTextMessage({
           flexDirection="row"
           justifyContent="space-between"
           marginTop={addMargin ? 1 : 0}
-          minHeight={showRating ? 2 : undefined}
+          minHeight={ratingVisible ? 2 : undefined}
           width="100%"
           backgroundColor={isSelected ? 'messageActionsBackground' : undefined}
           onMouseEnter={
-            showRating
+            ratingVisible
               ? () => setHoveredMessage?.(messageUuid ?? null)
               : undefined
           }
           onMouseLeave={
-            showRating ? () => setHoveredMessage?.(null) : undefined
+            ratingVisible ? () => setHoveredMessage?.(null) : undefined
           }
         >
           <Box flexDirection="row">
             {shouldShowDot &&
-              ((isHovered || rating !== undefined) && showRating ? (
+              ((isHovered || rating !== undefined) && ratingVisible ? (
                 <NoSelect
                   fromLeftEdge
                   minWidth={2}
@@ -277,7 +277,7 @@ export function AssistantTextMessage({
               <Markdown>{text}</Markdown>
             </Box>
           </Box>
-          {(isHovered || rating !== undefined) && showRating && (
+          {(isHovered || rating !== undefined) && ratingVisible && (
             <NoSelect
               fromLeftEdge
               position="absolute"

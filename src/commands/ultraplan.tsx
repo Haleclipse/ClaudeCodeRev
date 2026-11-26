@@ -15,6 +15,7 @@ import {
   type RemoteAgentTaskState,
   registerRemoteAgentTask,
 } from '../tasks/RemoteAgentTask/RemoteAgentTask.js'
+import type { LocalJSXCommandCall } from '../types/command.js'
 import { logForDebugging } from '../utils/debug.js'
 import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
@@ -561,3 +562,55 @@ async function launchDetached(opts: {
     )
   }
 }
+
+const call: LocalJSXCommandCall = async (onDone, context, args) => {
+  const blurb = args.trim()
+
+  // Bare /ultraplan (no args, no seed plan) just shows usage — no dialog.
+  if (!blurb) {
+    const msg = await launchUltraplan({
+      blurb,
+      getAppState: context.getAppState,
+      setAppState: context.setAppState,
+      signal: context.abortController.signal,
+    })
+    onDone(msg, { display: 'system' })
+    return null
+  }
+
+  // Guard matches launchUltraplan's own check — showing the dialog when a
+  // session is already active or launching would waste the user's click and set
+  // hasSeenUltraplanTerms before the launch fails.
+  const { ultraplanSessionUrl: active, ultraplanLaunching } =
+    context.getAppState()
+  if (active || ultraplanLaunching) {
+    logEvent('tengu_ultraplan_create_failed', {
+      reason: (active
+        ? 'already_polling'
+        : 'already_launching') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+    })
+    onDone(buildAlreadyActiveMessage(active), { display: 'system' })
+    return null
+  }
+
+  // Mount the pre-launch dialog via focusedInputDialog (bottom region, like
+  // permission dialogs) rather than returning JSX (transcript area, anchors
+  // at top of scrollback). REPL.tsx handles launch/clear/cancel on choice.
+  context.setAppState(prev => ({ ...prev, ultraplanLaunchPending: { blurb } }))
+  // 'skip' suppresses the (no content) echo — the dialog's choice handler
+  // adds the real /ultraplan echo + launch confirmation.
+  onDone(undefined, { display: 'skip' })
+  return null
+}
+
+export default {
+  type: 'local-jsx',
+  name: 'ultraplan',
+  // Time estimate follows the active prompt variant
+  get description() {
+    return `${getUltraplanPromptCopy().timeEstimate} · Claude Code on the web drafts an advanced plan you can edit and approve. See ${CCR_TERMS_URL}`
+  },
+  argumentHint: '<prompt>',
+  isEnabled: () => "external" === 'ant',
+  load: () => Promise.resolve({ call }),
+} satisfies Command

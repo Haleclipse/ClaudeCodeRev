@@ -1064,7 +1064,10 @@ export function matchingRuleForInput(
  * familiar alias — only where realpath confirms it on this machine — so allow
  * rules written against the alias still match the resolved path.
  */
-const getSystemPathAliases = memoize(function (): Map<string, string> {
+const getSystemPathAliases = memoize(function getSystemPathAliases(): Map<
+  string,
+  string
+> {
   const candidates: Array<[real: string, alias: string]> = [
     ['/private/tmp', '/tmp'],
     ['/private/var', '/var'],
