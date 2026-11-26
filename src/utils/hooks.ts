@@ -2642,6 +2642,16 @@ async function* executeHooks({
           return
         }
 
+        // Exit code 2 is a blocking error regardless of stdout format: a hook
+        // that prints JSON (e.g. a systemMessage) and exits 2 must still block
+        // the tool call. Use stderr as the reason unless the JSON already
+        // produced a blocking decision.
+        if (result.status === 2 && !processed.blockingError) {
+          processed.blockingError = {
+            blockingError: `[${hook.command}]: ${result.stderr || 'No stderr output'}`,
+            command: hook.command,
+          }
+        }
         emitHookResponse({
           hookId,
           hookName,
@@ -2654,7 +2664,9 @@ async function* executeHooks({
         })
         yield {
           ...processed,
-          outcome: 'success' as const,
+          outcome: processed.blockingError
+            ? ('blocking' as const)
+            : ('success' as const),
           hook,
         }
         return

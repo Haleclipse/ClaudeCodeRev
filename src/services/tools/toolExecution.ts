@@ -33,6 +33,7 @@ import {
   type Tool,
   type ToolProgress,
   type ToolProgressData,
+  type Tools,
   type ToolUseContext,
 } from '../../Tool.js'
 import type { BashToolInput } from '../../tools/BashTool/BashTool.js'
@@ -43,6 +44,11 @@ import { FILE_READ_TOOL_NAME } from '../../tools/FileReadTool/prompt.js'
 import { FILE_WRITE_TOOL_NAME } from '../../tools/FileWriteTool/prompt.js'
 import { NOTEBOOK_EDIT_TOOL_NAME } from '../../tools/NotebookEditTool/constants.js'
 import { POWERSHELL_TOOL_NAME } from '../../tools/PowerShellTool/toolName.js'
+import {
+  isReplModeEnabled,
+  REPL_ONLY_TOOLS,
+  REPL_TOOL_NAME,
+} from '../../tools/REPLTool/constants.js'
 import { parseGitCommitId } from '../../tools/shared/gitOperationTracking.js'
 import {
   isDeferredTool,
@@ -123,6 +129,7 @@ import {
   getMcpServerScopeFromToolName,
   isMcpTool,
 } from '../mcp/utils.js'
+import { resyncFileStateAfterPostToolUse } from './postToolUseFileSync.js'
 import {
   resolveHookPermissionDecision,
   runPostToolUseFailureHooks,
@@ -249,6 +256,18 @@ function decisionReasonToOTelSource(
   }
 }
 
+/**
+ * In REPL mode some tools are only callable from inside the REPL tool. When the
+ * model calls one of them directly, point it at the REPL instead of a bare
+ * "No such tool" error. Returns '' when not applicable.
+ */
+export function getReplOnlyToolHint(toolName: string, tools: Tools): string {
+  if (!isReplModeEnabled()) return ''
+  if (!REPL_ONLY_TOOLS.has(toolName)) return ''
+  if (!findToolByName(tools, REPL_TOOL_NAME)) return ''
+  return `. ${toolName} is only available inside ${REPL_TOOL_NAME}. Use ${REPL_TOOL_NAME} with code: await ${toolName}({...}).`
+}
+
 function getNextImagePasteId(messages: Message[]): number {
   let maxId = 0
   for (const message of messages) {
@@ -368,6 +387,10 @@ export async function* runToolUse(
   // Check if the tool exists
   if (!tool) {
     const sanitizedToolName = sanitizeToolNameForAnalytics(toolName)
+    const replHint = getReplOnlyToolHint(
+      toolName,
+      toolUseContext.options.tools,
+    )
     logForDebugging(`Unknown tool ${toolName}: ${toolUse.id}`)
     logEvent('tengu_tool_use_error', {
       error:
@@ -398,12 +421,12 @@ export async function* runToolUse(
         content: [
           {
             type: 'tool_result',
-            content: `<tool_use_error>Error: No such tool available: ${toolName}</tool_use_error>`,
+            content: `<tool_use_error>Error: No such tool available: ${toolName}${replHint}</tool_use_error>`,
             is_error: true,
             tool_use_id: toolUse.id,
           },
         ],
-        toolUseResult: `Error: No such tool available: ${toolName}`,
+        toolUseResult: `Error: No such tool available: ${toolName}${replHint}`,
         sourceToolAssistantUUID: assistantMessage.uuid,
       }),
     }
@@ -1525,6 +1548,7 @@ async function checkPermissionsAndCallTool(
 
     const postToolHookInfos: StopHookInfo[] = []
     const postToolHookStart = Date.now()
+    let postToolHooksRan = false
     for await (const hookResult of runPostToolUseHooks(
       toolUseContext,
       tool,
@@ -1536,6 +1560,7 @@ async function checkPermissionsAndCallTool(
       mcpServerType,
       mcpServerBaseUrl,
     )) {
+      postToolHooksRan = true
       if ('updatedMCPToolOutput' in hookResult) {
         if (isMcpTool(tool)) {
           toolOutput = hookResult.updatedMCPToolOutput
@@ -1575,6 +1600,20 @@ async function checkPermissionsAndCallTool(
       }
     }
     const postToolHookDurationMs = Date.now() - postToolHookStart
+    // A PostToolUse hook may have rewritten the file we just edited (e.g. a
+    // format-on-save formatter) — re-sync readFileState so the next Edit
+    // doesn't fail with a stale-file error.
+    if (postToolHooksRan) {
+      const resyncMessage = resyncFileStateAfterPostToolUse(
+        tool.name,
+        toolUseID,
+        processedInput,
+        toolUseContext.readFileState,
+      )
+      if (resyncMessage) {
+        resultingMessages.push({ message: resyncMessage })
+      }
+    }
     if (postToolHookDurationMs >= SLOW_PHASE_LOG_THRESHOLD_MS) {
       logForDebugging(
         `Slow PostToolUse hooks: ${postToolHookDurationMs}ms for ${tool.name} (${postToolHookInfos.length} hooks)`,
