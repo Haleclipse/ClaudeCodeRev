@@ -5,6 +5,7 @@ import {
   setCachedClaudeMdContent,
 } from './bootstrap/state.js'
 import { getLocalISODate } from './constants/common.js'
+import { formatTodayDateLine } from './constants/dateMarker.js'
 import {
   filterInjectedMemoryFiles,
   getClaudeMds,
@@ -183,7 +184,7 @@ export const getUserContext = memoize(
 
     return {
       ...(claudeMd && { claudeMd }),
-      currentDate: `Today's date is ${getLocalISODate()}.`,
+      currentDate: formatTodayDateLine(getLocalISODate()),
     }
   },
 )
