@@ -251,9 +251,7 @@ function VirtualItem({
       // block hovers across its whole rect.
       hoverIgnoresBlankCells={!expanded}
     >
-      <TextHoverColorContext.Provider
-        value={hovered && !expanded ? 'text' : undefined}
-      >
+      <TextHoverColorContext.Provider value={hovered && !expanded}>
         {renderItem(msg, idx)}
       </TextHoverColorContext.Provider>
     </Box>

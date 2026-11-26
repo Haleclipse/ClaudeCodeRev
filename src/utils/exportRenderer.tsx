@@ -97,6 +97,7 @@ export async function streamRenderedMessages(
             showAllInTranscript={true}
             isLoading={false}
             renderRange={range}
+            disableRenderCap
           />
         </StaticKeybindingProvider>
       </AppStateProvider>,

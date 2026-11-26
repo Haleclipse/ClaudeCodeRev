@@ -737,15 +737,23 @@ export function normalizeMessages(
 export function normalizeMessages(
   messages: (AssistantMessage | UserMessage)[],
 ): (NormalizedAssistantMessage | NormalizedUserMessage)[]
-export function normalizeMessages(messages: Message[]): NormalizedMessage[]
-export function normalizeMessages(messages: Message[]): NormalizedMessage[] {
+export function normalizeMessages(
+  messages: Message[],
+  startNewChain?: boolean,
+): NormalizedMessage[]
+export function normalizeMessages(
+  messages: Message[],
+  startNewChain = false,
+): NormalizedMessage[] {
   // isNewChain tracks whether we need to generate new UUIDs for messages when normalizing.
   // When a message has multiple content blocks, we split it into multiple messages,
   // each with a single content block. When this happens, we need to generate new UUIDs
   // for all subsequent messages to maintain proper ordering and prevent duplicate UUIDs.
   // This flag is set to true once we encounter a message with multiple content blocks,
   // and remains true for all subsequent messages in the normalization process.
-  let isNewChain = false
+  // startNewChain: the input is a tail slice whose earlier (dropped) messages
+  // may already have split, so derive UUIDs from the start.
+  let isNewChain = startNewChain
   return messages.flatMap(message => {
     switch (message.type) {
       case 'assistant': {

@@ -17,7 +17,7 @@ import type {
   NormalizedMessage,
   NormalizedUserMessage,
 } from '../types/message.js'
-import { PERMISSION_MODES } from '../types/permissions.js'
+import { PERMISSION_MODES, type PermissionMode } from '../types/permissions.js'
 import {
   type HookDeferredToolAttachment,
   suppressNextSkillListing,
@@ -486,6 +486,7 @@ export async function loadConversationForResume(
   customTitle?: string
   tag?: string
   mode?: 'coordinator' | 'normal'
+  permissionMode?: PermissionMode
   worktreeSession?: PersistedWorktreeSession | null
   prNumber?: number
   prUrl?: string
@@ -609,6 +610,7 @@ export async function loadConversationForResume(
       customTitle: log?.customTitle,
       tag: log?.tag,
       mode: log?.mode,
+      permissionMode: log?.permissionMode,
       worktreeSession: log?.worktreeSession,
       prNumber: log?.prNumber,
       prUrl: log?.prUrl,

@@ -285,8 +285,11 @@ export default class Output {
     // and since clear is damage-only, the ghost survives diff. Normal-
     // flow clears don't need this — a normal-flow node's old position
     // can't have been painted on top of a sibling's current position.
-    const absoluteClears: Rectangle[] = []
-    for (const operation of this.operations) {
+    // Each clear remembers its operation index: only clears pushed AFTER a
+    // blit can be covering that blit's stale paint (see the blit case).
+    const absoluteClears: { rect: Rectangle; opIndex: number }[] = []
+    for (let i = 0; i < this.operations.length; i++) {
+      const operation = this.operations[i]!
       if (operation.type !== 'clear') continue
       const { x, y, width, height } = operation.region
       const startX = Math.max(0, x)
@@ -301,12 +304,13 @@ export default class Output {
         height: maxY - startY,
       }
       screen.damage = screen.damage ? unionRect(screen.damage, rect) : rect
-      if (operation.fromAbsolute) absoluteClears.push(rect)
+      if (operation.fromAbsolute) absoluteClears.push({ rect, opIndex: i })
     }
 
     const clips: Clip[] = []
 
-    for (const operation of this.operations) {
+    for (let i = 0; i < this.operations.length; i++) {
+      const operation = this.operations[i]!
       switch (operation.type) {
         case 'clear':
           // handled in pass 1
@@ -362,7 +366,12 @@ export default class Output {
           // Absolute nodes overlay normal-flow siblings, so prevScreen in
           // that region holds the absolute node's stale paint — blitting
           // it back would ghost. See absoluteClears collection above.
-          if (absoluteClears.length === 0) {
+          // Only clears issued after this blit count: an earlier clear was
+          // already painted over by the content this blit restores (e.g. a
+          // dialog's header row while its list scrolls), and skipping those
+          // rows left them blank.
+          const laterClears = absoluteClears.filter(c => c.opIndex > i)
+          if (laterClears.length === 0) {
             blitRegion(screen, src, startX, startY, maxX, maxY)
             blitCells += (maxY - startY) * (maxX - startX)
             continue
@@ -371,8 +380,8 @@ export default class Output {
           for (let row = startY; row <= maxY; row++) {
             const excluded =
               row < maxY &&
-              absoluteClears.some(
-                r =>
+              laterClears.some(
+                ({ rect: r }) =>
                   row >= r.y &&
                   row < r.y + r.height &&
                   startX >= r.x &&
@@ -415,7 +424,7 @@ export default class Output {
             if (clipHorizontally) {
               const width = widestLine(text)
 
-              if (x + width <= clip.x1! || x >= clip.x2!) {
+              if (x + width < clip.x1! || x > clip.x2!) {
                 continue
               }
             }
@@ -423,7 +432,7 @@ export default class Output {
             if (clipVertically) {
               const height = lines.length
 
-              if (y + height <= clip.y1! || y >= clip.y2!) {
+              if (y + height < clip.y1! || y > clip.y2!) {
                 continue
               }
             }

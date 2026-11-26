@@ -28,6 +28,7 @@ import type {
   PersistedWorktreeSession,
 } from '../types/logs.js'
 import type { Message } from '../types/message.js'
+import type { PermissionMode } from '../types/permissions.js'
 import { renameRecordingForSession } from './asciicast.js'
 import { clearMemoryFileCaches } from './claudemd.js'
 import {
@@ -42,6 +43,7 @@ import type { FileHistorySnapshot } from './fileHistory.js'
 import { fileHistoryRestoreStateFromLog } from './fileHistory.js'
 import { createSystemMessage } from './messages.js'
 import { parseUserSpecifiedModel } from './model/model.js'
+import { permissionModeFromString } from './permissions/PermissionMode.js'
 import { getPlansDirectory } from './plans.js'
 import { setCwd } from './Shell.js'
 import {
@@ -242,6 +244,36 @@ export function restoreAgentFromSession(
 }
 
 /**
+ * Permission mode to carry over from the resumed session, or undefined to
+ * keep the startup mode. An explicit --permission-mode or
+ * --dangerously-skip-permissions on the command line wins. plan and
+ * bypassPermissions are never restored; auto only while the auto-mode gate
+ * still allows it (and then auto mode is re-activated).
+ */
+function restorePermissionModeFromSession(
+  persistedMode: PermissionMode | undefined,
+  permissionModeCliSet: boolean | undefined,
+): PermissionMode | undefined {
+  if (permissionModeCliSet || !persistedMode) return
+  const mode = permissionModeFromString(persistedMode)
+  // Unknown mode strings parse to 'default' — nothing to restore
+  if (mode === 'default' && persistedMode !== 'default') return
+  if (mode === 'plan' || mode === 'bypassPermissions') return
+  if (mode === 'default') return
+  if (mode === 'auto') {
+    /* eslint-disable @typescript-eslint/no-require-imports */
+    const { isAutoModeGateEnabled } =
+      require('./permissions/permissionSetup.js') as typeof import('./permissions/permissionSetup.js')
+    const { setAutoModeActive } =
+      require('./permissions/autoModeState.js') as typeof import('./permissions/autoModeState.js')
+    /* eslint-enable @typescript-eslint/no-require-imports */
+    if (!isAutoModeGateEnabled()) return
+    setAutoModeActive(true)
+  }
+  return mode
+}
+
+/**
  * Refresh agent definitions after a coordinator/normal mode switch.
  *
  * When resuming a session that was in a different mode (coordinator vs normal),
@@ -308,6 +340,7 @@ type ResumeLoadResult = {
   customTitle?: string
   tag?: string
   mode?: 'coordinator' | 'normal'
+  permissionMode?: PermissionMode
   worktreeSession?: PersistedWorktreeSession | null
   prNumber?: number
   prUrl?: string
@@ -421,6 +454,8 @@ export async function processResumedConversation(
     currentCwd: string
     cliAgents: AgentDefinition[]
     initialState: AppState
+    // --permission-mode / --dangerously-skip-permissions given on the CLI
+    permissionModeCliSet?: boolean
   },
 ): Promise<ProcessedResume> {
   // Match coordinator/normal mode to the resumed session
@@ -516,6 +551,10 @@ export async function processResumedConversation(
   }
 
   // Compute initial state before render (per CLAUDE.md guidelines)
+  const restoredPermissionMode = restorePermissionModeFromSession(
+    result.permissionMode,
+    context.permissionModeCliSet,
+  )
   const restoredAttribution = opts.includeAttribution
     ? computeRestoredAttributionState(result)
     : undefined
@@ -545,6 +584,12 @@ export async function processResumedConversation(
       ...(resumedAgentType && { agent: resumedAgentType }),
       ...(restoredAttribution && { attribution: restoredAttribution }),
       ...(standaloneAgentContext && { standaloneAgentContext }),
+      ...(restoredPermissionMode && {
+        toolPermissionContext: {
+          ...context.initialState.toolPermissionContext,
+          mode: restoredPermissionMode,
+        },
+      }),
       agentDefinitions: refreshedAgentDefs,
     },
   }

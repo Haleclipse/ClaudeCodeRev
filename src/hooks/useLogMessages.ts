@@ -5,6 +5,7 @@ import type { Message } from '../types/message.js'
 import { isAgentSwarmsEnabled } from '../utils/agentSwarmsEnabled.js'
 import {
   cleanMessagesForLogging,
+  collectReplIds,
   isChainParticipant,
   recordTranscript,
 } from '../utils/sessionStorage.js'
@@ -30,6 +31,11 @@ export function useLogMessages(messages: Message[], ignore: boolean = false) {
   // Guard against stale async .then() overwriting a fresher sync update when
   // an incremental render fires before the compaction .then() resolves.
   const callSeqRef = useRef(0)
+  // REPL tool_use ids seen so far, accumulated slice by slice. REPL tool_use
+  // and its tool_result land in separate render cycles, so the transform
+  // needs ids from earlier slices; rescanning the full array each render
+  // would defeat the incremental slicing above.
+  const replIdsRef = useRef(new Set<string>())
 
   useEffect(() => {
     if (ignore) return
@@ -63,6 +69,9 @@ export function useLogMessages(messages: Message[], ignore: boolean = false) {
     // O(n) dedup loop handles messagesToKeep interleaving correctly there.
     const slice = startIndex === 0 ? messages : messages.slice(startIndex)
     const parentHint = isIncremental ? lastParentUuidRef.current : undefined
+    // Full-array pass (first render / compaction / shrink) rebuilds the set.
+    if (startIndex === 0) replIdsRef.current.clear()
+    collectReplIds(slice, replIdsRef.current)
 
     // Fire and forget - we don't want to block the UI.
     const seq = ++callSeqRef.current
@@ -75,7 +84,7 @@ export function useLogMessages(messages: Message[], ignore: boolean = false) {
           }
         : {},
       parentHint,
-      messages,
+      replIdsRef.current,
     ).then(lastRecordedUuid => {
       // For compaction/full array case (!isIncremental): use the async return
       // value. After compaction, messagesToKeep in the array are skipped
@@ -104,10 +113,10 @@ export function useLogMessages(messages: Message[], ignore: boolean = false) {
       // applies both the isLoggableMessage filter and (for external users) the
       // REPL-strip + isVirtual-promote transform. Using the raw predicate here
       // would pick a UUID that the transform drops, leaving the parent hint
-      // pointing at a message that never reached disk. Pass full messages as
-      // replId context — REPL tool_use and its tool_result land in separate
-      // render cycles, so the slice alone can't pair them.
-      const last = cleanMessagesForLogging(slice, messages).findLast(
+      // pointing at a message that never reached disk. Pass the accumulated
+      // replId set as context — REPL tool_use and its tool_result land in
+      // separate render cycles, so the slice alone can't pair them.
+      const last = cleanMessagesForLogging(slice, replIdsRef.current).findLast(
         isChainParticipant,
       )
       if (last) lastParentUuidRef.current = last.uuid as UUID

@@ -5,11 +5,10 @@ import type { Color, Styles } from '../../ink/styles.js'
 import { getTheme, type Theme } from '../../utils/theme.js'
 import { useTheme } from './ThemeProvider.js'
 
-/** Colors uncolored ThemedText in the subtree. Precedence: explicit `color` >
- *  this > dimColor. Crosses Box boundaries (Ink's style cascade doesn't). */
-export const TextHoverColorContext = React.createContext<
-  keyof Theme | undefined
->(undefined)
+/** True while the subtree is hovered: dimColor text renders in its normal
+ *  color instead of the inactive gray. Crosses Box boundaries (Ink's style
+ *  cascade doesn't). */
+export const TextHoverColorContext = React.createContext<boolean>(false)
 
 export type Props = {
   /**
@@ -102,15 +101,12 @@ export default function ThemedText({
 }: Props): React.ReactNode {
   const [themeName] = useTheme()
   const theme = getTheme(themeName)
-  const hoverColor = useContext(TextHoverColorContext)
+  const hovered = useContext(TextHoverColorContext)
 
-  // Resolve theme keys to raw colors
+  // Resolve theme keys to raw colors. Hover lifts the dim instead of forcing
+  // a fixed color, so it stays readable on light themes too.
   const resolvedColor =
-    !color && hoverColor
-      ? resolveColor(hoverColor, theme)
-      : dimColor
-        ? (theme.inactive as Color)
-        : resolveColor(color, theme)
+    dimColor && !hovered ? (theme.inactive as Color) : resolveColor(color, theme)
   const resolvedBackgroundColor = backgroundColor
     ? (theme[backgroundColor] as Color)
     : undefined

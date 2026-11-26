@@ -920,12 +920,10 @@ export function collapseReadSearchGroups(
       // If a group is in progress, defer these messages to output after the collapsed group
       // This preserves the visual ordering where the collapsed badge appears at the position
       // of the first tool use, not displaced by intervening skippable messages.
-      // Exception: nested_memory attachments are pushed through even during a group so
-      // ⎿ Loaded lines cluster tightly instead of being split by the badge's marginTop.
-      if (
-        currentGroup.messages.length > 0 &&
-        !(msg.type === 'attachment' && msg.attachment.type === 'nested_memory')
-      ) {
+      // nested_memory attachments (CLAUDE.md auto-loaded mid tool call) are
+      // deferred too: pushing them through split the group, and fullscreen
+      // scrollback showed the collapsed badge more than once.
+      if (currentGroup.messages.length > 0) {
         deferredSkippable.push(msg)
       } else {
         result.push(msg)

@@ -63,6 +63,7 @@ import type {
   UserMessage,
 } from '../types/message.js'
 import type { QueueOperationMessage } from '../types/messageQueueTypes.js'
+import type { PermissionMode } from '../types/permissions.js'
 import { uniq } from './array.js'
 import { registerCleanup } from './cleanupRegistry.js'
 import {
@@ -91,9 +92,9 @@ import {
   extractLastJsonStringField,
   LITE_READ_BUF_SIZE,
   readHeadAndTail,
-  readTranscriptForLoad,
   SKIP_PRECOMPACT_THRESHOLD,
 } from './sessionStoragePortable.js'
+import { createSignal } from './signal.js'
 import { jsonParse, jsonStringify } from './slowOperations.js'
 import type { ContentReplacementRecord } from './toolResultStorage.js'
 import { validateUuid } from './uuid.js'
@@ -506,6 +507,14 @@ export function setInternalEventWriter(writer: InternalEventWriter): void {
   getProject().setInternalEventWriter(writer)
 }
 
+/**
+ * Unregister the CCR v2 internal event writer (transport torn down).
+ * Subsequent transcript writes fall back to the local file / v1 ingress path.
+ */
+export function clearInternalEventWriter(): void {
+  getProject().clearInternalEventWriter()
+}
+
 type InternalEventReader = () => Promise<
   { payload: Record<string, unknown>; agent_id?: string }[] | null
 >
@@ -542,6 +551,7 @@ class Project {
   currentSessionLastPrompt: string | undefined
   currentSessionAgentSetting: string | undefined
   currentSessionMode: 'coordinator' | 'normal' | undefined
+  currentSessionPermissionMode: PermissionMode | undefined
   // Tri-state: undefined = never touched (don't write), null = exited worktree,
   // object = currently in worktree. reAppendSessionMetadata writes null so
   // --resume knows the session exited (vs. crashed while inside).
@@ -702,7 +712,8 @@ class Project {
    * Called from two contexts with different file-ordering implications:
    * - During compaction (compact.ts, reactiveCompact.ts): writes metadata
    *   just before the boundary marker is emitted - these entries end up
-   *   before the boundary and are recovered by scanPreBoundaryMetadata.
+   *   before the boundary and are still picked up by loadTranscriptFile's
+   *   forward scan (session-scoped metadata survives the boundary reset).
    * - On session exit (cleanup handler): writes metadata at EOF after all
    *   boundaries - this is what enables loadTranscriptFile's pre-compact
    *   skip to find metadata without a forward scan.
@@ -816,6 +827,13 @@ class Project {
       appendEntryToFile(this.sessionFile, {
         type: 'mode',
         mode: this.currentSessionMode,
+        sessionId,
+      })
+    }
+    if (this.currentSessionPermissionMode) {
+      appendEntryToFile(this.sessionFile, {
+        type: 'permission-mode',
+        permissionMode: this.currentSessionPermissionMode,
         sessionId,
       })
     }
@@ -1200,6 +1218,8 @@ class Project {
     } else if (entry.type === 'mode') {
       // Mode entries can always be appended
       void this.enqueueWrite(sessionFile, entry)
+    } else if (entry.type === 'permission-mode') {
+      void this.enqueueWrite(sessionFile, entry)
     } else if (entry.type === 'worktree-state') {
       void this.enqueueWrite(sessionFile, entry)
     } else if (entry.type === 'content-replacement') {
@@ -1365,6 +1385,12 @@ class Project {
     this.FLUSH_INTERVAL_MS = REMOTE_FLUSH_INTERVAL_MS
   }
 
+  clearInternalEventWriter(): void {
+    if (!this.internalEventWriter) return
+    this.internalEventWriter = null
+    logForDebugging('CCR v2 internal event writer cleared')
+  }
+
   setInternalEventReader(reader: InternalEventReader): void {
     this.internalEventReader = reader
     logForDebugging(
@@ -1414,7 +1440,7 @@ export async function recordTranscript(
   messages: Message[],
   teamInfo?: TeamInfo,
   startingParentUuidHint?: UUID,
-  allMessages?: readonly Message[],
+  allMessages?: readonly Message[] | Set<string>,
 ): Promise<UUID | null> {
   const cleanedMessages = cleanMessagesForLogging(messages, allMessages)
   const sessionId = getSessionId() as UUID
@@ -2772,6 +2798,7 @@ export function restoreSessionMetadata(meta: {
   agentColor?: string
   agentSetting?: string
   mode?: 'coordinator' | 'normal'
+  permissionMode?: PermissionMode
   worktreeSession?: PersistedWorktreeSession | null
   prNumber?: number
   prUrl?: string
@@ -2786,6 +2813,8 @@ export function restoreSessionMetadata(meta: {
   if (meta.agentColor) project.currentSessionAgentColor = meta.agentColor
   if (meta.agentSetting) project.currentSessionAgentSetting = meta.agentSetting
   if (meta.mode) project.currentSessionMode = meta.mode
+  if (meta.permissionMode)
+    project.currentSessionPermissionMode = meta.permissionMode
   if (meta.worktreeSession !== undefined)
     project.currentSessionWorktree = meta.worktreeSession
   if (meta.prNumber !== undefined)
@@ -2808,6 +2837,7 @@ export function clearSessionMetadata(): void {
   project.currentSessionLastPrompt = undefined
   project.currentSessionAgentSetting = undefined
   project.currentSessionMode = undefined
+  project.currentSessionPermissionMode = undefined
   project.currentSessionWorktree = undefined
   project.currentSessionPrNumber = undefined
   project.currentSessionPrUrl = undefined
@@ -2872,6 +2902,14 @@ export function saveAgentSetting(agentSetting: string): void {
   getProject().currentSessionAgentSetting = agentSetting
 }
 
+const sessionTitleChanged = createSignal()
+
+/**
+ * Subscribe to changes of the cached session title. The REPL terminal title
+ * reads getCurrentSessionTitle through this (useSyncExternalStore).
+ */
+export const subscribeSessionTitleChanged = sessionTitleChanged.subscribe
+
 /**
  * Cache a session title set at startup (--name). Written to disk by
  * materializeSessionFile on the first user message. Cache-only here so no
@@ -2879,6 +2917,7 @@ export function saveAgentSetting(agentSetting: string): void {
  */
 export function cacheSessionTitle(customTitle: string): void {
   getProject().currentSessionTitle = customTitle
+  sessionTitleChanged.emit()
 }
 
 /**
@@ -2888,6 +2927,15 @@ export function cacheSessionTitle(customTitle: string): void {
  */
 export function saveMode(mode: 'coordinator' | 'normal'): void {
   getProject().currentSessionMode = mode
+}
+
+/**
+ * Cache the session's current permission mode so --resume / --continue can
+ * restore it. Written to disk by materializeSessionFile on the first user
+ * message and re-stamped by reAppendSessionMetadata on exit.
+ */
+export function savePermissionMode(mode: PermissionMode): void {
+  getProject().currentSessionPermissionMode = mode
 }
 
 /**
@@ -2981,6 +3029,7 @@ export async function loadFullLog(log: LogOption): Promise<LogOption> {
       prUrls,
       prRepositories,
       modes,
+      permissionModes,
       worktreeStates,
       fileHistorySnapshots,
       attributionSnapshots,
@@ -3024,6 +3073,9 @@ export async function loadFullLog(log: LogOption): Promise<LogOption> {
       agentColor: sessionId ? agentColors.get(sessionId) : log.agentColor,
       agentSetting: sessionId ? agentSettings.get(sessionId) : log.agentSetting,
       mode: sessionId ? (modes.get(sessionId) as LogOption['mode']) : log.mode,
+      permissionMode: sessionId
+        ? permissionModes.get(sessionId)
+        : log.permissionMode,
       worktreeSession:
         sessionId && worktreeStates.has(sessionId)
           ? worktreeStates.get(sessionId)
@@ -3114,124 +3166,6 @@ export async function searchSessionsByCustomTitle(
   }
 
   return deduplicated
-}
-
-/**
- * Metadata entry types that can appear before a compact boundary but must
- * still be loaded (they're session-scoped, not message-scoped).
- * Kept as raw JSON string markers for cheap line filtering during streaming.
- */
-const METADATA_TYPE_MARKERS = [
-  '"type":"summary"',
-  '"type":"custom-title"',
-  '"type":"tag"',
-  '"type":"agent-name"',
-  '"type":"agent-color"',
-  '"type":"agent-setting"',
-  '"type":"mode"',
-  '"type":"worktree-state"',
-  '"type":"pr-link"',
-]
-const METADATA_MARKER_BUFS = METADATA_TYPE_MARKERS.map(m => Buffer.from(m))
-// Longest marker is 22 bytes; +1 for leading `{` = 23.
-const METADATA_PREFIX_BOUND = 25
-
-// null = carry spans whole chunk. Skips concat when carry provably isn't
-// a metadata line (markers sit at byte 1 after `{`).
-function resolveMetadataBuf(
-  carry: Buffer | null,
-  chunkBuf: Buffer,
-): Buffer | null {
-  if (carry === null || carry.length === 0) return chunkBuf
-  if (carry.length < METADATA_PREFIX_BOUND) {
-    return Buffer.concat([carry, chunkBuf])
-  }
-  if (carry[0] === 0x7b /* { */) {
-    for (const m of METADATA_MARKER_BUFS) {
-      if (carry.compare(m, 0, m.length, 1, 1 + m.length) === 0) {
-        return Buffer.concat([carry, chunkBuf])
-      }
-    }
-  }
-  const firstNl = chunkBuf.indexOf(0x0a)
-  return firstNl === -1 ? null : chunkBuf.subarray(firstNl + 1)
-}
-
-/**
- * Lightweight forward scan of [0, endOffset) collecting only metadata-entry lines.
- * Uses raw Buffer chunks and byte-level marker matching — no readline, no per-line
- * string conversion for the ~99% of lines that are message content.
- *
- * Fast path: if a chunk contains zero markers (the common case — metadata entries
- * are <50 per session), the entire chunk is skipped without line splitting.
- */
-async function scanPreBoundaryMetadata(
-  filePath: string,
-  endOffset: number,
-): Promise<string[]> {
-  const { createReadStream } = await import('fs')
-  const NEWLINE = 0x0a
-
-  const stream = createReadStream(filePath, { end: endOffset - 1 })
-  const metadataLines: string[] = []
-  let carry: Buffer | null = null
-
-  for await (const chunk of stream) {
-    const chunkBuf = chunk as Buffer
-    const buf = resolveMetadataBuf(carry, chunkBuf)
-    if (buf === null) {
-      carry = null
-      continue
-    }
-
-    // Fast path: most chunks contain zero metadata markers. Skip line splitting.
-    let hasAnyMarker = false
-    for (const m of METADATA_MARKER_BUFS) {
-      if (buf.includes(m)) {
-        hasAnyMarker = true
-        break
-      }
-    }
-
-    if (hasAnyMarker) {
-      let lineStart = 0
-      let nl = buf.indexOf(NEWLINE)
-      while (nl !== -1) {
-        // Bounded marker check: only look within this line's byte range
-        for (const m of METADATA_MARKER_BUFS) {
-          const mIdx = buf.indexOf(m, lineStart)
-          if (mIdx !== -1 && mIdx < nl) {
-            metadataLines.push(buf.toString('utf-8', lineStart, nl))
-            break
-          }
-        }
-        lineStart = nl + 1
-        nl = buf.indexOf(NEWLINE, lineStart)
-      }
-      carry = buf.subarray(lineStart)
-    } else {
-      // No markers in this chunk — just preserve the incomplete trailing line
-      const lastNl = buf.lastIndexOf(NEWLINE)
-      carry = lastNl >= 0 ? buf.subarray(lastNl + 1) : buf
-    }
-
-    // Guard against quadratic carry growth for pathological huge lines
-    // (e.g., a 10 MB tool-output line with no newline). Real metadata entries
-    // are <1 KB, so if carry exceeds this we're mid-message-content — drop it.
-    if (carry.length > 64 * 1024) carry = null
-  }
-
-  // Final incomplete line (no trailing newline at endOffset)
-  if (carry !== null && carry.length > 0) {
-    for (const m of METADATA_MARKER_BUFS) {
-      if (carry.includes(m)) {
-        metadataLines.push(carry.toString('utf-8'))
-        break
-      }
-    }
-  }
-
-  return metadataLines
 }
 
 /**
@@ -3477,6 +3411,151 @@ function walkChainBeforeParse(buf: Buffer): Buffer {
 }
 
 /**
+ * Single forward pass over a large transcript in fixed-size chunks, handing
+ * each parsed line to `onEntry` as it goes. Nothing larger than one chunk (or
+ * one oversized line) is ever buffered.
+ *
+ * - Attribution-snapshot lines are never decoded: only the byte range of the
+ *   most recent one is recorded, so the caller can re-read just that line.
+ *   Lines spanning a chunk boundary are classified by reading their prefix
+ *   back from the fd before deciding whether to materialize them.
+ * - A compact_boundary without a preservedSegment calls `onCompactBoundary`
+ *   (the caller resets its message state) before the boundary itself is fed
+ *   to `onEntry`, and forgets any earlier attribution snapshot.
+ */
+function scanTranscriptChunks(
+  filePath: string,
+  size: number,
+  onEntry: (entry: Entry) => void,
+  onCompactBoundary: () => void,
+): { lastAttributionOffset: number; lastAttributionLength: number } {
+  const CHUNK_SIZE = 1024 * 1024
+  const NEWLINE = 0x0a
+  const attrPrefix = Buffer.from('{"type":"attribution-snapshot"')
+  const boundaryMarker = Buffer.from('"compact_boundary"')
+  const chunk = Buffer.allocUnsafe(CHUNK_SIZE)
+  const prefixBuf = Buffer.allocUnsafe(attrPrefix.length)
+  const fd = openSync(filePath, 'r')
+  let lastAttributionOffset = -1
+  let lastAttributionLength = 0
+  // File offset of a line that started in an earlier chunk (-1 = none).
+  let pendingStart = -1
+  let pos = 0
+
+  const handleLine = (
+    buf: Buffer,
+    start: number,
+    length: number,
+    fileOffset: number,
+  ): void => {
+    if (
+      length >= attrPrefix.length &&
+      buf.compare(
+        attrPrefix,
+        0,
+        attrPrefix.length,
+        start,
+        start + attrPrefix.length,
+      ) === 0
+    ) {
+      lastAttributionOffset = fileOffset
+      lastAttributionLength = length
+      return
+    }
+    const text = buf.toString('utf8', start, start + length)
+    if (
+      buf.includes(boundaryMarker, start) &&
+      buf.indexOf(boundaryMarker, start) < start + length
+    ) {
+      const boundary = jsonParse(text)
+      if (
+        boundary?.type === 'system' &&
+        boundary.subtype === 'compact_boundary'
+      ) {
+        if (!boundary.compactMetadata?.preservedSegment) {
+          onCompactBoundary()
+          lastAttributionOffset = -1
+          lastAttributionLength = 0
+        }
+      }
+    }
+    const entry = jsonParse(text)
+    if (entry) onEntry(entry)
+  }
+
+  try {
+    while (pos < size) {
+      const bytesRead = readSync(fd, chunk, 0, CHUNK_SIZE, pos)
+      if (bytesRead === 0) break
+      let lineStart = 0
+      for (let i = 0; i < bytesRead; i++) {
+        if (chunk[i] === NEWLINE) {
+          if (pendingStart >= 0) {
+            // Line started in an earlier chunk: peek its prefix from the fd
+            // so attribution snapshots are still skipped without buffering.
+            const length = pos + i - pendingStart
+            const peek = Math.min(attrPrefix.length, length)
+            readSync(fd, prefixBuf, 0, peek, pendingStart)
+            if (
+              peek === attrPrefix.length &&
+              prefixBuf.compare(
+                attrPrefix,
+                0,
+                attrPrefix.length,
+                0,
+                attrPrefix.length,
+              ) === 0
+            ) {
+              lastAttributionOffset = pendingStart
+              lastAttributionLength = length
+            } else {
+              const lineBuf = Buffer.allocUnsafe(length)
+              readSync(fd, lineBuf, 0, length, pendingStart)
+              handleLine(lineBuf, 0, length, pendingStart)
+            }
+            pendingStart = -1
+          } else if (i > lineStart) {
+            handleLine(chunk, lineStart, i - lineStart, pos + lineStart)
+          }
+          lineStart = i + 1
+        }
+      }
+      if (lineStart < bytesRead && pendingStart < 0) {
+        pendingStart = pos + lineStart
+      }
+      pos += bytesRead
+    }
+    // Final line without a trailing newline.
+    if (pendingStart >= 0) {
+      const length = size - pendingStart
+      const lineBuf = Buffer.allocUnsafe(length)
+      readSync(fd, lineBuf, 0, length, pendingStart)
+      handleLine(lineBuf, 0, length, pendingStart)
+    }
+  } finally {
+    closeSync(fd)
+  }
+  return { lastAttributionOffset, lastAttributionLength }
+}
+
+/** Re-read the single attribution-snapshot line recorded by scanTranscriptChunks. */
+function readAttributionSnapshotAt(
+  filePath: string,
+  offset: number,
+  length: number,
+): AttributionSnapshotMessage | null {
+  if (offset < 0 || length <= 0) return null
+  const fd = openSync(filePath, 'r')
+  try {
+    const buf = Buffer.allocUnsafe(length)
+    readSync(fd, buf, 0, length, offset)
+    return jsonParse(buf.toString('utf8'))
+  } finally {
+    closeSync(fd)
+  }
+}
+
+/**
  * Loads all messages, summaries, and file history snapshots from a transcript file.
  * Returns the messages, summaries, custom titles, tags, file history snapshots, and attribution snapshots.
  */
@@ -3495,6 +3574,7 @@ export async function loadTranscriptFile(
   prUrls: Map<UUID, string>
   prRepositories: Map<UUID, string>
   modes: Map<UUID, string>
+  permissionModes: Map<UUID, PermissionMode>
   worktreeStates: Map<UUID, PersistedWorktreeSession | null>
   fileHistorySnapshots: Map<UUID, FileHistorySnapshotMessage>
   attributionSnapshots: Map<UUID, AttributionSnapshotMessage>
@@ -3515,6 +3595,7 @@ export async function loadTranscriptFile(
   const prUrls = new Map<UUID, string>()
   const prRepositories = new Map<UUID, string>()
   const modes = new Map<UUID, string>()
+  const permissionModes = new Map<UUID, PermissionMode>()
   const worktreeStates = new Map<UUID, PersistedWorktreeSession | null>()
   const fileHistorySnapshots = new Map<UUID, FileHistorySnapshotMessage>()
   const attributionSnapshots = new Map<UUID, AttributionSnapshotMessage>()
@@ -3528,301 +3609,250 @@ export async function loadTranscriptFile(
   // Last-wins — later entries supersede.
   let contextCollapseSnapshot: ContextCollapseSnapshotEntry | undefined
 
+  // Bridge map for legacy progress entries: progress_uuid → progress_parent_uuid.
+  // PR #24099 removed progress from isTranscriptMessage, so old transcripts with
+  // progress in the parentUuid chain would truncate at buildConversationChain
+  // when messages.get(progressUuid) returns undefined. Since transcripts are
+  // append-only (parents before children), we record each progress→parent link
+  // as we see it, chain-resolving through consecutive progress entries, then
+  // rewrite any subsequent message whose parentUuid lands in the bridge.
+  const progressBridge = new Map<UUID, UUID | null>()
+
+  const processEntry = (entry: Entry): void => {
+    // Legacy progress check runs before the Entry-typed else-if chain —
+    // progress is not in the Entry union, so checking it after TypeScript
+    // has narrowed `entry` intersects to `never`.
+    if (isLegacyProgressEntry(entry)) {
+      // Chain-resolve through consecutive progress entries so a later
+      // message pointing at the tail of a progress run bridges to the
+      // nearest non-progress ancestor in one lookup.
+      const parent = entry.parentUuid
+      progressBridge.set(
+        entry.uuid,
+        parent && progressBridge.has(parent)
+          ? (progressBridge.get(parent) ?? null)
+          : parent,
+      )
+      return
+    }
+    if (isTranscriptMessage(entry)) {
+      if (entry.parentUuid && progressBridge.has(entry.parentUuid)) {
+        entry.parentUuid = progressBridge.get(entry.parentUuid) ?? null
+      }
+      messages.set(entry.uuid, entry)
+      // Compact boundary: prior marble-origami-commit entries reference
+      // messages that won't be in the post-boundary chain. Both load paths
+      // stream pre-boundary entries through here, so discard them here.
+      // Without this, getStats().collapsedSpans in /context overcounts
+      // (projectView silently skips the stale commits but they're still in
+      // the log).
+      if (isCompactBoundaryMessage(entry)) {
+        contextCollapseCommits.length = 0
+        contextCollapseSnapshot = undefined
+      }
+    } else if (entry.type === 'summary' && entry.leafUuid) {
+      summaries.set(entry.leafUuid, entry.summary)
+    } else if (entry.type === 'custom-title' && entry.sessionId) {
+      customTitles.set(entry.sessionId, entry.customTitle)
+    } else if (entry.type === 'tag' && entry.sessionId) {
+      tags.set(entry.sessionId, entry.tag)
+    } else if (entry.type === 'agent-name' && entry.sessionId) {
+      agentNames.set(entry.sessionId, entry.agentName)
+    } else if (entry.type === 'agent-color' && entry.sessionId) {
+      agentColors.set(entry.sessionId, entry.agentColor)
+    } else if (entry.type === 'agent-setting' && entry.sessionId) {
+      agentSettings.set(entry.sessionId, entry.agentSetting)
+    } else if (entry.type === 'mode' && entry.sessionId) {
+      modes.set(entry.sessionId, entry.mode)
+    } else if (entry.type === 'permission-mode' && entry.sessionId) {
+      permissionModes.set(entry.sessionId, entry.permissionMode)
+    } else if (entry.type === 'worktree-state' && entry.sessionId) {
+      worktreeStates.set(entry.sessionId, entry.worktreeSession)
+    } else if (entry.type === 'pr-link' && entry.sessionId) {
+      prNumbers.set(entry.sessionId, entry.prNumber)
+      prUrls.set(entry.sessionId, entry.prUrl)
+      prRepositories.set(entry.sessionId, entry.prRepository)
+    } else if (entry.type === 'file-history-snapshot') {
+      fileHistorySnapshots.set(entry.messageId, entry)
+    } else if (entry.type === 'attribution-snapshot') {
+      attributionSnapshots.set(entry.messageId, entry)
+    } else if (entry.type === 'content-replacement') {
+      // Subagent decisions key by agentId (sidechain resume); main-thread
+      // decisions key by sessionId (/resume).
+      if (entry.agentId) {
+        const existing = agentContentReplacements.get(entry.agentId) ?? []
+        agentContentReplacements.set(entry.agentId, existing)
+        existing.push(...entry.replacements)
+      } else {
+        const existing = contentReplacements.get(entry.sessionId) ?? []
+        contentReplacements.set(entry.sessionId, existing)
+        existing.push(...entry.replacements)
+      }
+    } else if (entry.type === 'marble-origami-commit') {
+      contextCollapseCommits.push(entry)
+    } else if (entry.type === 'marble-origami-snapshot') {
+      contextCollapseSnapshot = entry
+    }
+  }
+
   try {
     // For large transcripts, avoid materializing megabytes of stale content.
-    // Single forward chunked read: attribution-snapshot lines are skipped at
-    // the fd level (never buffered), compact boundaries truncate the
-    // accumulator in-stream. Peak allocation is the OUTPUT size, not the
-    // file size — a 151 MB session that is 84% stale attr-snaps allocates
-    // ~32 MB instead of 159+64 MB. This matters because mimalloc does not
-    // return those pages to the OS even after JS-level GC frees the backing
-    // buffers (measured: arrayBuffers=0 after Bun.gc(true) but RSS stuck at
-    // ~316 MB on the old scan+strip path vs ~155 MB here).
-    //
-    // Pre-boundary metadata (agent-setting, mode, pr-link, etc.) is recovered
-    // via a cheap byte-level forward scan of [0, boundary).
-    let buf: Buffer | null = null
-    let metadataLines: string[] | null = null
-    let hasPreservedSegment = false
+    // Single forward chunked read (scanTranscriptChunks): each line is parsed
+    // and handed to processEntry as it streams past, so peak allocation is
+    // one chunk plus the live state rather than the whole file. Attribution
+    // snapshots are skipped at the fd level (only the last one's byte range is
+    // remembered and re-read afterwards), and a non-preserved compact
+    // boundary drops the message state accumulated before it. Session-scoped
+    // metadata maps (agent-setting, mode, pr-link, etc.) are never reset, so
+    // entries written before a boundary still populate them.
     if (!isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP)) {
       const { size } = await stat(filePath)
       if (size > SKIP_PRECOMPACT_THRESHOLD) {
-        const scan = await readTranscriptForLoad(filePath, size)
-        buf = scan.postBoundaryBuf
-        hasPreservedSegment = scan.hasPreservedSegment
-        // >0 means we truncated pre-boundary bytes and must recover
-        // session-scoped metadata from that range. A preservedSegment
-        // boundary does not truncate (preserved messages are physically
-        // pre-boundary), so offset stays 0 unless an EARLIER non-preserved
-        // boundary already truncated — in which case the preserved messages
-        // for the later boundary are post-that-earlier-boundary and were
-        // kept, and we still want the metadata scan.
-        if (scan.boundaryStartOffset > 0) {
-          metadataLines = await scanPreBoundaryMetadata(
-            filePath,
-            scan.boundaryStartOffset,
-          )
+        const scan = scanTranscriptChunks(filePath, size, processEntry, () => {
+          messages.clear()
+          fileHistorySnapshots.clear()
+          progressBridge.clear()
+        })
+        const lastAttribution = readAttributionSnapshotAt(
+          filePath,
+          scan.lastAttributionOffset,
+          scan.lastAttributionLength,
+        )
+        if (lastAttribution) {
+          attributionSnapshots.set(lastAttribution.messageId, lastAttribution)
         }
+        applyPreservedSegmentRelinks(messages)
+        applySnipRemovals(messages)
+        return computeLeavesAndResult()
       }
     }
-    buf ??= await readFile(filePath)
-    // For large buffers (which here means readTranscriptForLoad output with
-    // attr-snaps already stripped at the fd level — the <5MB readFile path
-    // falls through the size gate below), the dominant cost is parsing dead
-    // fork branches that buildConversationChain would discard anyway. Skip
-    // when the caller needs all
-    // leaves (loadAllLogsFromSessionFile for /insights picks the branch with
-    // most user messages, not the latest), when the boundary has a
-    // preservedSegment (those messages keep their pre-compact parentUuid on
-    // disk -- applyPreservedSegmentRelinks splices them in-memory AFTER
-    // parse, so a pre-parse chain walk would drop them as orphans), and when
-    // CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP is set (that kill switch means
-    // "load everything, skip nothing"; this is another skip-before-parse
-    // optimization and the scan it depends on for hasPreservedSegment did
-    // not run).
-    if (
-      !opts?.keepAllLeaves &&
-      !hasPreservedSegment &&
-      !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_PRECOMPACT_SKIP) &&
-      buf.length > SKIP_PRECOMPACT_THRESHOLD
-    ) {
+    let buf: Buffer = await readFile(filePath)
+    // For large buffers the dominant cost is parsing dead fork branches that
+    // buildConversationChain would discard anyway. Skip when the caller needs
+    // all leaves (loadAllLogsFromSessionFile for /insights picks the branch
+    // with most user messages, not the latest).
+    if (!opts?.keepAllLeaves && buf.length > SKIP_PRECOMPACT_THRESHOLD) {
       buf = walkChainBeforeParse(buf)
     }
-
-    // First pass: process metadata-only lines collected during the boundary scan.
-    // These populate the session-scoped maps (agentSettings, modes, prNumbers,
-    // etc.) for entries written before the compact boundary. Any overlap with
-    // the post-boundary buffer is harmless — later values overwrite earlier ones.
-    if (metadataLines && metadataLines.length > 0) {
-      const metaEntries = parseJSONL<Entry>(
-        Buffer.from(metadataLines.join('\n')),
-      )
-      for (const entry of metaEntries) {
-        if (entry.type === 'summary' && entry.leafUuid) {
-          summaries.set(entry.leafUuid, entry.summary)
-        } else if (entry.type === 'custom-title' && entry.sessionId) {
-          customTitles.set(entry.sessionId, entry.customTitle)
-        } else if (entry.type === 'tag' && entry.sessionId) {
-          tags.set(entry.sessionId, entry.tag)
-        } else if (entry.type === 'agent-name' && entry.sessionId) {
-          agentNames.set(entry.sessionId, entry.agentName)
-        } else if (entry.type === 'agent-color' && entry.sessionId) {
-          agentColors.set(entry.sessionId, entry.agentColor)
-        } else if (entry.type === 'agent-setting' && entry.sessionId) {
-          agentSettings.set(entry.sessionId, entry.agentSetting)
-        } else if (entry.type === 'mode' && entry.sessionId) {
-          modes.set(entry.sessionId, entry.mode)
-        } else if (entry.type === 'worktree-state' && entry.sessionId) {
-          worktreeStates.set(entry.sessionId, entry.worktreeSession)
-        } else if (entry.type === 'pr-link' && entry.sessionId) {
-          prNumbers.set(entry.sessionId, entry.prNumber)
-          prUrls.set(entry.sessionId, entry.prUrl)
-          prRepositories.set(entry.sessionId, entry.prRepository)
-        }
-      }
-    }
-
-    const entries = parseJSONL<Entry>(buf)
-
-    // Bridge map for legacy progress entries: progress_uuid → progress_parent_uuid.
-    // PR #24099 removed progress from isTranscriptMessage, so old transcripts with
-    // progress in the parentUuid chain would truncate at buildConversationChain
-    // when messages.get(progressUuid) returns undefined. Since transcripts are
-    // append-only (parents before children), we record each progress→parent link
-    // as we see it, chain-resolving through consecutive progress entries, then
-    // rewrite any subsequent message whose parentUuid lands in the bridge.
-    const progressBridge = new Map<UUID, UUID | null>()
-
-    for (const entry of entries) {
-      // Legacy progress check runs before the Entry-typed else-if chain —
-      // progress is not in the Entry union, so checking it after TypeScript
-      // has narrowed `entry` intersects to `never`.
-      if (isLegacyProgressEntry(entry)) {
-        // Chain-resolve through consecutive progress entries so a later
-        // message pointing at the tail of a progress run bridges to the
-        // nearest non-progress ancestor in one lookup.
-        const parent = entry.parentUuid
-        progressBridge.set(
-          entry.uuid,
-          parent && progressBridge.has(parent)
-            ? (progressBridge.get(parent) ?? null)
-            : parent,
-        )
-        continue
-      }
-      if (isTranscriptMessage(entry)) {
-        if (entry.parentUuid && progressBridge.has(entry.parentUuid)) {
-          entry.parentUuid = progressBridge.get(entry.parentUuid) ?? null
-        }
-        messages.set(entry.uuid, entry)
-        // Compact boundary: prior marble-origami-commit entries reference
-        // messages that won't be in the post-boundary chain. The >5MB
-        // backward-scan path discards them naturally by never reading the
-        // pre-boundary bytes; the <5MB path reads everything, so discard
-        // here. Without this, getStats().collapsedSpans in /context
-        // overcounts (projectView silently skips the stale commits but
-        // they're still in the log).
-        if (isCompactBoundaryMessage(entry)) {
-          contextCollapseCommits.length = 0
-          contextCollapseSnapshot = undefined
-        }
-      } else if (entry.type === 'summary' && entry.leafUuid) {
-        summaries.set(entry.leafUuid, entry.summary)
-      } else if (entry.type === 'custom-title' && entry.sessionId) {
-        customTitles.set(entry.sessionId, entry.customTitle)
-      } else if (entry.type === 'tag' && entry.sessionId) {
-        tags.set(entry.sessionId, entry.tag)
-      } else if (entry.type === 'agent-name' && entry.sessionId) {
-        agentNames.set(entry.sessionId, entry.agentName)
-      } else if (entry.type === 'agent-color' && entry.sessionId) {
-        agentColors.set(entry.sessionId, entry.agentColor)
-      } else if (entry.type === 'agent-setting' && entry.sessionId) {
-        agentSettings.set(entry.sessionId, entry.agentSetting)
-      } else if (entry.type === 'mode' && entry.sessionId) {
-        modes.set(entry.sessionId, entry.mode)
-      } else if (entry.type === 'worktree-state' && entry.sessionId) {
-        worktreeStates.set(entry.sessionId, entry.worktreeSession)
-      } else if (entry.type === 'pr-link' && entry.sessionId) {
-        prNumbers.set(entry.sessionId, entry.prNumber)
-        prUrls.set(entry.sessionId, entry.prUrl)
-        prRepositories.set(entry.sessionId, entry.prRepository)
-      } else if (entry.type === 'file-history-snapshot') {
-        fileHistorySnapshots.set(entry.messageId, entry)
-      } else if (entry.type === 'attribution-snapshot') {
-        attributionSnapshots.set(entry.messageId, entry)
-      } else if (entry.type === 'content-replacement') {
-        // Subagent decisions key by agentId (sidechain resume); main-thread
-        // decisions key by sessionId (/resume).
-        if (entry.agentId) {
-          const existing = agentContentReplacements.get(entry.agentId) ?? []
-          agentContentReplacements.set(entry.agentId, existing)
-          existing.push(...entry.replacements)
-        } else {
-          const existing = contentReplacements.get(entry.sessionId) ?? []
-          contentReplacements.set(entry.sessionId, existing)
-          existing.push(...entry.replacements)
-        }
-      } else if (entry.type === 'marble-origami-commit') {
-        contextCollapseCommits.push(entry)
-      } else if (entry.type === 'marble-origami-snapshot') {
-        contextCollapseSnapshot = entry
-      }
-    }
+    for (const entry of parseJSONL<Entry>(buf)) processEntry(entry)
   } catch {
     // File doesn't exist or can't be read
   }
 
   applyPreservedSegmentRelinks(messages)
   applySnipRemovals(messages)
+  return computeLeavesAndResult()
 
-  // Compute leaf UUIDs once at load time
-  // Only user/assistant messages should be considered as leaves for anchoring resume.
-  // Other message types (system, attachment) are metadata or auxiliary and shouldn't
-  // anchor a conversation chain.
-  //
-  // We use standard parent relationship for main chain detection, but also need to
-  // handle cases where the last message is a system/metadata message.
-  // For each conversation chain (identified by following parent links), the leaf
-  // is the most recent user/assistant message.
-  const allMessages = [...messages.values()]
+  function computeLeavesAndResult() {
+    // Compute leaf UUIDs once at load time
+    // Only user/assistant messages should be considered as leaves for anchoring resume.
+    // Other message types (system, attachment) are metadata or auxiliary and shouldn't
+    // anchor a conversation chain.
+    //
+    // We use standard parent relationship for main chain detection, but also need to
+    // handle cases where the last message is a system/metadata message.
+    // For each conversation chain (identified by following parent links), the leaf
+    // is the most recent user/assistant message.
+    const allMessages = [...messages.values()]
 
-  // Standard leaf computation using parent relationships
-  const parentUuids = new Set(
-    allMessages
-      .map(msg => msg.parentUuid)
-      .filter((uuid): uuid is UUID => uuid !== null),
-  )
+    // Standard leaf computation using parent relationships
+    const parentUuids = new Set(
+      allMessages
+        .map(msg => msg.parentUuid)
+        .filter((uuid): uuid is UUID => uuid !== null),
+    )
 
-  // Find all terminal messages (messages with no children)
-  const terminalMessages = allMessages.filter(msg => !parentUuids.has(msg.uuid))
+    // Find all terminal messages (messages with no children)
+    const terminalMessages = allMessages.filter(msg => !parentUuids.has(msg.uuid))
 
-  const leafUuids = new Set<UUID>()
-  let hasCycle = false
+    const leafUuids = new Set<UUID>()
+    let hasCycle = false
 
-  if (getFeatureValue_CACHED_MAY_BE_STALE('tengu_pebble_leaf_prune', false)) {
-    // Build a set of UUIDs that have user/assistant children
-    // (these are mid-conversation nodes, not dead ends)
-    const hasUserAssistantChild = new Set<UUID>()
-    for (const msg of allMessages) {
-      if (msg.parentUuid && (msg.type === 'user' || msg.type === 'assistant')) {
-        hasUserAssistantChild.add(msg.parentUuid)
-      }
-    }
-
-    // For each terminal message, walk back to find the nearest user/assistant ancestor.
-    // Skip ancestors that already have user/assistant children - those are mid-conversation
-    // nodes where the conversation continued (e.g., an assistant tool_use message whose
-    // progress child is terminal, but whose tool_result child continues the conversation).
-    for (const terminal of terminalMessages) {
-      const seen = new Set<UUID>()
-      let current: TranscriptMessage | undefined = terminal
-      while (current) {
-        if (seen.has(current.uuid)) {
-          hasCycle = true
-          break
+    if (getFeatureValue_CACHED_MAY_BE_STALE('tengu_pebble_leaf_prune', false)) {
+      // Build a set of UUIDs that have user/assistant children
+      // (these are mid-conversation nodes, not dead ends)
+      const hasUserAssistantChild = new Set<UUID>()
+      for (const msg of allMessages) {
+        if (msg.parentUuid && (msg.type === 'user' || msg.type === 'assistant')) {
+          hasUserAssistantChild.add(msg.parentUuid)
         }
-        seen.add(current.uuid)
-        if (current.type === 'user' || current.type === 'assistant') {
-          if (!hasUserAssistantChild.has(current.uuid)) {
-            leafUuids.add(current.uuid)
+      }
+
+      // For each terminal message, walk back to find the nearest user/assistant ancestor.
+      // Skip ancestors that already have user/assistant children - those are mid-conversation
+      // nodes where the conversation continued (e.g., an assistant tool_use message whose
+      // progress child is terminal, but whose tool_result child continues the conversation).
+      for (const terminal of terminalMessages) {
+        const seen = new Set<UUID>()
+        let current: TranscriptMessage | undefined = terminal
+        while (current) {
+          if (seen.has(current.uuid)) {
+            hasCycle = true
+            break
           }
-          break
+          seen.add(current.uuid)
+          if (current.type === 'user' || current.type === 'assistant') {
+            if (!hasUserAssistantChild.has(current.uuid)) {
+              leafUuids.add(current.uuid)
+            }
+            break
+          }
+          current = current.parentUuid
+            ? messages.get(current.parentUuid)
+            : undefined
         }
-        current = current.parentUuid
-          ? messages.get(current.parentUuid)
-          : undefined
+      }
+    } else {
+      // Original leaf computation: walk back from terminal messages to find
+      // the nearest user/assistant ancestor unconditionally
+      for (const terminal of terminalMessages) {
+        const seen = new Set<UUID>()
+        let current: TranscriptMessage | undefined = terminal
+        while (current) {
+          if (seen.has(current.uuid)) {
+            hasCycle = true
+            break
+          }
+          seen.add(current.uuid)
+          if (current.type === 'user' || current.type === 'assistant') {
+            leafUuids.add(current.uuid)
+            break
+          }
+          current = current.parentUuid
+            ? messages.get(current.parentUuid)
+            : undefined
+        }
       }
     }
-  } else {
-    // Original leaf computation: walk back from terminal messages to find
-    // the nearest user/assistant ancestor unconditionally
-    for (const terminal of terminalMessages) {
-      const seen = new Set<UUID>()
-      let current: TranscriptMessage | undefined = terminal
-      while (current) {
-        if (seen.has(current.uuid)) {
-          hasCycle = true
-          break
-        }
-        seen.add(current.uuid)
-        if (current.type === 'user' || current.type === 'assistant') {
-          leafUuids.add(current.uuid)
-          break
-        }
-        current = current.parentUuid
-          ? messages.get(current.parentUuid)
-          : undefined
-      }
+
+    if (hasCycle) {
+      logEvent('tengu_transcript_parent_cycle', {})
     }
-  }
 
-  if (hasCycle) {
-    logEvent('tengu_transcript_parent_cycle', {})
-  }
-
-  return {
-    messages,
-    summaries,
-    customTitles,
-    tags,
-    agentNames,
-    agentColors,
-    agentSettings,
-    prNumbers,
-    prUrls,
-    prRepositories,
-    modes,
-    worktreeStates,
-    fileHistorySnapshots,
-    attributionSnapshots,
-    contentReplacements,
-    agentContentReplacements,
-    contextCollapseCommits,
-    contextCollapseSnapshot,
-    leafUuids,
+    return {
+      messages,
+      summaries,
+      customTitles,
+      tags,
+      agentNames,
+      agentColors,
+      agentSettings,
+      prNumbers,
+      prUrls,
+      prRepositories,
+      modes,
+      permissionModes,
+      worktreeStates,
+      fileHistorySnapshots,
+      attributionSnapshots,
+      contentReplacements,
+      agentContentReplacements,
+      contextCollapseCommits,
+      contextCollapseSnapshot,
+      leafUuids,
+    }
   }
 }
-
 /**
  * Loads all messages, summaries, file history snapshots, and attribution snapshots from a specific session file.
  */
@@ -4043,12 +4073,12 @@ export async function loadAllProjectsMessageLogsProgressive(
     .filter(dirent => dirent.isDirectory())
     .map(dirent => join(projectsDir, dirent.name))
 
-  const rawLogs: LogOption[] = []
-  for (const projectDir of projectDirs) {
-    rawLogs.push(...(await getSessionFilesLite(projectDir, limit)))
-  }
+  // Stat all project dirs in parallel
+  const rawLogs = await Promise.all(
+    projectDirs.map(projectDir => getSessionFilesLite(projectDir, limit)),
+  )
   // Deduplicate — same session can appear in multiple project dirs
-  const sorted = deduplicateLogsBySessionId(rawLogs)
+  const sorted = deduplicateLogsBySessionId(rawLogs.flat())
 
   const { logs, nextIndex } = await enrichLogs(sorted, 0, initialEnrichCount)
 
@@ -4151,7 +4181,6 @@ async function getStatOnlyLogsForWorktrees(
   })
   indexed.sort((a, b) => b.prefix.length - a.prefix.length)
 
-  const allLogs: LogOption[] = []
   const seenDirs = new Set<string>()
 
   let allDirents: Dirent[]
@@ -4166,6 +4195,8 @@ async function getStatOnlyLogsForWorktrees(
     return getSessionFilesLite(projectDir, limit, getOriginalCwd())
   }
 
+  // Match dirs first, then stat them in parallel
+  const matched: { projectDir: string; wtPath: string }[] = []
   for (const dirent of allDirents) {
     if (!dirent.isDirectory()) continue
     const dirName = caseInsensitive ? dirent.name.toLowerCase() : dirent.name
@@ -4174,21 +4205,21 @@ async function getStatOnlyLogsForWorktrees(
     for (const { path: wtPath, prefix } of indexed) {
       if (dirName === prefix || dirName.startsWith(prefix + '-')) {
         seenDirs.add(dirName)
-        allLogs.push(
-          ...(await getSessionFilesLite(
-            join(projectsDir, dirent.name),
-            undefined,
-            wtPath,
-          )),
-        )
+        matched.push({ projectDir: join(projectsDir, dirent.name), wtPath })
         break
       }
     }
   }
 
+  const allLogs = await Promise.all(
+    matched.map(({ projectDir, wtPath }) =>
+      getSessionFilesLite(projectDir, undefined, wtPath),
+    ),
+  )
+
   // Deduplicate by sessionId — the same session can appear in multiple
   // worktree project dirs. Keep the entry with the newest modified time.
-  return deduplicateLogsBySessionId(allLogs)
+  return deduplicateLogsBySessionId(allLogs.flat())
 }
 
 /**
@@ -4393,8 +4424,15 @@ export function isLoggableMessage(m: Message): boolean {
   return true
 }
 
-function collectReplIds(messages: readonly Message[]): Set<string> {
-  const ids = new Set<string>()
+/**
+ * Collect REPL tool_use ids from `messages` into `ids`. Pass a persistent Set
+ * to accumulate incrementally (useLogMessages) instead of rescanning the full
+ * session array on every render.
+ */
+export function collectReplIds(
+  messages: readonly Message[],
+  ids: Set<string> = new Set<string>(),
+): Set<string> {
   for (const m of messages) {
     if (m.type === 'assistant' && Array.isArray(m.message.content)) {
       for (const b of m.message.content) {
@@ -4476,15 +4514,14 @@ function transformMessagesForExternalTranscript(
 
 export function cleanMessagesForLogging(
   messages: Message[],
-  allMessages: readonly Message[] = messages,
+  allMessages: readonly Message[] | Set<string> = messages,
 ): Transcript {
   const filtered = messages.filter(isLoggableMessage) as Transcript
-  return getUserType() !== 'ant'
-    ? transformMessagesForExternalTranscript(
-        filtered,
-        collectReplIds(allMessages),
-      )
-    : filtered
+  if (getUserType() === 'ant') return filtered
+  // A Set is a pre-collected REPL id set (see collectReplIds)
+  const replIds =
+    allMessages instanceof Set ? allMessages : collectReplIds(allMessages)
+  return transformMessagesForExternalTranscript(filtered, replIds)
 }
 
 /**
@@ -4662,10 +4699,12 @@ type LiteMetadata = {
   projectPath?: string
   teamName?: string
   sessionKind?: SessionKind
+  isLoopSession?: boolean
   customTitle?: string
   summary?: string
   tag?: string
   agentSetting?: string
+  entrypoint?: string
   prNumber?: number
   prUrl?: string
   prRepository?: string
@@ -4691,6 +4730,7 @@ export async function loadAllLogsFromSessionFile(
     prUrls,
     prRepositories,
     modes,
+    permissionModes,
     fileHistorySnapshots,
     attributionSnapshots,
     contentReplacements,
@@ -4753,6 +4793,7 @@ export async function loadAllLogsFromSessionFile(
       agentColor: agentColors.get(sessionId),
       agentSetting: agentSettings.get(sessionId),
       mode: modes.get(sessionId) as LogOption['mode'],
+      permissionMode: permissionModes.get(sessionId),
       prNumber: prNumbers.get(sessionId),
       prUrl: prUrls.get(sessionId),
       prRepository: prRepositories.get(sessionId),
@@ -4839,6 +4880,9 @@ async function readLiteMetadata(
       ? rawSessionKind
       : undefined
   const agentSetting = extractJsonStringField(head, 'agentSetting')
+  const entrypoint = extractJsonStringField(head, 'entrypoint')
+  // Sessions started via /loop are hidden from /resume (see enrichLog)
+  const isLoopSession = head.includes('<command-name>/loop</command-name>')
 
   // Prefer the last-prompt tail entry — captured by extractFirstPrompt at
   // write time (filtered, authoritative) and shows what the user was most
@@ -4891,10 +4935,12 @@ async function readLiteMetadata(
     projectPath,
     teamName,
     sessionKind,
+    isLoopSession,
     customTitle,
     summary,
     tag,
     agentSetting,
+    entrypoint,
     prNumber,
     prUrl,
     prRepository,
@@ -5142,7 +5188,7 @@ async function enrichLog(
   if (!enriched.firstPrompt && !enriched.customTitle) {
     enriched.firstPrompt = '(session)'
   }
-  // Filter: skip sidechains, agent sessions and bg/daemon sessions
+  // Filter: skip sidechains, agent sessions, bg/daemon, SDK and /loop sessions
   if (enriched.isSidechain) {
     logForDebugging(
       `Session ${log.sessionId} filtered from /resume: isSidechain=true`,
@@ -5158,6 +5204,22 @@ async function enrichLog(
   if (enriched.sessionKind) {
     logForDebugging(
       `Session ${log.sessionId} filtered from /resume: sessionKind=${enriched.sessionKind}`,
+    )
+    return null
+  }
+  if (
+    meta.entrypoint === 'sdk-cli' ||
+    meta.entrypoint === 'sdk-ts' ||
+    meta.entrypoint === 'sdk-py'
+  ) {
+    logForDebugging(
+      `Session ${log.sessionId} filtered from /resume: entrypoint=${meta.entrypoint}`,
+    )
+    return null
+  }
+  if (meta.isLoopSession) {
+    logForDebugging(
+      `Session ${log.sessionId} filtered from /resume: /loop session`,
     )
     return null
   }

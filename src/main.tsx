@@ -4280,6 +4280,8 @@ async function run(): Promise<CommanderCommand> {
         currentCwd,
         cliAgents,
         initialState,
+        permissionModeCliSet:
+          permissionModeCli !== undefined || Boolean(dangerouslySkipPermissions),
       }
 
       if (options.continue) {

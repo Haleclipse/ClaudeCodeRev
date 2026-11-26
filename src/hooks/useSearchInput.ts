@@ -150,7 +150,8 @@ export function useSearchInput({
     }
     if (e.key === 'down') {
       e.preventDefault()
-      onExit()
+      // Multiline queries keep ↓ for moving between lines
+      if (!multiline) onExit()
       return
     }
     if (e.key === 'up') {

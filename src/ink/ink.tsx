@@ -1445,7 +1445,9 @@ export default class Ink {
   }
 
   private notifySelectionChange(): void {
-    this.onRender()
+    // Throttled like any other render request — drag-selecting fires this on
+    // every mouse move.
+    this.scheduleRender()
     for (const cb of this.selectionListeners) cb()
   }
 

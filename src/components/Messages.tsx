@@ -439,10 +439,33 @@ const MessagesImpl = ({
     'Ctrl+E',
   )
 
-  const normalizedMessages = useMemo(
-    () => normalizeMessages(messages).filter(isNotEmptyMessage),
-    [messages],
+  // Hoisted to mount-time — this component re-renders on every scroll.
+  const disableVirtualScroll = useMemo(
+    () => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_VIRTUAL_SCROLL),
+    [],
   )
+  // Virtual scroll replaces the transcript cap: everything is scrollable and
+  // memory is bounded by the mounted-item count, not the total. scrollRef is
+  // only passed when isFullscreenEnvEnabled() is true (REPL.tsx gates it),
+  // so scrollRef's presence is the signal.
+  const virtualScrollRuntimeGate = scrollRef != null && !disableVirtualScroll
+  const renderCap = getMaxMessagesWithoutVirtualization(rows)
+  // Non-virtualized path: only the tail can ever be rendered (see
+  // computeSliceStart), so pre-trim to twice the render cap before
+  // normalizing and the O(n) passes below. The 2× margin leaves room for the
+  // anchor slice and for messages that grouping/collapsing merge away.
+  const preCapWindow =
+    !virtualScrollRuntimeGate &&
+    !disableRenderCap &&
+    messages.length > renderCap * 2
+      ? renderCap * 2
+      : 0
+
+  const normalizedMessages = useMemo(() => {
+    const capped = preCapWindow > 0
+    const window = capped ? messages.slice(-preCapWindow) : messages
+    return normalizeMessages(window, capped).filter(isNotEmptyMessage)
+  }, [messages, preCapWindow])
 
   // Check if streaming thinking should be visible (streaming or within 30s timeout)
   const isStreamingThinkingVisible = useMemo(() => {
@@ -546,19 +569,8 @@ const MessagesImpl = ({
   )
 
   const isTranscriptMode = screen === 'transcript'
-  // Hoisted to mount-time — this component re-renders on every scroll.
-  const disableVirtualScroll = useMemo(
-    () => isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_VIRTUAL_SCROLL),
-    [],
-  )
-  // Virtual scroll replaces the transcript cap: everything is scrollable and
-  // memory is bounded by the mounted-item count, not the total. scrollRef is
-  // only passed when isFullscreenEnvEnabled() is true (REPL.tsx gates it),
-  // so scrollRef's presence is the signal.
-  const virtualScrollRuntimeGate = scrollRef != null && !disableVirtualScroll
   const shouldTruncate =
     isTranscriptMode && !showAllInTranscript && !virtualScrollRuntimeGate
-  const renderCap = getMaxMessagesWithoutVirtualization(rows)
 
   // Anchor for the first rendered message in the non-virtualized cap slice.
   // Monotonic advance only — mutation during render is idempotent (safe
@@ -583,20 +595,10 @@ const MessagesImpl = ({
       // (this PR's core goal — full history in UI, filter only for the model).
       // Also avoids a UUID mismatch: normalizeMessages derives new UUIDs, so
       // projectSnippedView's check against original removedUuids would fail.
-      // Non-virtualized path: only the tail can ever be rendered (see
-      // computeSliceStart), so pre-trim to twice the render cap before the
-      // O(n) passes below. The 2× margin leaves room for the anchor slice
-      // and for messages that grouping/collapsing merge away.
-      const capApplies = !virtualScrollRuntimeGate && !disableRenderCap
-      const preCapWindow = renderCap * 2
-      const cappedMessages =
-        capApplies && normalizedMessages.length > preCapWindow
-          ? normalizedMessages.slice(-preCapWindow)
-          : normalizedMessages
       const compactAwareMessages =
         verbose || isFullscreenEnvEnabled()
-          ? cappedMessages
-          : getMessagesAfterCompactBoundary(cappedMessages, {
+          ? normalizedMessages
+          : getMessagesAfterCompactBoundary(normalizedMessages, {
               includeSnipped: true,
             })
 
@@ -662,7 +664,7 @@ const MessagesImpl = ({
         verbose,
       )
 
-      const lookups = buildMessageLookups(cappedMessages, messagesToShow)
+      const lookups = buildMessageLookups(normalizedMessages, messagesToShow)
 
       const hiddenMessageCount =
         messagesToShowNotTruncated.length -
@@ -682,9 +684,6 @@ const MessagesImpl = ({
       shouldTruncate,
       tools,
       isBriefOnly,
-      virtualScrollRuntimeGate,
-      disableRenderCap,
-      renderCap,
     ])
 
   // Cheap slice — only runs when scroll range or slice config changes.

@@ -271,6 +271,9 @@ export type GlobalConfig = {
   companion?: import('../buddy/types.js').StoredCompanion
   companionMuted?: boolean
 
+  // /powerup lesson ids the user has marked done. See src/components/Powerup/.
+  powerupsUnlocked?: string[]
+
   // Feedback survey tracking
   feedbackSurveyState?: {
     lastShownTime?: number

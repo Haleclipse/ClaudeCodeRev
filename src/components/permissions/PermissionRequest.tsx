@@ -17,7 +17,9 @@ import { PowerShellTool } from '../../tools/PowerShellTool/PowerShellTool.js'
 import { SkillTool } from '../../tools/SkillTool/SkillTool.js'
 import { WebFetchTool } from '../../tools/WebFetchTool/WebFetchTool.js'
 import type { AssistantMessage } from '../../types/message.js'
+import { logError } from '../../utils/log.js'
 import type { PermissionDecision } from '../../utils/permissions/PermissionResult.js'
+import { formatZodValidationError } from '../../utils/toolErrors.js'
 import { AskUserQuestionPermissionRequest } from './AskUserQuestionPermissionRequest/AskUserQuestionPermissionRequest.js'
 import { BashPermissionRequest } from './BashPermissionRequest/BashPermissionRequest.js'
 import { EnterPlanModePermissionRequest } from './EnterPlanModePermissionRequest/EnterPlanModePermissionRequest.js'
@@ -202,6 +204,15 @@ export function PermissionRequest({
   workerBadge,
   setStickyFooter,
 }: PermissionRequestProps): React.ReactNode {
+  const { tool, input } = toolUseConfirm
+  // Malformed tool input must not reach the per-tool permission UIs (they
+  // assume a schema-valid input and can crash rendering it).
+  const inputValidation = React.useMemo(
+    () => tool.inputSchema.safeParse(input),
+    [input, tool.inputSchema],
+  )
+  const rejectedInvalidInput = React.useRef(false)
+
   // Handle Ctrl+C (app:interrupt) to reject
   useKeybinding(
     'app:interrupt',
@@ -210,11 +221,32 @@ export function PermissionRequest({
       onReject()
       toolUseConfirm.onReject()
     },
-    { context: 'Confirmation' },
+    { context: 'Confirmation', isActive: inputValidation.success },
   )
 
-  const notificationMessage = getNotificationMessage(toolUseConfirm)
+  const notificationMessage = inputValidation.success
+    ? getNotificationMessage(toolUseConfirm)
+    : ''
   useNotifyAfterTimeout(notificationMessage, 'permission_prompt')
+
+  // Invalid input: reject the tool use once (with the validation error) and
+  // close the dialog instead of rendering it.
+  React.useEffect(() => {
+    if (inputValidation.success || rejectedInvalidInput.current) return
+    rejectedInvalidInput.current = true
+    const message = formatZodValidationError(tool.name, inputValidation.error)
+    logError(
+      new Error(
+        `Permission dialog opened with invalid input — upstream should have validated. ${message}`,
+      ),
+    )
+    toolUseConfirm.onReject(message)
+    onDone()
+  }, [inputValidation, tool, toolUseConfirm, onDone])
+
+  if (!inputValidation.success) {
+    return null
+  }
 
   const PermissionComponent = permissionComponentForTool(toolUseConfirm.tool)
 

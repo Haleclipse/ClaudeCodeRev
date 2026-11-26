@@ -357,6 +357,8 @@ import {
   isEphemeralToolProgress,
   isLoggableMessage,
   saveWorktreeState,
+  savePermissionMode,
+  subscribeSessionTitleChanged,
   getAgentTranscript,
 } from '../utils/sessionStorage.js'
 import { deserializeMessages } from '../utils/conversationRecovery.js'
@@ -1194,6 +1196,12 @@ export function REPL({
     toolPermissionContext.mode,
   )
 
+  // Keep the session's permission mode cached so --resume / --continue can
+  // restore it (written to the transcript as a permission-mode entry).
+  useEffect(() => {
+    savePermissionMode(toolPermissionContext.mode)
+  }, [toolPermissionContext.mode])
+
   // Initialize swarm features: teammate hooks and context
   // Handles both fresh spawns and resumed teammate sessions
   useSwarmInitialization(setAppState, initialMessages, {
@@ -1580,9 +1588,14 @@ export function REPL({
   // all fall back to the product name.
   const terminalTitleFromRename =
     useAppState(s => s.settings.terminalTitleFromRename) !== false
-  const sessionTitle = terminalTitleFromRename
-    ? getCurrentSessionTitle(getSessionId())
-    : undefined
+  // Subscribed so a title cached after mount (cacheSessionTitle) re-renders.
+  const sessionTitle = React.useSyncExternalStore(
+    subscribeSessionTitleChanged,
+    () =>
+      terminalTitleFromRename
+        ? getCurrentSessionTitle(getSessionId())
+        : undefined,
+  )
   const [haikuTitle, setHaikuTitle] = useState<string>()
   // Gates the one-shot Haiku call that generates the tab title. Seeded true
   // on resume (initialMessages present) so we don't re-title a resumed
@@ -3550,8 +3563,11 @@ export function REPL({
               return [...oldMessages, newMessage]
             })
           } else {
+            // Upsert by uuid only in fullscreen; the inline renderer appends.
             setMessages(oldMessages =>
-              upsertMessageByUuid(oldMessages, newMessage),
+              isFullscreenEnvEnabled()
+                ? upsertMessageByUuid(oldMessages, newMessage)
+                : [...oldMessages, newMessage],
             )
           }
           // Block ticks on API errors to prevent tick → error → tick
@@ -4911,7 +4927,11 @@ export function REPL({
   // old REPL scopes can be GC'd — saves ~35MB over a 1000-turn session.
   const onSubmitRef = useRef(onSubmit)
   onSubmitRef.current = onSubmit
+  // Auto-open the rate-limit options at most once per session.
+  const rateLimitOptionsOpenedRef = useRef(false)
   const handleOpenRateLimitOptions = useCallback(() => {
+    if (rateLimitOptionsOpenedRef.current) return
+    rateLimitOptionsOpenedRef.current = true
     void onSubmitRef.current('/rate-limit-options', {
       setCursorOffset: () => {},
       clearBuffer: () => {},
