@@ -461,6 +461,9 @@ export class Cursor {
 
   // Helper methods for finding logical line boundaries
   private findLogicalLineStart(fromOffset: number = this.offset): number {
+    // lastIndexOf with -1 searches from index 0, which would match a leading
+    // newline and report the line start as 1.
+    if (fromOffset === 0) return 0
     const prevNewline = this.text.lastIndexOf('\n', fromOffset - 1)
     return prevNewline === -1 ? 0 : prevNewline + 1
   }
