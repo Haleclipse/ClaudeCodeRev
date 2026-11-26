@@ -120,7 +120,6 @@ import {
   getFastModeHeaderLatched,
   getLastApiCompletionTimestamp,
   getPromptCache1hAllowlist,
-  getPromptCache1hEligible,
   getSessionId,
   getThinkingClearLatched,
   setAfkModeHeaderLatched,
@@ -128,7 +127,6 @@ import {
   setFastModeHeaderLatched,
   setLastMainRequestId,
   setPromptCache1hAllowlist,
-  setPromptCache1hEligible,
   setThinkingClearLatched,
 } from 'src/bootstrap/state.js'
 import {
@@ -405,17 +403,15 @@ function should1hCacheTTL(querySource?: QuerySource): boolean {
     return true
   }
 
-  // Latch eligibility in bootstrap state for session stability — prevents
-  // mid-session overage flips from changing the cache_control TTL, which
-  // would bust the server-side prompt cache (~20K tokens per flip).
-  let userEligible = getPromptCache1hEligible()
-  if (userEligible === null) {
-    userEligible =
+  // Eligibility is evaluated per request (not latched for the session)
+  if (
+    !(
       process.env.USER_TYPE === 'ant' ||
       (isClaudeAISubscriber() && !currentLimits.isUsingOverage)
-    setPromptCache1hEligible(userEligible)
+    )
+  ) {
+    return false
   }
-  if (!userEligible) return false
 
   // Cache allowlist in bootstrap state for session stability — prevents mixed
   // TTLs when GrowthBook's disk cache updates mid-request

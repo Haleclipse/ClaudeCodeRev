@@ -4377,6 +4377,17 @@ export function isLoggableMessage(m: Message): boolean {
     if (m.attachment.type === 'hook_deferred_tool') {
       return true
     }
+    // Delta announcements (deferred tools, MCP instructions, agent listing,
+    // companion intro) are part of the prompt prefix; persist them so a
+    // resumed session rebuilds the same prefix and keeps its prompt cache.
+    if (
+      m.attachment.type === 'deferred_tools_delta' ||
+      m.attachment.type === 'mcp_instructions_delta' ||
+      m.attachment.type === 'agent_listing_delta' ||
+      m.attachment.type === 'companion_intro'
+    ) {
+      return true
+    }
     return false
   }
   return true

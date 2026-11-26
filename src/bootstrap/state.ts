@@ -219,10 +219,6 @@ type State = {
   sessionProjectDir: string | null
   // Cached prompt cache 1h TTL allowlist from GrowthBook (session-stable)
   promptCache1hAllowlist: string[] | null
-  // Cached 1h TTL user eligibility (session-stable). Latched on first
-  // evaluation so mid-session overage flips don't change the cache_control
-  // TTL, which would bust the server-side prompt cache.
-  promptCache1hEligible: boolean | null
   // Sticky-on latch for AFK_MODE_BETA_HEADER. Once auto mode is first
   // activated, keep sending the header for the rest of the session so
   // Shift+Tab toggles don't bust the ~50-70K token prompt cache.
@@ -408,8 +404,6 @@ function getInitialState(): State {
     sessionProjectDir: null,
     // Prompt cache 1h allowlist (null = not yet fetched from GrowthBook)
     promptCache1hAllowlist: null,
-    // Prompt cache 1h eligibility (null = not yet evaluated)
-    promptCache1hEligible: null,
     // Beta header latches (null = not yet triggered)
     afkModeHeaderLatched: null,
     fastModeHeaderLatched: null,
@@ -1704,14 +1698,6 @@ export function getPromptCache1hAllowlist(): string[] | null {
 
 export function setPromptCache1hAllowlist(allowlist: string[] | null): void {
   STATE.promptCache1hAllowlist = allowlist
-}
-
-export function getPromptCache1hEligible(): boolean | null {
-  return STATE.promptCache1hEligible
-}
-
-export function setPromptCache1hEligible(eligible: boolean | null): void {
-  STATE.promptCache1hEligible = eligible
 }
 
 export function getAfkModeHeaderLatched(): boolean | null {
