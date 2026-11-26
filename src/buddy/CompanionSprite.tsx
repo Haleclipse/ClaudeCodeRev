@@ -1,9 +1,9 @@
 import { feature } from 'bun:bundle'
 import figures from 'figures'
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { stringWidth } from '../ink/stringWidth.js'
-import { Box, Text } from '../ink.js'
+import { Box, Text, useAnimationFrame, useTerminalFocus } from '../ink.js'
 import { useAppState, useSetAppState } from '../state/AppState.js'
 import type { AppState } from '../state/AppStateStore.js'
 import { getGlobalConfig } from '../utils/config.js'
@@ -138,12 +138,20 @@ export function CompanionSprite(): React.ReactNode {
   const focused = useAppState(s => s.footerSelection === 'companion')
   const setAppState = useSetAppState()
   const { columns } = useTerminalSize()
-  const [tick, setTick] = useState(0)
-  const lastSpokeTick = useRef(0)
+  const isTerminalFocused = useTerminalFocus()
+  const [, time] = useAnimationFrame(isTerminalFocused ? TICK_MS : null)
+  const tick = Math.floor(time / TICK_MS)
+  const [{ lastSpokeTick, lastReaction }, setLastSpoke] = useState({
+    lastSpokeTick: tick,
+    lastReaction: reaction,
+  })
+  if (reaction !== lastReaction) {
+    setLastSpoke({ lastSpokeTick: tick, lastReaction: reaction })
+  }
   // Sync-during-render (not useEffect) so the first post-pet render already
   // has petStartTick=tick and petAge=0 — otherwise frame 0 is skipped.
   const [{ petStartTick, forPetAt }, setPetStart] = useState({
-    petStartTick: 0,
+    petStartTick: tick,
     forPetAt: petAt,
   })
   if (petAt !== forPetAt) {
@@ -151,17 +159,7 @@ export function CompanionSprite(): React.ReactNode {
   }
 
   useEffect(() => {
-    const timer = setInterval(
-      setT => setT((t: number) => t + 1),
-      TICK_MS,
-      setTick,
-    )
-    return () => clearInterval(timer)
-  }, [])
-
-  useEffect(() => {
     if (!reaction) return
-    lastSpokeTick.current = tick
     const timer = setTimeout(
       setA =>
         setA((prev: AppState) =>
@@ -173,7 +171,6 @@ export function CompanionSprite(): React.ReactNode {
       setAppState,
     )
     return () => clearTimeout(timer)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- tick intentionally captured at reaction-change, not tracked
   }, [reaction, setAppState])
 
   if (!feature('BUDDY')) return null
@@ -183,7 +180,7 @@ export function CompanionSprite(): React.ReactNode {
   const color = RARITY_COLORS[companion.rarity]
   const colWidth = spriteColWidth(stringWidth(companion.name))
 
-  const bubbleAge = reaction ? tick - lastSpokeTick.current : 0
+  const bubbleAge = reaction ? tick - lastSpokeTick : 0
   const fading =
     reaction !== undefined && bubbleAge >= BUBBLE_SHOW - FADE_WINDOW
 
@@ -313,28 +310,24 @@ export function CompanionSprite(): React.ReactNode {
 // just reads companionReaction and renders the fade.
 export function CompanionFloatingBubble(): React.ReactNode {
   const reaction = useAppState(s => s.companionReaction)
-  const [{ tick, forReaction }, setTick] = useState({
-    tick: 0,
+  const isTerminalFocused = useTerminalFocus()
+  const [, time] = useAnimationFrame(
+    reaction && isTerminalFocused ? TICK_MS : null,
+  )
+  const tick = Math.floor(time / TICK_MS)
+  const [{ startTick, forReaction }, setStartTick] = useState({
+    startTick: tick,
     forReaction: reaction,
   })
 
-  // Reset tick synchronously when reaction changes (not in useEffect, which
-  // runs post-render and would show one stale-faded frame). Storing the
-  // reaction the tick is counting FOR alongside the tick itself means the
-  // fade computation never sees a tick from a previous reaction.
+  // Reset the start tick synchronously when reaction changes (not in
+  // useEffect, which runs post-render and would show one stale-faded frame).
+  // Storing the reaction the start tick belongs to alongside it means the
+  // fade computation never sees a start tick from a previous reaction.
   if (reaction !== forReaction) {
-    setTick({ tick: 0, forReaction: reaction })
+    setStartTick({ startTick: tick, forReaction: reaction })
   }
-
-  useEffect(() => {
-    if (!reaction) return
-    const timer = setInterval(
-      set => set(s => ({ ...s, tick: s.tick + 1 })),
-      TICK_MS,
-      setTick,
-    )
-    return () => clearInterval(timer)
-  }, [reaction])
+  const age = tick - startTick
 
   if (!feature('BUDDY') || !reaction) return null
   const companion = getCompanion()
@@ -344,7 +337,7 @@ export function CompanionFloatingBubble(): React.ReactNode {
     <SpeechBubble
       text={reaction}
       color={RARITY_COLORS[companion.rarity]}
-      fading={tick >= BUBBLE_SHOW - FADE_WINDOW}
+      fading={age >= BUBBLE_SHOW - FADE_WINDOW}
       tail="down"
     />
   )
