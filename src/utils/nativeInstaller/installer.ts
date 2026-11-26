@@ -497,6 +497,8 @@ async function updateLatest(
   forceReinstall: boolean = false,
 ): Promise<{
   success: boolean
+  // Set when no install was attempted (maxVersion cap, already current, minimumVersion)
+  wasSkipped?: boolean
   latestVersion: string
   lockFailed?: boolean
   lockHolderPid?: number
@@ -526,7 +528,7 @@ async function updateLatest(
           available_version:
             version as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         })
-        return { success: true, latestVersion: version }
+        return { success: true, wasSkipped: true, latestVersion: version }
       }
       version = maxVersion
     }
@@ -548,7 +550,7 @@ async function updateLatest(
       was_force_reinstall: false,
       was_already_running: true,
     })
-    return { success: true, latestVersion: version }
+    return { success: true, wasSkipped: true, latestVersion: version }
   }
 
   // Check if this version should be skipped due to minimumVersion setting
@@ -558,7 +560,7 @@ async function updateLatest(
       target_version:
         version as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })
-    return { success: true, latestVersion: version }
+    return { success: true, wasSkipped: true, latestVersion: version }
   }
 
   // Track if we're actually installing or just symlinking
@@ -977,7 +979,7 @@ async function installLatestImpl(
 
   return {
     latestVersion: updateResult.latestVersion,
-    wasUpdated: updateResult.success,
+    wasUpdated: updateResult.success && !updateResult.wasSkipped,
     lockFailed: false,
   }
 }
@@ -1246,6 +1248,7 @@ export async function cleanupOldVersions(): Promise<void> {
     path: string
     resolvedPath: string
     mtime: Date
+    size: number
   }
   const versionFiles: VersionInfo[] = []
   let tempFilesCleanedCount = 0
@@ -1288,6 +1291,7 @@ export async function cleanupOldVersions(): Promise<void> {
         path: entryPath,
         resolvedPath: resolve(entryPath),
         mtime: stats.mtime,
+        size: stats.size,
       })
     } catch {
       // Skip files we can't stat
@@ -1318,6 +1322,18 @@ export async function cleanupOldVersions(): Promise<void> {
     const currentSymlinkVersion = await getVersionFromSymlink(dirs.executable)
     if (currentSymlinkVersion) {
       protectedVersions.add(currentSymlinkVersion)
+    } else if (getPlatform().startsWith('win32')) {
+      // Windows installs copy the binary instead of symlinking, so the
+      // executable can't be resolved to a version — protect any version
+      // file whose size matches the installed executable.
+      try {
+        const exeStat = await stat(dirs.executable)
+        for (const v of versionFiles) {
+          if (v.size === exeStat.size) protectedVersions.add(v.resolvedPath)
+        }
+      } catch {
+        // Executable missing or unreadable — nothing extra to protect
+      }
     }
 
     // Protect versions with active locks (running in other processes)
