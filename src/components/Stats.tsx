@@ -10,12 +10,12 @@ import React, {
   useMemo,
   useState,
 } from 'react'
-import stripAnsi from 'strip-ansi'
 import type { CommandResultDisplay } from '../commands.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { applyColor } from '../ink/colorize.js'
 import type { KeyboardEvent } from '../ink/events/keyboard-event.js'
 import { stringWidth as getStringWidth } from '../ink/stringWidth.js'
+import { stripAnsi } from '../ink/stripAnsi.js'
 import type { Color } from '../ink/styles.js'
 import { Ansi, Box, Text } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'

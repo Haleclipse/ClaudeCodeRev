@@ -18,7 +18,6 @@ import type {
 import { accumulateUsage, updateUsage } from 'src/services/api/claude.js'
 import type { NonNullableUsage } from 'src/services/api/logging.js'
 import { EMPTY_USAGE } from 'src/services/api/logging.js'
-import stripAnsi from 'strip-ansi'
 import type { Command } from './commands.js'
 import { getSlashCommandToolSkills } from './commands.js'
 import {
@@ -31,6 +30,7 @@ import {
   getTotalCost,
 } from './cost-tracker.js'
 import type { CanUseToolFn } from './hooks/useCanUseTool.js'
+import { stripAnsi } from './ink/stripAnsi.js'
 import { loadMemoryPrompt } from './memdir/memdir.js'
 import { createMemorySelector } from './memdir/memorySelector.js'
 import { hasAutoMemPathOverride } from './memdir/paths.js'

@@ -1,5 +1,5 @@
 import React from 'react'
-import stripAnsi from 'strip-ansi'
+import { stripAnsi } from '../../ink/stripAnsi.js'
 import { Box, Text } from '../../ink.js'
 import { formatFileSize } from '../../utils/format.js'
 import { MessageResponse } from '../MessageResponse.js'

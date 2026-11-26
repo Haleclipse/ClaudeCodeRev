@@ -32,7 +32,6 @@ import {
   isQueuedCommandEditable,
   popAllEditable,
 } from 'src/utils/messageQueueManager.js'
-import stripAnsi from 'strip-ansi'
 import { companionReservedColumns } from '../../buddy/CompanionSprite.js'
 import {
   findBuddyTriggerPositions,
@@ -65,6 +64,7 @@ import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 import { useTypeahead } from '../../hooks/useTypeahead.js'
 import type { BorderTextOptions } from '../../ink/render-border.js'
 import { stringWidth } from '../../ink/stringWidth.js'
+import { stripAnsi } from '../../ink/stripAnsi.js'
 import { Box, type ClickEvent, type Key, Text, useInput } from '../../ink.js'
 import { useOptionalKeybindingContext } from '../../keybindings/KeybindingContext.js'
 import { getShortcutDisplay } from '../../keybindings/shortcutFormat.js'

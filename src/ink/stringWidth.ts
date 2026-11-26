@@ -1,7 +1,7 @@
 import emojiRegex from 'emoji-regex'
 import { eastAsianWidth } from 'get-east-asian-width'
-import stripAnsi from 'strip-ansi'
 import { getGraphemeSegmenter } from '../utils/intl.js'
+import { stripAnsi } from './stripAnsi.js'
 
 const EMOJI_REGEX = emojiRegex()
 
