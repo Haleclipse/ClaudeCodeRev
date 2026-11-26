@@ -521,10 +521,14 @@ function shellQuote(s: string): string {
 }
 
 /**
- * AppleScript string literal escaping (backslash then double-quote).
+ * AppleScript string literal escaping (backslash, double-quote, newline, tab).
  */
 function appleScriptQuote(s: string): string {
-  return `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  return `"${s
+    .replace(/\\/g, '\\\\')
+    .replace(/"/g, '\\"')
+    .replace(/\n/g, '\\n')
+    .replace(/\t/g, '\\t')}"`
 }
 
 /**
@@ -551,7 +555,10 @@ function psQuote(s: string): string {
  * \ before our closing " would eat the close-quote.
  */
 function cmdQuote(arg: string): string {
-  const stripped = arg.replace(/"/g, '').replace(/%/g, '%%')
+  const stripped = arg
+    .replace(/[\n\t]/g, ' ')
+    .replace(/"/g, '')
+    .replace(/%/g, '%%')
   const escaped = stripped.replace(/(\\+)$/, '$1$1')
   return `"${escaped}"`
 }

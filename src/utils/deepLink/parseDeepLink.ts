@@ -33,10 +33,16 @@ export type DeepLinkAction = {
  * These can act as command separators in shells (newlines, carriage returns, etc.).
  * Allows printable ASCII and Unicode (CJK, emoji, accented chars, etc.).
  */
-function containsControlChars(s: string): boolean {
+function containsControlChars(
+  s: string,
+  { allowNewlineAndTab = false }: { allowNewlineAndTab?: boolean } = {},
+): boolean {
   for (let i = 0; i < s.length; i++) {
     const code = s.charCodeAt(i)
     if (code <= 0x1f || code === 0x7f) {
+      // Multi-line prompts: LF and TAB are allowed in the query; the terminal
+      // launchers escape them before they reach a shell.
+      if (allowNewlineAndTab && (code === 0x0a || code === 0x09)) continue
       return true
     }
   }
@@ -138,8 +144,8 @@ export function parseDeepLink(uri: string): DeepLinkAction {
   let query: string | undefined
   if (rawQuery && rawQuery.trim().length > 0) {
     // Strip hidden Unicode characters (ASCII smuggling / hidden prompt injection)
-    query = partiallySanitizeUnicode(rawQuery.trim())
-    if (containsControlChars(query)) {
+    query = partiallySanitizeUnicode(rawQuery.trim()).replace(/\r\n?/g, '\n')
+    if (containsControlChars(query, { allowNewlineAndTab: true })) {
       throw new Error('Deep link query contains disallowed control characters')
     }
     if (query.length > MAX_QUERY_LENGTH) {
