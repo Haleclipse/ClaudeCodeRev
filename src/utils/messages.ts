@@ -3723,14 +3723,15 @@ Read the team config to discover your teammates' names. Check the task list peri
     }
     case 'relevant_memories': {
       return wrapMessagesInSystemReminder(
-        attachment.memories.map(m => {
+        attachment.memories.map((m, i) => {
           // Use the header stored at attachment-creation time so the
           // rendered bytes are stable across turns (prompt-cache hit).
           // Fall back to recomputing for resumed sessions that predate
           // the stored-header field.
           const header = m.header ?? memoryHeader(m.path, m.mtimeMs)
+          // Selection is by relevance guess, not certainty — say so once.
           return createUserMessage({
-            content: `${header}\n\n${m.content}`,
+            content: `${i === 0 ? 'Retrieved for possible relevance — use only if it actually applies to what the user asked.\n\n' : ''}${header}\n\n${m.content}`,
             isMeta: true,
           })
         }),

@@ -15,7 +15,10 @@
 
 import { feature } from 'bun:bundle'
 import { basename } from 'path'
-import { getIsRemoteMode } from '../../bootstrap/state.js'
+import {
+  getIsRemoteMode,
+  getMemoryToggledOff,
+} from '../../bootstrap/state.js'
 import type { CanUseToolFn } from '../../hooks/useCanUseTool.js'
 import { ENTRYPOINT_NAME } from '../../memdir/memdir.js'
 import {
@@ -56,10 +59,7 @@ import {
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../analytics/growthbook.js'
 import { logEvent } from '../analytics/index.js'
 import { sanitizeToolNameForAnalytics } from '../analytics/metadata.js'
-import {
-  buildExtractAutoOnlyPrompt,
-  buildExtractCombinedPrompt,
-} from './prompts.js'
+import { buildExtractPrompt } from './prompts.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const teamMemPaths = feature('TEAMMEM')
@@ -147,6 +147,47 @@ function hasMemoryWritesSince(
   return false
 }
 
+// A user message counts as prose (something worth extracting memories from)
+// when it has at least this many words — skips acks like "ok" or "go on".
+const MIN_PROSE_WORDS = 3
+
+function countWords(text: string): number {
+  return count(text.split(/\s+/), Boolean)
+}
+
+function isUserProseMessage(message: Message): boolean {
+  if (message.type !== 'user' || message.isMeta) return false
+  const content = message.message.content
+  if (typeof content === 'string') return countWords(content) >= MIN_PROSE_WORDS
+  if (!Array.isArray(content)) return false
+  return content.some(
+    block => block.type === 'text' && countWords(block.text) >= MIN_PROSE_WORDS,
+  )
+}
+
+/**
+ * Whether the user wrote any prose after `sinceUuid`. Tool-result-only turns
+ * (agent working on its own) have nothing new to remember. If the cursor uuid
+ * is gone (e.g. compacted away), scan the whole list.
+ */
+function hasUserProseSince(
+  messages: Message[],
+  sinceUuid: string | undefined,
+): boolean {
+  let foundStart = sinceUuid === undefined
+  for (const message of messages) {
+    if (!foundStart) {
+      if (message.uuid === sinceUuid) {
+        foundStart = true
+      }
+      continue
+    }
+    if (isUserProseMessage(message)) return true
+  }
+  if (!foundStart) return messages.some(isUserProseMessage)
+  return false
+}
+
 // ============================================================================
 // Tool Permissions
 // ============================================================================
@@ -170,6 +211,12 @@ function denyAutoMemTool(tool: Tool, reason: string) {
  */
 export function createAutoMemCanUseTool(memoryDir: string): CanUseToolFn {
   return async (tool: Tool, input: Record<string, unknown>) => {
+    if (getMemoryToggledOff()) {
+      return denyAutoMemTool(
+        tool,
+        'Memory is toggled off. Run /toggle-memory to re-enable automemory.',
+      )
+    }
     // Allow REPL — when REPL mode is enabled (ant-default), primitive tools
     // are hidden from the tool list so the forked agent calls REPL instead.
     // REPL's VM context re-invokes this canUseTool for each inner primitive
@@ -359,27 +406,38 @@ export function initExtractMemories(): void {
       return
     }
 
+    // Nothing new from the user since the last extraction (only tool results /
+    // agent turns) — skip and advance the cursor.
+    if (!hasUserProseSince(messages, lastMemoryMessageUuid)) {
+      logForDebugging(
+        '[extractMemories] skipping — no user prose since last extraction',
+      )
+      const lastMessage = messages.at(-1)
+      if (lastMessage?.uuid) {
+        lastMemoryMessageUuid = lastMessage.uuid
+      }
+      logEvent('tengu_extract_memories_skipped_no_prose', {
+        message_count: newMessageCount,
+      })
+      return
+    }
+
     const teamMemoryEnabled = feature('TEAMMEM')
       ? teamMemPaths!.isTeamMemoryEnabled()
       : false
 
-    const skipIndex = getFeatureValue_CACHED_MAY_BE_STALE(
-      'tengu_moth_copse',
-      false,
-    )
+    // Only run extraction every N eligible turns (tengu_bramble_lintel, default 1).
+    const extractEveryNTurns =
+      getFeatureValue_CACHED_MAY_BE_STALE('tengu_bramble_lintel', null) ?? 1
 
     const canUseTool = createAutoMemCanUseTool(memoryDir)
     const cacheSafeParams = createCacheSafeParams(context)
 
-    // Only run extraction every N eligible turns (tengu_bramble_lintel, default 1).
-    // Trailing extractions (from stashed contexts) skip this check since they
+    // Trailing extractions (from stashed contexts) skip the throttle since they
     // process already-committed work that should not be throttled.
     if (!isTrailingRun) {
       turnsSinceLastExtraction++
-      if (
-        turnsSinceLastExtraction <
-        (getFeatureValue_CACHED_MAY_BE_STALE('tengu_bramble_lintel', null) ?? 1)
-      ) {
+      if (turnsSinceLastExtraction < extractEveryNTurns) {
         return
       }
     }
@@ -399,18 +457,11 @@ export function initExtractMemories(): void {
         await scanMemoryFiles(memoryDir, createAbortController().signal),
       )
 
-      const userPrompt =
-        feature('TEAMMEM') && teamMemoryEnabled
-          ? buildExtractCombinedPrompt(
-              newMessageCount,
-              existingMemories,
-              skipIndex,
-            )
-          : buildExtractAutoOnlyPrompt(
-              newMessageCount,
-              existingMemories,
-              skipIndex,
-            )
+      const userPrompt = buildExtractPrompt(
+        newMessageCount,
+        existingMemories,
+        teamMemoryEnabled,
+      )
 
       const result = await runForkedAgent({
         promptMessages: [createUserMessage({ content: userPrompt })],
@@ -507,9 +558,10 @@ export function initExtractMemories(): void {
       // with the latest stashed context. The trailing run will compute its
       // newMessageCount relative to the cursor we just advanced — so it only
       // picks up messages added between the two calls, not the full history.
+      // Throttled extraction (every N > 1 turns) doesn't chase stashed calls.
       const trailing = pendingContext
       pendingContext = undefined
-      if (trailing) {
+      if (trailing && extractEveryNTurns <= 1) {
         logForDebugging(
           '[extractMemories] running trailing extraction for stashed context',
         )

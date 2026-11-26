@@ -12,7 +12,11 @@ import {
   GLOBAL_CLAUDE_FOLDER_PERMISSION_PATTERN,
 } from 'src/tools/FileEditTool/constants.js'
 import type { z } from 'zod/v4'
-import { getOriginalCwd, getSessionId } from '../../bootstrap/state.js'
+import {
+  getMemoryToggledOff,
+  getOriginalCwd,
+  getSessionId,
+} from '../../bootstrap/state.js'
 import { checkStatsigFeatureGate_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import type { AnyObject, Tool, ToolPermissionContext } from '../../Tool.js'
 import { FILE_READ_TOOL_NAME } from '../../tools/FileReadTool/prompt.js'
@@ -76,6 +80,8 @@ export const DANGEROUS_DIRECTORIES = [
   '.vscode',
   '.idea',
   '.claude',
+  // Git hooks managed by husky run on commit/push
+  '.husky',
 ] as const
 
 /**
@@ -1671,6 +1677,20 @@ export function checkEditableInternalPath(
     }
   }
 
+  // /toggle-memory turned automemory off for this session: memory writes
+  // are denied outright (before the allow carve-out below).
+  if (isAutoMemPath(normalizedPath) && getMemoryToggledOff()) {
+    return {
+      behavior: 'deny',
+      message:
+        'Cannot write to memory while it is toggled off. Run /toggle-memory to re-enable automemory.',
+      decisionReason: {
+        type: 'other',
+        reason: 'memory access blocked by /toggle-memory',
+      },
+    }
+  }
+
   // Memdir directory (persistent memory for cross-session learning)
   // This pre-safety-check carve-out exists because the default path is under
   // ~/.claude/, which is in DANGEROUS_DIRECTORIES. The CLAUDE_COWORK_MEMORY_PATH_OVERRIDE
@@ -1733,6 +1753,20 @@ export function checkReadableInternalPath(
       decisionReason: {
         type: 'other',
         reason: 'Session memory files are allowed for reading',
+      },
+    }
+  }
+
+  // /toggle-memory turned automemory off for this session: memory reads
+  // are denied outright.
+  if (isAutoMemPath(normalizedPath) && getMemoryToggledOff()) {
+    return {
+      behavior: 'deny',
+      message:
+        'Cannot read memory while it is toggled off. Run /toggle-memory to re-enable automemory.',
+      decisionReason: {
+        type: 'other',
+        reason: 'memory access blocked by /toggle-memory',
       },
     }
   }

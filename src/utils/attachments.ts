@@ -234,7 +234,7 @@ import { getPDFPageCount } from './pdf.js'
 import { PDF_AT_MENTION_INLINE_THRESHOLD } from '../constants/apiLimits.js'
 import { isAgentSwarmsEnabled } from './agentSwarmsEnabled.js'
 import { findRelevantMemories } from '../memdir/findRelevantMemories.js'
-import { memoryAge, memoryFreshnessText } from '../memdir/memoryAge.js'
+import { memoryFreshnessText } from '../memdir/memoryAge.js'
 import { getAutoMemPath, isAutoMemoryEnabled } from '../memdir/paths.js'
 import { getAgentMemoryDir } from '../tools/AgentTool/agentMemory.js'
 import {
@@ -2359,9 +2359,7 @@ export async function readMemoriesForSurfacing(
  */
 export function memoryHeader(path: string, mtimeMs: number): string {
   const staleness = memoryFreshnessText(mtimeMs)
-  return staleness
-    ? `${staleness}\n\nMemory: ${path}:`
-    : `Memory (saved ${memoryAge(mtimeMs)}): ${path}:`
+  return staleness ? `${staleness}\n\nMemory: ${path}:` : `Memory: ${path}:`
 }
 
 /**
@@ -2385,6 +2383,13 @@ export type MemoryPrefetch = {
   [Symbol.dispose](): void
 }
 
+// Memory-maintenance forks (extraction, auto-dream) work on the memory
+// directory itself — surfacing relevant memories into them is noise.
+const MEMORY_PREFETCH_SKIP_SOURCES: ReadonlySet<string> = new Set([
+  'extract_memories',
+  'auto_dream',
+])
+
 /**
  * Starts the relevant memory search as an async prefetch.
  * Extracts the last real user prompt from messages (skipping isMeta system
@@ -2394,10 +2399,12 @@ export type MemoryPrefetch = {
 export function startRelevantMemoryPrefetch(
   messages: ReadonlyArray<Message>,
   toolUseContext: ToolUseContext,
+  querySource: QuerySource,
 ): MemoryPrefetch | undefined {
   if (
     !isAutoMemoryEnabled() ||
-    !getFeatureValue_CACHED_MAY_BE_STALE('tengu_moth_copse', false)
+    !getFeatureValue_CACHED_MAY_BE_STALE('tengu_moth_copse', false) ||
+    MEMORY_PREFETCH_SKIP_SOURCES.has(querySource)
   ) {
     return undefined
   }

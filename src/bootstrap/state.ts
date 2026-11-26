@@ -75,6 +75,9 @@ type State = {
   // trajectories fail fast rather than conditioning the model on fake
   // tool_results.
   strictToolResultPairing: boolean
+  // /toggle-memory: automemory is off for this session (no reads or writes of
+  // the memory directory, no extraction).
+  memoryToggledOff: boolean
   sdkAgentProgressSummariesEnabled: boolean
   userMsgOptIn: boolean
   clientType: string
@@ -296,6 +299,7 @@ function getInitialState(): State {
     isInteractive: false,
     kairosActive: false,
     strictToolResultPairing: false,
+    memoryToggledOff: false,
     sdkAgentProgressSummariesEnabled: false,
     userMsgOptIn: false,
     clientType: 'cli',
@@ -384,11 +388,9 @@ function getInitialState(): State {
     mainThreadAgentType: undefined,
     // Remote mode
     isRemoteMode: false,
-    ...(process.env.USER_TYPE === 'ant'
-      ? {
-          replBridgeActive: false,
-        }
-      : {}),
+    ...(process.env.USER_TYPE === 'ant' && {
+      replBridgeActive: false,
+    }),
     // Direct connect server URL
     directConnectServerUrl: undefined,
     // System prompt section cache state
@@ -1099,6 +1101,14 @@ export function getStrictToolResultPairing(): boolean {
 
 export function setStrictToolResultPairing(value: boolean): void {
   STATE.strictToolResultPairing = value
+}
+
+export function getMemoryToggledOff(): boolean {
+  return STATE.memoryToggledOff
+}
+
+export function setMemoryToggledOff(value: boolean): void {
+  STATE.memoryToggledOff = value
 }
 
 // Field name 'userMsgOptIn' avoids excluded-string substrings ('BriefTool',
