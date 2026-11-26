@@ -181,6 +181,21 @@ export type RemoteCredentials = {
     worker_epoch: number;
 };
 /**
+ * Terminal authz failure from `POST /bridge` — retrying with the same inputs
+ * is guaranteed to fail. Returned for 403 `error.resource: "untrusted_device"`
+ * when `X-Trusted-Device-Token` is missing or revoked.
+ * @alpha
+ */
+export type CredentialsFailure = {
+    terminal: true;
+    reason: 'untrusted_device';
+};
+/**
+ * Type guard for `fetchRemoteCredentials` results.
+ * @alpha
+ */
+export declare function isCredentialsFailure(r: RemoteCredentials | CredentialsFailure | null): r is CredentialsFailure;
+/**
  * `POST /v1/code/sessions` — create a fresh CCR session. Returns the `cse_*`
  * session id, or null on any failure (HTTP error, malformed response).
  *
@@ -191,13 +206,15 @@ export type RemoteCredentials = {
 export declare function createCodeSession(baseUrl: string, accessToken: string, title: string, timeoutMs: number, tags?: string[]): Promise<string | null>;
 /**
  * `POST /v1/code/sessions/{id}/bridge` — mint a worker JWT for the session.
- * Returns credentials or null on failure. The call IS the worker register
- * (bumps epoch server-side), so pass `epoch: creds.worker_epoch` to
- * `attachBridgeSession` to skip a redundant register.
+ * Returns credentials, a `CredentialsFailure` for terminal authz failures
+ * (don't retry — re-enroll the device), or null on transient failure.
+ * The call IS the worker register (bumps epoch server-side), so pass
+ * `epoch: creds.worker_epoch` to `attachBridgeSession` to skip a redundant
+ * register.
  *
  * `trustedDeviceToken` sets the `X-Trusted-Device-Token` header. Required
  * when the server's `sessions_elevated_auth_enforcement` flag is on
  * (bridge sessions are SecurityTier=ELEVATED). See anthropics/anthropic#274559.
  * @alpha
  */
-export declare function fetchRemoteCredentials(sessionId: string, baseUrl: string, accessToken: string, timeoutMs: number, trustedDeviceToken?: string): Promise<RemoteCredentials | null>;
+export declare function fetchRemoteCredentials(sessionId: string, baseUrl: string, accessToken: string, timeoutMs: number, trustedDeviceToken?: string): Promise<RemoteCredentials | CredentialsFailure | null>;

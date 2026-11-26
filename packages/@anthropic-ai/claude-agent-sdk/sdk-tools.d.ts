@@ -287,7 +287,7 @@ export interface AgentInput {
   /**
    * Permission mode for spawned teammate (e.g., "plan" to require plan approval).
    */
-  mode?: "acceptEdits" | "bypassPermissions" | "default" | "dontAsk" | "plan";
+  mode?: "acceptEdits" | "auto" | "bypassPermissions" | "default" | "dontAsk" | "plan";
   /**
    * Isolation mode. "worktree" creates a temporary git worktree so the agent works on an isolated copy of the repo.
    */
@@ -2214,6 +2214,10 @@ export interface BashOutput {
    * Total size of the output in bytes (set when output is too large for inline)
    */
   persistedOutputSize?: number;
+  /**
+   * Model-facing note listing readFileState entries whose mtime bumped during this command (set when WRITE_COMMAND_MARKERS matches)
+   */
+  staleReadFileStateHint?: string;
 }
 export interface ExitPlanModeOutput {
   /**

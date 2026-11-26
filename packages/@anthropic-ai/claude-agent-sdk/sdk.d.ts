@@ -29,7 +29,7 @@ export declare type AccountInfo = {
     /**
      * Active API backend. Anthropic OAuth login only applies when "firstParty"; for 3P providers the other fields are absent and auth is external (AWS creds, gcloud ADC, etc.).
      */
-    apiProvider?: 'firstParty' | 'bedrock' | 'vertex' | 'foundry';
+    apiProvider?: 'firstParty' | 'bedrock' | 'vertex' | 'foundry' | 'anthropicAws';
 };
 
 /**
@@ -243,6 +243,7 @@ declare namespace coreTypes {
         HookEvent,
         HookInput,
         HookJSONOutput,
+        HookPermissionDecision,
         InstructionsLoadedHookInput,
         JsonSchemaOutputFormat,
         McpClaudeAIProxyServerConfig,
@@ -288,6 +289,7 @@ declare namespace coreTypes {
         SDKAssistantMessage,
         SDKAuthStatusMessage,
         SDKCompactBoundaryMessage,
+        SDKDeferredToolUse,
         SDKElicitationCompleteMessage,
         SDKFilesPersistedEvent,
         SDKHookProgressMessage,
@@ -333,6 +335,7 @@ declare namespace coreTypes {
         TaskCompletedHookInput,
         TaskCreatedHookInput,
         TeammateIdleHookInput,
+        TerminalReason,
         ThinkingAdaptive,
         ThinkingConfig,
         ThinkingDisabled,
@@ -554,6 +557,31 @@ export declare type GetSessionMessagesOptions = {
     includeSystemMessages?: boolean;
 };
 
+/**
+ * Reads a subagent's conversation messages from its JSONL transcript file.
+ *
+ * Parses the subagent transcript, builds the conversation chain via parentUuid
+ * links, and returns user/assistant messages in chronological order.
+ *
+ * @param sessionId - UUID of the parent session
+ * @param agentId - ID of the subagent
+ * @param options - Optional dir, limit, and offset
+ * @returns Array of user/assistant messages, or empty array if not found
+ */
+export declare function getSubagentMessages(_sessionId: string, _agentId: string, _options?: GetSubagentMessagesOptions): Promise<SessionMessage[]>;
+
+/**
+ * Options for retrieving subagent messages.
+ */
+export declare type GetSubagentMessagesOptions = {
+    /** Project directory to find the session in. If omitted, searches all projects. */
+    dir?: string;
+    /** Maximum number of messages to return. */
+    limit?: number;
+    /** Number of messages to skip from the start. */
+    offset?: number;
+};
+
 export declare const HOOK_EVENTS: readonly ["PreToolUse", "PostToolUse", "PostToolUseFailure", "Notification", "UserPromptSubmit", "SessionStart", "SessionEnd", "Stop", "StopFailure", "SubagentStart", "SubagentStop", "PreCompact", "PostCompact", "PermissionRequest", "PermissionDenied", "Setup", "TeammateIdle", "TaskCreated", "TaskCompleted", "Elicitation", "ElicitationResult", "ConfigChange", "WorktreeCreate", "WorktreeRemove", "InstructionsLoaded", "CwdChanged", "FileChanged"];
 
 /**
@@ -578,6 +606,8 @@ export declare type HookEvent = 'PreToolUse' | 'PostToolUse' | 'PostToolUseFailu
 export declare type HookInput = PreToolUseHookInput | PostToolUseHookInput | PostToolUseFailureHookInput | PermissionDeniedHookInput | NotificationHookInput | UserPromptSubmitHookInput | SessionStartHookInput | SessionEndHookInput | StopHookInput | StopFailureHookInput | SubagentStartHookInput | SubagentStopHookInput | PreCompactHookInput | PostCompactHookInput | PermissionRequestHookInput | SetupHookInput | TeammateIdleHookInput | TaskCreatedHookInput | TaskCompletedHookInput | ElicitationHookInput | ElicitationResultHookInput | ConfigChangeHookInput | InstructionsLoadedHookInput | WorktreeCreateHookInput | WorktreeRemoveHookInput | CwdChangedHookInput | FileChangedHookInput;
 
 export declare type HookJSONOutput = AsyncHookJSONOutput | SyncHookJSONOutput;
+
+export declare type HookPermissionDecision = 'allow' | 'deny' | 'ask' | 'defer';
 
 export declare type InferShape<T extends AnyZodRawShape> = {
     [K in keyof T]: T[K] extends {
@@ -643,6 +673,26 @@ export declare type ListSessionsOptions = {
      * include sessions from all git worktree paths. Defaults to `true`.
      */
     includeWorktrees?: boolean;
+};
+
+/**
+ * Lists subagent IDs for a given session by scanning the subagents directory.
+ *
+ * Subagent transcripts are stored at
+ * `~/.claude/projects/<dir>/<sessionId>/subagents/agent-<agentId>.jsonl`.
+ *
+ * @param sessionId - UUID of the session
+ * @param options - Optional dir to narrow the project search
+ * @returns Array of subagent ID strings, or empty array if none found
+ */
+export declare function listSubagents(_sessionId: string, _options?: ListSubagentsOptions): Promise<string[]>;
+
+/**
+ * Options for listing subagents.
+ */
+export declare type ListSubagentsOptions = {
+    /** Project directory to find the session in. If omitted, searches all projects. */
+    dir?: string;
 };
 
 export declare type McpClaudeAIProxyServerConfig = {
@@ -1220,6 +1270,12 @@ export declare type Options = {
      * These sandbox settings control sandbox behavior (enabled, auto-allow, etc.),
      * while the actual access restrictions come from your permission configuration.
      *
+     * **Dependency check:** When `enabled: true` is passed via this option,
+     * `failIfUnavailable` defaults to `true` — if sandbox dependencies are missing
+     * (e.g. `bubblewrap` on Linux) or the platform is unsupported, `query()` will
+     * emit an error result and exit rather than silently running commands
+     * unsandboxed. Set `failIfUnavailable: false` to allow graceful degradation.
+     *
      * @example Enable sandboxing with auto-allow
      * ```typescript
      * sandbox: {
@@ -1362,9 +1418,9 @@ export declare type PermissionDeniedHookSpecificOutput = {
 };
 
 /**
- * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved.
+ * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved. 'auto' - Use a model classifier to approve/deny permission prompts.
  */
-export declare type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk';
+export declare type PermissionMode = 'default' | 'acceptEdits' | 'bypassPermissions' | 'plan' | 'dontAsk' | 'auto';
 
 export declare type PermissionRequestHookInput = BaseHookInput & {
     hook_event_name: 'PermissionRequest';
@@ -1488,7 +1544,7 @@ export declare type PreToolUseHookInput = BaseHookInput & {
 
 export declare type PreToolUseHookSpecificOutput = {
     hookEventName: 'PreToolUse';
-    permissionDecision?: PermissionBehavior;
+    permissionDecision?: HookPermissionDecision;
     permissionDecisionReason?: string;
     updatedInput?: Record<string, unknown>;
     additionalContext?: string;
@@ -2193,7 +2249,7 @@ declare type SDKControlSetModelRequest = {
 declare type SDKControlSetPermissionModeRequest = {
     subtype: 'set_permission_mode';
     /**
-     * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved.
+     * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved. 'auto' - Use a model classifier to approve/deny permission prompts.
      */
     mode: coreTypes.PermissionMode;
 
@@ -2205,6 +2261,12 @@ declare type SDKControlSetPermissionModeRequest = {
 declare type SDKControlStopTaskRequest = {
     subtype: 'stop_task';
     task_id: string;
+};
+
+export declare type SDKDeferredToolUse = {
+    id: string;
+    name: string;
+    input: Record<string, unknown>;
 };
 
 /**
@@ -2405,6 +2467,7 @@ export declare type SDKResultError = {
     modelUsage: Record<string, ModelUsage>;
     permission_denials: SDKPermissionDenial[];
     errors: string[];
+    terminal_reason?: TerminalReason;
     fast_mode_state?: FastModeState;
     uuid: UUID;
     session_id: string;
@@ -2426,6 +2489,8 @@ export declare type SDKResultSuccess = {
     modelUsage: Record<string, ModelUsage>;
     permission_denials: SDKPermissionDenial[];
     structured_output?: unknown;
+    deferred_tool_use?: SDKDeferredToolUse;
+    terminal_reason?: TerminalReason;
     fast_mode_state?: FastModeState;
     uuid: UUID;
     session_id: string;
@@ -2590,7 +2655,7 @@ export declare type SDKSystemMessage = {
     }[];
     model: string;
     /**
-     * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved.
+     * Permission mode for controlling how tool executions are handled. 'default' - Standard behavior, prompts for dangerous operations. 'acceptEdits' - Auto-accept file edit operations. 'bypassPermissions' - Bypass all permission checks (requires allowDangerouslySkipPermissions). 'plan' - Planning mode, no actual tool execution. 'dontAsk' - Don't prompt for permissions, deny if not pre-approved. 'auto' - Use a model classifier to approve/deny permission prompts.
      */
     permissionMode: PermissionMode;
     slash_commands: string[];
@@ -2705,6 +2770,7 @@ export declare type SDKUserMessageReplay = {
     uuid: UUID;
     session_id: string;
     isReplay: true;
+    file_attachments?: unknown[];
 };
 
 export declare type SessionEndHookInput = BaseHookInput & {
@@ -2791,7 +2857,7 @@ export declare interface Settings {
      */
     respectGitignore?: boolean;
     /**
-     * Number of days to retain chat transcripts (default: 30). Setting to 0 disables session persistence entirely: no transcripts are written and existing transcripts are deleted at startup.
+     * Number of days to retain chat transcripts before automatic cleanup (default: 30). Minimum 1. Use a large value for long retention; use --no-session-persistence to disable transcript writes entirely.
      */
     cleanupPeriodDays?: number;
     /**
@@ -2840,7 +2906,7 @@ export declare interface Settings {
         /**
          * Default permission mode when Claude Code needs access
          */
-        defaultMode?: 'acceptEdits' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
+        defaultMode?: 'acceptEdits' | 'auto' | 'bypassPermissions' | 'default' | 'dontAsk' | 'plan';
         /**
          * Disable the ability to bypass permission prompts
          */
@@ -3077,6 +3143,10 @@ export declare interface Settings {
      * Disable all hooks and statusLine execution
      */
     disableAllHooks?: boolean;
+    /**
+     * Disable inline shell execution in skills and custom slash commands from user, project, or plugin sources. Commands are replaced with a placeholder instead of being run.
+     */
+    disableSkillShellExecution?: boolean;
     /**
      * Default shell for input-box ! commands. Defaults to 'bash' on all platforms (no Windows auto-flip).
      */
@@ -3717,9 +3787,9 @@ export declare interface Settings {
      */
     forceLoginMethod?: 'claudeai' | 'console';
     /**
-     * Organization UUID to use for OAuth login
+     * Organization UUID to require for OAuth login. Accepts a single UUID string or an array of UUIDs (any one is permitted). When set in managed settings, login fails if the authenticated account does not belong to a listed organization.
      */
-    forceLoginOrgUUID?: string;
+    forceLoginOrgUUID?: string | string[];
     /**
      * Path to a script that outputs OpenTelemetry headers
      */
@@ -3843,6 +3913,10 @@ export declare interface Settings {
      * Persisted effort level for supported models.
      */
     effortLevel?: 'low' | 'medium' | 'high';
+    /**
+     * Auto-compact window size
+     */
+    autoCompactWindow?: number;
     /**
      * Advisor model for the server-side advisor tool.
      */
@@ -4086,7 +4160,7 @@ export declare interface SpawnOptions {
     signal: AbortSignal;
 }
 
-declare type StdoutMessage = coreTypes.SDKMessage | coreTypes.SDKStreamlinedTextMessage | coreTypes.SDKStreamlinedToolUseSummaryMessage | coreTypes.SDKPostTurnSummaryMessage | SDKControlResponse | SDKControlRequest | SDKControlCancelRequest | SDKKeepAliveMessage;
+declare type StdoutMessage = coreTypes.SDKMessage | coreTypes.SDKPostTurnSummaryMessage | SDKControlResponse | SDKControlRequest | SDKControlCancelRequest | SDKKeepAliveMessage;
 
 export declare type StopFailureHookInput = BaseHookInput & {
     hook_event_name: 'StopFailure';
@@ -4169,6 +4243,11 @@ export declare type TeammateIdleHookInput = BaseHookInput & {
     teammate_name: string;
     team_name: string;
 };
+
+/**
+ * Why the query loop terminated. Unset when the loop was bypassed (local slash command) or interrupted externally (budget/retry limits checked between yields).
+ */
+export declare type TerminalReason = 'blocking_limit' | 'rapid_refill_breaker' | 'prompt_too_long' | 'image_error' | 'model_error' | 'aborted_streaming' | 'aborted_tools' | 'stop_hook_prevented' | 'hook_stopped' | 'tool_deferred' | 'max_turns' | 'completed';
 
 /**
  * Claude decides when and how much to think (Opus 4.6+).
