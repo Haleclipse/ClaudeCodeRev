@@ -115,7 +115,7 @@ export async function initialize(): Promise<void> {
       // and will error with EOPNOTSUPP on macOS.
       if (stats && !stats.isFile() && !stats.isDirectory()) return true
       // Ignore .git directories
-      if (path.split(platformPath.sep).some(dir => dir === '.git')) return true
+      if (path.split(/[/\\]/).some(dir => dir === '.git')) return true
       // Allow directories (chokidar needs them for directory-level watching)
       // and paths without stats (chokidar's initial check before stat)
       if (!stats || stats.isDirectory()) return false

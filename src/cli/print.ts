@@ -14,7 +14,6 @@ import {
   formatDescriptionWithSource,
   getCommandName,
 } from 'src/commands.js'
-import { createStreamlinedTransformer } from 'src/utils/streamlinedTransform.js'
 import { installStreamJsonStdoutGuard } from 'src/utils/streamJsonStdoutGuard.js'
 import type { ToolPermissionContext } from 'src/Tool.js'
 import type { ThinkingConfig } from 'src/utils/thinking.js'
@@ -866,14 +865,6 @@ export async function runHeadless(
   const needsFullArray = options.outputFormat === 'json' && options.verbose
   const messages: SDKMessage[] = []
   let lastMessage: SDKMessage | undefined
-  // Streamlined mode transforms messages when CLAUDE_CODE_STREAMLINED_OUTPUT=true and using stream-json
-  // Build flag gates this out of external builds; env var is the runtime opt-in for ant builds
-  const transformToStreamlined =
-    feature('STREAMLINED_OUTPUT') &&
-    isEnvTruthy(process.env.CLAUDE_CODE_STREAMLINED_OUTPUT) &&
-    options.outputFormat === 'stream-json'
-      ? createStreamlinedTransformer()
-      : null
 
   headlessProfilerCheckpoint('before_runHeadlessStreaming')
   for await (const message of runHeadlessStreaming(
@@ -891,17 +882,10 @@ export async function runHeadless(
     turnInterruptionState,
     deferredToolUse,
   )) {
-    if (transformToStreamlined) {
-      // Streamlined mode: transform messages and stream immediately
-      const transformed = transformToStreamlined(message)
-      if (transformed) {
-        await structuredIO.write(transformed)
-      }
-    } else if (options.outputFormat === 'stream-json' && options.verbose) {
+    if (options.outputFormat === 'stream-json' && options.verbose) {
       await structuredIO.write(message)
     }
     // Should not be getting control messages or stream events in non-stream mode.
-    // Also filter out streamlined types since they're only produced by the transformer.
     // SDK-only system events are excluded so lastMessage stays at the result
     // (session_state_changed(idle) and any late task_notification drain after
     // result in the finally block).
@@ -919,8 +903,6 @@ export async function runHeadless(
       ) &&
       message.type !== 'stream_event' &&
       message.type !== 'keep_alive' &&
-      message.type !== 'streamlined_text' &&
-      message.type !== 'streamlined_tool_use_summary' &&
       message.type !== 'prompt_suggestion'
     ) {
       if (needsFullArray) {

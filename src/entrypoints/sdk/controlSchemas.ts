@@ -23,8 +23,6 @@ import {
   PermissionUpdateSchema,
   SDKMessageSchema,
   SDKPostTurnSummaryMessageSchema,
-  SDKStreamlinedTextMessageSchema,
-  SDKStreamlinedToolUseSummaryMessageSchema,
   SDKUserMessageSchema,
   SlashCommandSchema,
 } from './coreSchemas.js'
@@ -642,8 +640,6 @@ export const SDKUpdateEnvironmentVariablesMessageSchema = lazySchema(() =>
 export const StdoutMessageSchema = lazySchema(() =>
   z.union([
     SDKMessageSchema(),
-    SDKStreamlinedTextMessageSchema(),
-    SDKStreamlinedToolUseSummaryMessageSchema(),
     SDKPostTurnSummaryMessageSchema(),
     SDKControlResponseSchema(),
     SDKControlRequestSchema(),

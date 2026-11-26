@@ -104,8 +104,6 @@ export class DirectConnectSessionManager {
           parsed.type !== 'control_response' &&
           parsed.type !== 'keep_alive' &&
           parsed.type !== 'control_cancel_request' &&
-          parsed.type !== 'streamlined_text' &&
-          parsed.type !== 'streamlined_tool_use_summary' &&
           !(parsed.type === 'system' && parsed.subtype === 'post_turn_summary')
         ) {
           this.callbacks.onMessage(parsed)

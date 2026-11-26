@@ -72,9 +72,9 @@ function getCommandNameFromFile(
 
     // Build namespace from parent of skill directory
     const relativePath = parentOfSkillDir.startsWith(baseDir)
-      ? parentOfSkillDir.slice(baseDir.length).replace(/^\//, '')
+      ? parentOfSkillDir.slice(baseDir.length).replace(/^[/\\]/, '')
       : ''
-    const namespace = relativePath ? relativePath.split('/').join(':') : ''
+    const namespace = relativePath ? relativePath.split(/[/\\]/).join(':') : ''
 
     return namespace
       ? `${pluginName}:${namespace}:${commandBaseName}`
@@ -86,9 +86,9 @@ function getCommandNameFromFile(
 
     // Build namespace from file directory
     const relativePath = fileDirectory.startsWith(baseDir)
-      ? fileDirectory.slice(baseDir.length).replace(/^\//, '')
+      ? fileDirectory.slice(baseDir.length).replace(/^[/\\]/, '')
       : ''
-    const namespace = relativePath ? relativePath.split('/').join(':') : ''
+    const namespace = relativePath ? relativePath.split(/[/\\]/).join(':') : ''
 
     return namespace
       ? `${pluginName}:${namespace}:${commandBaseName}`

@@ -30,8 +30,14 @@ import {
 // TODO(prod-hardening): OAuth token may go stale over the 30min poll;
 // consider refresh.
 
-// Multi-agent exploration is slow; 30min timeout.
-const ULTRAPLAN_TIMEOUT_MS = 30 * 60 * 1000
+// Multi-agent exploration is slow; 30min timeout by default, tunable via
+// GrowthBook. Read at call time (cache is empty at module load).
+function getUltraplanTimeoutMs(): number {
+  return (
+    getFeatureValue_CACHED_MAY_BE_STALE('tengu_ultraplan_timeout_seconds', 1800) *
+    1000
+  )
+}
 
 export const CCR_TERMS_URL =
   'https://code.claude.com/docs/en/claude-code-on-the-web'
@@ -110,7 +116,7 @@ type UltraplanPromptCopy = {
 const LIGHTWEIGHT_PLAN_COPY: UltraplanPromptCopy = {
   timeEstimate: 'a few minutes',
   dialogBody:
-    'Claude explores your codebase directly and produces a plan you can review and refine.',
+    "Interactive planning on the web where you can edit and leave targeted comments on Claude's plan.",
   dialogPipeline: 'Plan → Edit → Execute',
   usageBlurb: [
     'Remote plan mode with our most powerful model (Opus).',
@@ -130,7 +136,7 @@ const ULTRAPLAN_PROMPT_COPY: Record<
   three_subagents_with_critique: {
     timeEstimate: '~10–30 min',
     dialogBody:
-      'Claude explores your codebase with subagents and produces an ultraplan you can review and refine.',
+      "Interactive planning on the web where you can edit and leave targeted comments on Claude's plan.",
     dialogPipeline: 'Scope → Critique → Edit → Execute',
     usageBlurb: [
       'Advanced multi-agent plan mode with our most powerful model',
@@ -187,7 +193,7 @@ function startDetachedPoll(
       const { plan, rejectCount, executionTarget } =
         await pollForApprovedExitPlanMode(
           sessionId,
-          ULTRAPLAN_TIMEOUT_MS,
+          getUltraplanTimeoutMs(),
           phase => {
             if (phase === 'needs_input')
               logEvent('tengu_ultraplan_awaiting_input', {})

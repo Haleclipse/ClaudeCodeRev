@@ -19,8 +19,9 @@ import {
 } from '../teleport.js'
 
 const POLL_INTERVAL_MS = 3000
-// pollRemoteSessionEvents doesn't retry. A 30min poll makes ~600 calls;
-// at any nonzero 5xx rate one blip would kill the run.
+// pollRemoteSessionEvents only retries transient errors within one GET. A
+// 30min poll makes ~600 calls; at any nonzero 5xx rate one blip would kill
+// the run.
 const MAX_CONSECUTIVE_FAILURES = 5
 
 export type PollFailReason =
@@ -227,10 +228,17 @@ export async function pollForApprovedExitPlanMode(
       sessionStatus = resp.sessionStatus
       failures = 0
     } catch (e) {
-      const transient = isTransientNetworkError(e)
-      if (!transient || ++failures >= MAX_CONSECUTIVE_FAILURES) {
+      if (!isTransientNetworkError(e)) {
         throw new UltraplanPollError(
           e instanceof Error ? e.message : String(e),
+          'network_or_unknown',
+          scanner.rejectCount,
+          { cause: e },
+        )
+      }
+      if (++failures >= MAX_CONSECUTIVE_FAILURES) {
+        throw new UltraplanPollError(
+          'Lost connection to the remote session after repeated retries — the session may still be running',
           'network_or_unknown',
           scanner.rejectCount,
           { cause: e },

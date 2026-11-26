@@ -21,6 +21,7 @@
 import axios from 'axios'
 import { writeFile } from 'fs/promises'
 import isEqual from 'lodash-es/isEqual.js'
+import mapValues from 'lodash-es/mapValues.js'
 import memoize from 'lodash-es/memoize.js'
 import { basename, dirname, isAbsolute, join, resolve, sep } from 'path'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
@@ -1118,6 +1119,14 @@ async function cacheMarketplaceFromGit(
       pullResult.code === 0 ? undefined : classifyFetchError(pullResult.stderr),
     )
     if (pullResult.code === 0) return
+    // Keep the existing cache instead of re-cloning (useful offline).
+    if (isEnvTruthy(process.env.CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE)) {
+      logForDebugging(
+        `git pull failed, keeping existing clone (CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE): ${pullResult.stderr}`,
+        { level: 'warn' },
+      )
+      return
+    }
     logForDebugging(`git pull failed, will re-clone: ${pullResult.stderr}`, {
       level: 'warn',
     })
@@ -1186,9 +1195,7 @@ async function cacheMarketplaceFromGit(
 function redactHeaders(
   headers: Record<string, string>,
 ): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(headers).map(([key]) => [key, '***REDACTED***']),
-  )
+  return mapValues(headers, () => '***REDACTED***')
 }
 
 /**

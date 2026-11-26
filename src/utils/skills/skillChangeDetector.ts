@@ -122,7 +122,7 @@ export async function initialize(): Promise<void> {
     ignored: (path, stats) => {
       if (stats && !stats.isFile() && !stats.isDirectory()) return true
       // Ignore .git directories
-      return path.split(platformPath.sep).some(dir => dir === '.git')
+      return path.split(/[/\\]/).some(dir => dir === '.git')
     },
     ignorePermissionErrors: true,
     usePolling: USE_POLLING,

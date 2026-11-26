@@ -1373,36 +1373,6 @@ export const SDKRateLimitEventSchema = lazySchema(() =>
     .describe('Rate limit event emitted when rate limit info changes.'),
 )
 
-export const SDKStreamlinedTextMessageSchema = lazySchema(() =>
-  z
-    .object({
-      type: z.literal('streamlined_text'),
-      text: z
-        .string()
-        .describe('Text content preserved from the assistant message'),
-      session_id: z.string(),
-      uuid: UUIDPlaceholder(),
-    })
-    .describe(
-      '@internal Streamlined text message - replaces SDKAssistantMessage in streamlined output. Text content preserved, thinking and tool_use blocks removed.',
-    ),
-)
-
-export const SDKStreamlinedToolUseSummaryMessageSchema = lazySchema(() =>
-  z
-    .object({
-      type: z.literal('streamlined_tool_use_summary'),
-      tool_summary: z
-        .string()
-        .describe('Summary of tool calls (e.g., "Read 2 files, wrote 1 file")'),
-      session_id: z.string(),
-      uuid: UUIDPlaceholder(),
-    })
-    .describe(
-      '@internal Streamlined tool use summary - replaces tool_use blocks in streamlined output with a cumulative summary string.',
-    ),
-)
-
 export const SDKPermissionDenialSchema = lazySchema(() =>
   z.object({
     tool_name: z.string(),
@@ -1564,12 +1534,7 @@ export const SDKPostTurnSummaryMessageSchema = lazySchema(() =>
       type: z.literal('system'),
       subtype: z.literal('post_turn_summary'),
       summarizes_uuid: z.string(),
-      status_category: z.enum([
-        'blocked',
-        'waiting',
-        'completed',
-        'review_ready',
-      ]),
+      status_category: z.enum(['blocked', 'completed', 'review_ready']),
       status_detail: z.string(),
       is_noteworthy: z.boolean(),
       title: z.string(),

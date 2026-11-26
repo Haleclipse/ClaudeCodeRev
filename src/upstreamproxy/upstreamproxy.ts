@@ -32,8 +32,9 @@ export const SESSION_TOKEN_PATH = '/run/ccr/session_token'
 const SYSTEM_CA_BUNDLE = '/etc/ssl/certs/ca-certificates.crt'
 
 // Hosts the proxy must NOT intercept. Covers loopback, RFC1918, the IMDS
-// range, and the package registries + GitHub that CCR containers already
-// reach directly. Mirrors airlock/scripts/sandbox-shell-ccr.sh.
+// range, and the package registries that CCR containers already reach
+// directly. GitHub goes through the proxy, which injects the real
+// credentials. Mirrors airlock/scripts/sandbox-shell-ccr.sh.
 const NO_PROXY_LIST = [
   'localhost',
   '127.0.0.1',
@@ -51,10 +52,6 @@ const NO_PROXY_LIST = [
   'anthropic.com',
   '.anthropic.com',
   '*.anthropic.com',
-  'github.com',
-  'api.github.com',
-  '*.github.com',
-  '*.githubusercontent.com',
   'registry.npmjs.org',
   'pypi.org',
   'files.pythonhosted.org',
@@ -182,6 +179,8 @@ export function getUpstreamProxyEnv(): Record<string, string> {
         'CURL_CA_BUNDLE',
         'AWS_ACCESS_KEY_ID',
         'AWS_SECRET_ACCESS_KEY',
+        'GH_TOKEN',
+        'GITHUB_TOKEN',
       ]) {
         if (process.env[key]) inherited[key] = process.env[key]
       }
@@ -202,10 +201,13 @@ export function getUpstreamProxyEnv(): Record<string, string> {
     NODE_EXTRA_CA_CERTS: state.caBundlePath,
     REQUESTS_CA_BUNDLE: state.caBundlePath,
     CURL_CA_BUNDLE: state.caBundlePath,
-    // Placeholder credentials so AWS SDKs/CLIs sign and send requests at
-    // all; the upstream proxy swaps in the real credentials.
+    // Placeholder credentials so AWS SDKs/CLIs (and gh / GitHub tooling)
+    // sign and send requests at all; the upstream proxy swaps in the real
+    // credentials.
     AWS_ACCESS_KEY_ID: 'proxy-injected',
     AWS_SECRET_ACCESS_KEY: 'proxy-injected',
+    GH_TOKEN: 'proxy-injected',
+    GITHUB_TOKEN: 'proxy-injected',
   }
 }
 
