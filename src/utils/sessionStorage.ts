@@ -715,8 +715,7 @@ class Project {
    *   before the boundary and are still picked up by loadTranscriptFile's
    *   forward scan (session-scoped metadata survives the boundary reset).
    * - On session exit (cleanup handler): writes metadata at EOF after all
-   *   boundaries - this is what enables loadTranscriptFile's pre-compact
-   *   skip to find metadata without a forward scan.
+   *   boundaries, inside the tail window that readLiteMetadata reads.
    *
    * External-writer safety for SDK-mutable fields (custom-title, tag):
    * before re-appending, refresh the cache from the tail scan window. If an

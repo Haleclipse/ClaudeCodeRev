@@ -466,7 +466,7 @@ export async function resolveSessionFilePath(
 }
 
 // ---------------------------------------------------------------------------
-// Compact-boundary chunked read (shared by loadTranscriptFile & SDK getSessionMessages)
+// Compact-boundary chunked read (shared by attribution & SDK getSessionMessages)
 // ---------------------------------------------------------------------------
 
 /** Chunk size for the forward transcript reader. 1 MB balances I/O calls vs buffer growth. */

@@ -108,15 +108,15 @@ export async function registerSession(): Promise<boolean> {
   }
 }
 
+// Serializes read-modify-write cycles on the PID file so concurrent updates
+// (e.g. session id and name changing together) don't drop each other's fields.
+let pidFileWriteQueue: Promise<void> = Promise.resolve()
+
 /**
  * Update this session's name in its PID registry file so ListPeers
  * can surface it. Best-effort: silently no-op if name is falsy, the
  * file doesn't exist (session not registered), or read/write fails.
  */
-// Serializes read-modify-write cycles on the PID file so concurrent updates
-// (e.g. session id and name changing together) don't drop each other's fields.
-let pidFileWriteQueue: Promise<void> = Promise.resolve()
-
 async function updatePidFile(patch: Record<string, unknown>): Promise<void> {
   const pidFile = join(getSessionsDir(), `${process.pid}.json`)
   const write = pidFileWriteQueue.then(async () => {

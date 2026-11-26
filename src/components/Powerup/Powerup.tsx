@@ -32,12 +32,12 @@ type Props = {
 export function Powerup({ onExit }: Props): React.ReactNode {
   const [unlocked, setUnlocked] = useState(loadUnlockedLessons)
   const [viewing, setViewing] = useState<Lesson | null>(null)
-  const [focusedId, setFocusedId] = useState(LESSONS[0]!.id)
+  const [selectedId, setSelectedId] = useState(LESSONS[0]!.id)
   const [celebrating, setCelebrating] = useState(false)
   const stopCelebrating = () => setCelebrating(false)
 
   function openLesson(lesson: Lesson) {
-    setFocusedId(lesson.id)
+    setSelectedId(lesson.id)
     setViewing(lesson)
     logEvent('tengu_powerup_lesson_opened', {
       lesson_id:
@@ -122,7 +122,7 @@ export function Powerup({ onExit }: Props): React.ReactNode {
           options={options}
           hideIndexes
           visibleOptionCount={LESSONS.length}
-          defaultFocusValue={focusedId}
+          defaultFocusValue={selectedId}
           onChange={id => {
             const lesson = LESSONS.find(l => l.id === id)
             if (lesson) openLesson(lesson)
