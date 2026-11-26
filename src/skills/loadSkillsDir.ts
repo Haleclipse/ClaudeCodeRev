@@ -62,6 +62,10 @@ import { getManagedFilePath } from '../utils/settings/managedPath.js'
 import { isRestrictedToPluginOnly } from '../utils/settings/pluginOnlyPolicy.js'
 import { HooksSchema, type HooksSettings } from '../utils/settings/types.js'
 import { createSignal } from '../utils/signal.js'
+import {
+  isSkillShellExecutionDisabled,
+  replaceShellCommandsWithPlaceholder,
+} from '../utils/skillShellPolicy.js'
 import { registerMCPSkillBuilders } from './mcpSkillBuilders.js'
 
 export type LoadedFrom =
@@ -265,6 +269,22 @@ export function parseSkillFrontmatterFields(
 }
 
 /**
+ * Whether disableSkillShellExecution applies to a command: skills, legacy
+ * commands and plugin commands, except those from managed (policy) settings.
+ */
+function isShellPolicyRestrictedSource(
+  loadedFrom: LoadedFrom,
+  source: PromptCommand['source'],
+): boolean {
+  if (source === 'policySettings') return false
+  return (
+    loadedFrom === 'skills' ||
+    loadedFrom === 'commands_DEPRECATED' ||
+    loadedFrom === 'plugin'
+  )
+}
+
+/**
  * Creates a skill command from parsed data
  */
 export function createSkillCommand({
@@ -368,10 +388,16 @@ export function createSkillCommand({
         getSessionId(),
       )
 
-      // Security: MCP skills are remote and untrusted — never execute inline
-      // shell commands (!`…` / ```! … ```) from their markdown body.
-      // ${CLAUDE_SKILL_DIR} is meaningless for MCP skills anyway.
-      if (loadedFrom !== 'mcp') {
+      if (
+        isShellPolicyRestrictedSource(loadedFrom, source) &&
+        isSkillShellExecutionDisabled()
+      ) {
+        // disableSkillShellExecution: show a placeholder instead of running
+        finalContent = replaceShellCommandsWithPlaceholder(finalContent)
+      } else if (loadedFrom !== 'mcp') {
+        // Security: MCP skills are remote and untrusted — never execute inline
+        // shell commands (!`…` / ```! … ```) from their markdown body.
+        // ${CLAUDE_SKILL_DIR} is meaningless for MCP skills anyway.
         finalContent = await executeShellCommandsInPrompt(
           finalContent,
           {

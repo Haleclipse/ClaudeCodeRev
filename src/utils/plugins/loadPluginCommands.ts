@@ -25,6 +25,10 @@ import {
 } from '../markdownConfigLoader.js'
 import { parseUserSpecifiedModel } from '../model/model.js'
 import { executeShellCommandsInPrompt } from '../promptShellExecution.js'
+import {
+  isSkillShellExecutionDisabled,
+  replaceShellCommandsWithPlaceholder,
+} from '../skillShellPolicy.js'
 import { loadAllPluginsCacheOnly } from './pluginLoader.js'
 import {
   loadPluginOptions,
@@ -375,27 +379,32 @@ function createPluginCommand(
           getSessionId(),
         )
 
-        finalContent = await executeShellCommandsInPrompt(
-          finalContent,
-          {
-            ...context,
-            getAppState() {
-              const appState = context.getAppState()
-              return {
-                ...appState,
-                toolPermissionContext: {
-                  ...appState.toolPermissionContext,
-                  alwaysAllowRules: {
-                    ...appState.toolPermissionContext.alwaysAllowRules,
-                    command: allowedTools,
+        if (isSkillShellExecutionDisabled()) {
+          // disableSkillShellExecution: show a placeholder instead of running
+          finalContent = replaceShellCommandsWithPlaceholder(finalContent)
+        } else {
+          finalContent = await executeShellCommandsInPrompt(
+            finalContent,
+            {
+              ...context,
+              getAppState() {
+                const appState = context.getAppState()
+                return {
+                  ...appState,
+                  toolPermissionContext: {
+                    ...appState.toolPermissionContext,
+                    alwaysAllowRules: {
+                      ...appState.toolPermissionContext.alwaysAllowRules,
+                      command: allowedTools,
+                    },
                   },
-                },
-              }
+                }
+              },
             },
-          },
-          `/${commandName}`,
-          shell,
-        )
+            `/${commandName}`,
+            shell,
+          )
+        }
 
         return [{ type: 'text', text: finalContent }]
       },
