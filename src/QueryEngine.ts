@@ -35,6 +35,7 @@ import { loadMemoryPrompt } from './memdir/memdir.js'
 import { createMemorySelector } from './memdir/memorySelector.js'
 import { hasAutoMemPathOverride } from './memdir/paths.js'
 import { query } from './query.js'
+import type { Terminal } from './query/transitions.js'
 import { categorizeRetryableAPIError } from './services/api/errors.js'
 import type { MCPServerConnection } from './services/mcp/types.js'
 import type { AppState } from './state/AppState.js'
@@ -813,19 +814,27 @@ export class QueryEngine {
     const initialStructuredOutputCalls = jsonSchema
       ? countToolCalls(this.mutableMessages, SYNTHETIC_OUTPUT_TOOL_NAME)
       : 0
+    // query()'s return value: why the loop ended (reported as terminal_reason)
+    const terminal: { value?: Terminal } = {}
+    // Set when query signals max turns; the result is sent after the loop
+    // finishes so terminal_reason is known.
+    let maxTurnsReached: { turnCount: number; maxTurns: number } | undefined
 
-    for await (const message of query({
-      messages,
-      systemPrompt,
-      userContext,
-      systemContext,
-      canUseTool: wrappedCanUseTool,
-      toolUseContext: processUserInputContext,
-      fallbackModel,
-      querySource: 'sdk',
-      maxTurns,
-      taskBudget,
-    })) {
+    for await (const message of captureReturnValue(
+      query({
+        messages,
+        systemPrompt,
+        userContext,
+        systemContext,
+        canUseTool: wrappedCanUseTool,
+        toolUseContext: processUserInputContext,
+        fallbackModel,
+        querySource: 'sdk',
+        maxTurns,
+        taskBudget,
+      }),
+      terminal,
+    )) {
       // Record assistant, user, and compact boundary messages
       if (
         message.type === 'assistant' ||
@@ -1002,37 +1011,11 @@ export class QueryEngine {
           }
           // Handle max turns reached signal from query.ts
           else if (message.attachment.type === 'max_turns_reached') {
-            if (persistSession) {
-              if (
-                isEnvTruthy(process.env.CLAUDE_CODE_EAGER_FLUSH) ||
-                isEnvTruthy(process.env.CLAUDE_CODE_IS_COWORK)
-              ) {
-                await flushSessionStorage()
-              }
+            maxTurnsReached = {
+              turnCount: message.attachment.turnCount,
+              maxTurns: message.attachment.maxTurns,
             }
-            yield {
-              type: 'result',
-              subtype: 'error_max_turns',
-              duration_ms: Date.now() - startTime,
-              duration_api_ms: getTotalAPIDuration(),
-              is_error: true,
-              num_turns: message.attachment.turnCount,
-              stop_reason: lastStopReason,
-              session_id: getSessionId(),
-              total_cost_usd: getTotalCost(),
-              usage: this.totalUsage,
-              modelUsage: getModelUsage(),
-              permission_denials: this.permissionDenials,
-              fast_mode_state: getFastModeState(
-                mainLoopModel,
-                initialAppState.fastMode,
-              ),
-              uuid: randomUUID(),
-              errors: [
-                `Reached maximum number of turns (${message.attachment.maxTurns})`,
-              ],
-            }
-            return
+            continue
           }
           // Yield queued_command attachments as SDK user message replays
           else if (
@@ -1264,11 +1247,39 @@ export class QueryEngine {
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
         deferred_tool_use: pendingDeferredToolUse,
+        terminal_reason: terminal.value?.reason,
         fast_mode_state: getFastModeState(
           mainLoopModel,
           initialAppState.fastMode,
         ),
         uuid: randomUUID(),
+      }
+      return
+    }
+
+    if (maxTurnsReached) {
+      yield {
+        type: 'result',
+        subtype: 'error_max_turns',
+        duration_ms: Date.now() - startTime,
+        duration_api_ms: getTotalAPIDuration(),
+        is_error: true,
+        num_turns: maxTurnsReached.turnCount,
+        stop_reason: lastStopReason,
+        session_id: getSessionId(),
+        total_cost_usd: getTotalCost(),
+        usage: this.totalUsage,
+        modelUsage: getModelUsage(),
+        permission_denials: this.permissionDenials,
+        terminal_reason: terminal.value?.reason,
+        fast_mode_state: getFastModeState(
+          mainLoopModel,
+          initialAppState.fastMode,
+        ),
+        uuid: randomUUID(),
+        errors: [
+          `Reached maximum number of turns (${maxTurnsReached.maxTurns})`,
+        ],
       }
       return
     }
@@ -1287,6 +1298,7 @@ export class QueryEngine {
         usage: this.totalUsage,
         modelUsage: getModelUsage(),
         permission_denials: this.permissionDenials,
+        terminal_reason: terminal.value?.reason,
         fast_mode_state: getFastModeState(
           mainLoopModel,
           initialAppState.fastMode,
@@ -1341,6 +1353,7 @@ export class QueryEngine {
       modelUsage: getModelUsage(),
       permission_denials: this.permissionDenials,
       structured_output: structuredOutputFromTool,
+      terminal_reason: terminal.value?.reason,
       fast_mode_state: getFastModeState(
         mainLoopModel,
         initialAppState.fastMode,
@@ -1492,4 +1505,12 @@ export async function* ask({
   } finally {
     setReadFileCache(engine.getReadFileState())
   }
+}
+
+/** Re-yield `gen` and keep its return value in `ref.value`. */
+async function* captureReturnValue<T, R>(
+  gen: AsyncGenerator<T, R>,
+  ref: { value?: R },
+): AsyncGenerator<T, void> {
+  ref.value = yield* gen
 }

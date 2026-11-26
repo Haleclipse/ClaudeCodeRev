@@ -566,7 +566,7 @@ export async function runHeadless(
 
   // Initialize GrowthBook so feature flags take effect in headless mode.
   // Without this, the disk cache is empty and all flags fall back to defaults.
-  void initializeGrowthBook()
+  void initializeGrowthBook().catch(e => logError(toError(e)))
 
   if (options.resumeSessionAt && !options.resume) {
     process.stderr.write(`Error: --resume-session-at requires --resume\n`)
@@ -605,6 +605,27 @@ export async function runHeadless(
   const sandboxUnavailableReason = SandboxManager.getSandboxUnavailableReason()
   if (sandboxUnavailableReason) {
     if (SandboxManager.isSandboxRequired()) {
+      // stream-json consumers get a result message, not just stderr
+      if (options.outputFormat === 'stream-json') {
+        await structuredIO.write({
+          type: 'result',
+          subtype: 'error_during_execution',
+          duration_ms: 0,
+          duration_api_ms: 0,
+          is_error: true,
+          num_turns: 0,
+          stop_reason: null,
+          session_id: getSessionId(),
+          total_cost_usd: 0,
+          usage: EMPTY_USAGE,
+          modelUsage: {},
+          permission_denials: [],
+          uuid: randomUUID(),
+          errors: [
+            `Sandbox required but unavailable: ${sandboxUnavailableReason}. Set sandbox.failIfUnavailable=false to allow unsandboxed execution.`,
+          ],
+        })
+      }
       process.stderr.write(
         `\nError: sandbox required but unavailable: ${sandboxUnavailableReason}\n` +
           `  sandbox.failIfUnavailable is set — refusing to start without a working sandbox.\n\n`,
