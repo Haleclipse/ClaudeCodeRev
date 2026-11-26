@@ -1,6 +1,8 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
 import { getInitialMainLoopModel } from '../../bootstrap/state.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import {
+  getSubscriptionType,
   isClaudeAISubscriber,
   isMaxSubscriber,
   isTeamPremiumSubscriber,
@@ -208,11 +210,22 @@ function getHaikuOption(): ModelOption {
     : getHaiku35Option()
 }
 
+// Pro relative-usage note on Opus options (tengu_gypsum_kite)
+function getProOpusUsageSuffix(): string {
+  if (
+    getSubscriptionType() === 'pro' &&
+    getFeatureValue_CACHED_MAY_BE_STALE('tengu_gypsum_kite', false)
+  ) {
+    return ' · ~2× usage vs Sonnet'
+  }
+  return ''
+}
+
 function getMaxOpusOption(fastMode = false): ModelOption {
   return {
     value: 'opus',
     label: 'Opus',
-    description: `Opus 4.6 · Most capable for complex work${fastMode ? getOpus46PricingSuffix(true) : ''}`,
+    description: `Opus 4.6 · Most capable for complex work${getProOpusUsageSuffix()}${fastMode ? getOpus46PricingSuffix(true) : ''}`,
   }
 }
 
@@ -231,7 +244,7 @@ export function getMaxOpus46_1MOption(fastMode = false): ModelOption {
   return {
     value: 'opus[1m]',
     label: 'Opus (1M context)',
-    description: `Opus 4.6 with 1M context${billingInfo}${getOpus46PricingSuffix(fastMode)}`,
+    description: `Opus 4.6 with 1M context${getProOpusUsageSuffix()}${billingInfo}${getOpus46PricingSuffix(fastMode)}`,
   }
 }
 
@@ -240,7 +253,7 @@ function getMergedOpus1MOption(fastMode = false): ModelOption {
   return {
     value: is3P ? getModelStrings().opus46 + '[1m]' : 'opus[1m]',
     label: 'Opus (1M context)',
-    description: `Opus 4.6 with 1M context · Most capable for complex work${!is3P && fastMode ? getOpus46PricingSuffix(fastMode) : ''}`,
+    description: `Opus 4.6 with 1M context · Most capable for complex work${getProOpusUsageSuffix()}${!is3P && fastMode ? getOpus46PricingSuffix(fastMode) : ''}`,
     descriptionForModel:
       'Opus 4.6 with 1M context - most capable for complex work',
   }

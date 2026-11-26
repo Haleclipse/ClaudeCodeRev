@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { extraUsage } from 'src/commands/extra-usage/index.js'
 import { Box, Text } from 'src/ink.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { useClaudeAiLimits } from 'src/services/claudeAiLimitsHook.js'
 import { shouldProcessMockLimits } from 'src/services/rateLimitMocking.js' // Used for /mock-limits command
 import {
@@ -19,6 +18,8 @@ type UpsellParams = {
   shouldAutoOpenRateLimitOptionsMenu: boolean
   isTeamOrEnterprise: boolean
   hasBillingAccess: boolean
+  /** Server sent upgrade paths without 'upgrade_plan' */
+  serverHidesUpgrade: boolean
 }
 
 export function getUpsellMessage({
@@ -28,6 +29,7 @@ export function getUpsellMessage({
   shouldAutoOpenRateLimitOptionsMenu,
   isTeamOrEnterprise,
   hasBillingAccess,
+  serverHidesUpgrade,
 }: UpsellParams): string | null {
   if (!shouldShowUpsell) return null
 
@@ -42,10 +44,6 @@ export function getUpsellMessage({
     return 'Opening your options\u2026'
   }
 
-  if (!isTeamOrEnterprise && !isExtraUsageCommandEnabled) {
-    return '/upgrade to increase your usage limit.'
-  }
-
   if (isTeamOrEnterprise) {
     if (!isExtraUsageCommandEnabled) return null
 
@@ -54,6 +52,17 @@ export function getUpsellMessage({
     }
 
     return '/extra-usage to request more usage from your admin.'
+  }
+
+  if (serverHidesUpgrade) {
+    if (isExtraUsageCommandEnabled) {
+      return '/extra-usage to finish what you\u2019re working on.'
+    }
+    return null
+  }
+
+  if (!isExtraUsageCommandEnabled) {
+    return '/upgrade to increase your usage limit.'
   }
 
   return '/upgrade or /extra-usage to finish what you\u2019re working on.'
@@ -72,26 +81,27 @@ export function RateLimitMessage({
   const rateLimitTier = getRateLimitTier()
   const isTeamOrEnterprise =
     subscriptionType === 'team' || subscriptionType === 'enterprise'
-  // tengu_slate_harbor: upgrades unavailable — treat everyone like the top
-  // tier so no upgrade upsell is shown
-  const upgradeUnavailable = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_slate_harbor',
-    false,
-  )
-  const isMax20x =
-    rateLimitTier === 'default_claude_max_20x' || upgradeUnavailable
+  const isMax20x = rateLimitTier === 'default_claude_max_20x'
   // Always show upsell when using /mock-limits command, otherwise show for subscribers
   const shouldShowUpsell = shouldProcessMockLimits() || isClaudeAISubscriber()
+
+  // Check actual rate limit status - only auto-open if user is currently rate limited
+  // AND we've verified this with the API (resetsAt is only set after API response).
+  // This prevents false alerts when resuming sessions with old rate limit messages.
+  const claudeAiLimits = useClaudeAiLimits()
+  // The server lists the upgrade paths it offers; without 'upgrade_plan' the
+  // /upgrade upsell is hidden.
+  const upgradePaths = claudeAiLimits.upgradePaths
+  const serverHidesUpgrade = useMemo(
+    () => upgradePaths !== undefined && !upgradePaths.includes('upgrade_plan'),
+    [upgradePaths],
+  )
 
   const canSeeRateLimitOptionsUpsell = shouldShowUpsell && !isMax20x
 
   const [hasOpenedInteractiveMenu, setHasOpenedInteractiveMenu] =
     useState(false)
 
-  // Check actual rate limit status - only auto-open if user is currently rate limited
-  // AND we've verified this with the API (resetsAt is only set after API response).
-  // This prevents false alerts when resuming sessions with old rate limit messages.
-  const claudeAiLimits = useClaudeAiLimits()
   const isCurrentlyRateLimited =
     claudeAiLimits.status === 'rejected' &&
     claudeAiLimits.resetsAt !== undefined &&
@@ -118,6 +128,7 @@ export function RateLimitMessage({
       shouldAutoOpenRateLimitOptionsMenu: !!shouldAutoOpenRateLimitOptionsMenu,
       isTeamOrEnterprise,
       hasBillingAccess: hasClaudeAiBillingAccess(),
+      serverHidesUpgrade,
     })
     if (!message) return null
     return <Text dimColor>{message}</Text>
@@ -126,6 +137,7 @@ export function RateLimitMessage({
     isMax20x,
     isTeamOrEnterprise,
     shouldAutoOpenRateLimitOptionsMenu,
+    serverHidesUpgrade,
   ])
 
   return (

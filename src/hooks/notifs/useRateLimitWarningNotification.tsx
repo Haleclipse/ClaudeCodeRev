@@ -3,10 +3,16 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNotifications } from 'src/context/notifications.js'
 import { Text } from 'src/ink.js'
 import {
+  type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+  logEvent,
+} from 'src/services/analytics/index.js'
+import {
   getRateLimitWarning,
   getUsingOverageText,
 } from 'src/services/claudeAiLimits.js'
 import { useClaudeAiLimits } from 'src/services/claudeAiLimitsHook.js'
+import { getRateLimitLeverHint } from 'src/services/rateLimitMessages.js'
+import { useAppState } from 'src/state/AppState.js'
 import { getSubscriptionType } from 'src/utils/auth.js'
 import { hasClaudeAiBillingAccess } from 'src/utils/billing.js'
 import { getIsRemoteMode } from '../../bootstrap/state.js'
@@ -14,11 +20,16 @@ import { getIsRemoteMode } from '../../bootstrap/state.js'
 export function useRateLimitWarningNotification(model: string): void {
   const { addNotification } = useNotifications()
   const claudeAiLimits = useClaudeAiLimits()
+  const effortValue = useAppState(s => s.effortValue)
   // claudeAiLimits reference is stable until statusListeners fire (API
   // response), so these skip the Intl formatting work on most REPL renders.
   const rateLimitWarning = useMemo(
     () => getRateLimitWarning(claudeAiLimits, model),
     [claudeAiLimits, model],
+  )
+  const leverHint = useMemo(
+    () => getRateLimitLeverHint(claudeAiLimits, model, effortValue),
+    [claudeAiLimits, model, effortValue],
   )
   const usingOverageText = useMemo(
     () => getUsingOverageText(claudeAiLimits),
@@ -71,10 +82,17 @@ export function useRateLimitWarningNotification(model: string): void {
         jsx: (
           <Text>
             <Text color="warning">{rateLimitWarning}</Text>
+            {leverHint && <Text dimColor> · {leverHint.text}</Text>}
           </Text>
         ),
         priority: 'high',
       })
+      if (leverHint) {
+        logEvent('tengu_rate_limit_lever_hint', {
+          lever:
+            leverHint.lever as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        })
+      }
     }
-  }, [rateLimitWarning, addNotification])
+  }, [rateLimitWarning, leverHint, addNotification])
 }

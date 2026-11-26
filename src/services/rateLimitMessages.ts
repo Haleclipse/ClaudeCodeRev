@@ -9,7 +9,9 @@ import {
   isOverageProvisioningAllowed,
 } from '../utils/auth.js'
 import { hasClaudeAiBillingAccess } from '../utils/billing.js'
+import { type EffortValue, getDisplayedEffortLevel } from '../utils/effort.js'
 import { formatResetTime } from '../utils/format.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from './analytics/growthbook.js'
 import type { ClaudeAILimits } from './claudeAiLimits.js'
 
 const FEEDBACK_CHANNEL_ANT = '#briarpatch-cc'
@@ -293,6 +295,35 @@ function getWarningUpsellText(
   }
 
   // Weekly limit warnings don't show upsell per spec
+  return null
+}
+
+export type RateLimitLeverHint = {
+  lever: 'model' | 'effort'
+  text: string
+}
+
+/**
+ * "Lever" suggestion appended to a Pro weekly-limit warning
+ * (tengu_garnet_plover): switch Opus to Sonnet, or lower a high/max effort.
+ */
+export function getRateLimitLeverHint(
+  limits: ClaudeAILimits,
+  model: string,
+  effortValue: EffortValue | undefined,
+): RateLimitLeverHint | null {
+  if (!getFeatureValue_CACHED_MAY_BE_STALE('tengu_garnet_plover', false)) {
+    return null
+  }
+  if (getSubscriptionType() !== 'pro') return null
+  if (limits.rateLimitType !== 'seven_day') return null
+  if (model.includes('opus')) {
+    return { lever: 'model', text: 'try /model sonnet · ~2× runway' }
+  }
+  const effort = getDisplayedEffortLevel(model, effortValue)
+  if (effort === 'high' || effort === 'max') {
+    return { lever: 'effort', text: 'try /effort medium' }
+  }
   return null
 }
 

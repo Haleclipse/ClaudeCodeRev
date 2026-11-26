@@ -1,6 +1,5 @@
 import * as React from 'react'
 import type { LocalJSXCommandContext } from '../../commands.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { getOauthProfileFromOauthToken } from '../../services/oauth/getOauthProfile.js'
 import type { LocalJSXCommandOnDone } from '../../types/command.js'
 import {
@@ -32,17 +31,11 @@ export async function call(
           profile?.organization?.rate_limit_tier === 'default_claude_max_20x'
       }
 
-      const upgradeUnavailable = getFeatureValue_CACHED_MAY_BE_STALE(
-        'tengu_slate_harbor',
-        false,
-      )
-      if (isMax20x || upgradeUnavailable) {
+      if (isMax20x) {
         setTimeout(
           onDone,
           0,
-          isMax20x
-            ? 'You are already on the highest Max subscription plan. For additional usage, run /login to switch to an API usage-billed account.'
-            : 'Upgrade not currently available. For additional usage, run /extra-usage.',
+          'You are already on the highest Max subscription plan. For additional usage, run /login to switch to an API usage-billed account.',
         )
         return null
       }

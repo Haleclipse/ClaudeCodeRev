@@ -56,33 +56,38 @@ function RateLimitOptionsMenu({
     'tengu_jade_anvil_4',
     false,
   )
-  const upgradeUnavailable = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_slate_harbor',
-    false,
-  )
+  // Upgrade paths the server offers (rate-limit response header); when
+  // present they decide which actions are shown.
+  const upgradePaths = claudeAiLimits.upgradePaths
 
   const options = useMemo<
     OptionWithDescription<RateLimitOptionsMenuOptionType>[]
   >(() => {
     const actionOptions: OptionWithDescription<RateLimitOptionsMenuOptionType>[] =
       []
+    const serverDriven = upgradePaths !== undefined
 
     if (extraUsage.isEnabled()) {
       const hasBillingAccess = hasClaudeAiBillingAccess()
       const needsToRequestFromAdmin = isTeamOrEnterprise && !hasBillingAccess
-      // Org spend cap depleted - non-admins can't request more since there's nothing to allocate
-      // - out_of_credits: wallet empty
-      // - org_level_disabled_until: org spend cap hit for the month
-      // - org_service_zero_credit_limit: org service has zero credit limit
-      const isOrgSpendCapDepleted =
-        claudeAiLimits.overageDisabledReason === 'out_of_credits' ||
-        claudeAiLimits.overageDisabledReason === 'org_level_disabled_until' ||
-        claudeAiLimits.overageDisabledReason === 'org_service_zero_credit_limit'
-
-      // Hide for non-admin Team/Enterprise users when org spend cap is depleted
-      if (needsToRequestFromAdmin && isOrgSpendCapDepleted) {
-        // Don't show extra-usage option
+      let showExtraUsage: boolean
+      if (serverDriven) {
+        showExtraUsage = upgradePaths.includes('overage')
       } else {
+        // Org spend cap depleted - non-admins can't request more since there's nothing to allocate
+        // - out_of_credits: wallet empty
+        // - org_level_disabled_until: org spend cap hit for the month
+        // - org_service_zero_credit_limit: org service has zero credit limit
+        const isOrgSpendCapDepleted =
+          claudeAiLimits.overageDisabledReason === 'out_of_credits' ||
+          claudeAiLimits.overageDisabledReason === 'org_level_disabled_until' ||
+          claudeAiLimits.overageDisabledReason ===
+            'org_service_zero_credit_limit'
+        // Hide for non-admin Team/Enterprise users when org spend cap is depleted
+        showExtraUsage = !(needsToRequestFromAdmin && isOrgSpendCapDepleted)
+      }
+
+      if (showExtraUsage) {
         const isOverageState =
           claudeAiLimits.overageStatus === 'rejected' ||
           claudeAiLimits.overageStatus === 'allowed_warning'
@@ -104,10 +109,9 @@ function RateLimitOptionsMenu({
     }
 
     if (
-      !isMax20x &&
-      !isTeamOrEnterprise &&
-      upgrade.isEnabled() &&
-      !upgradeUnavailable
+      serverDriven
+        ? upgradePaths.includes('upgrade_plan') && upgrade.isEnabled()
+        : !isMax20x && !isTeamOrEnterprise && upgrade.isEnabled()
     ) {
       actionOptions.push({
         label: 'Upgrade your plan',
@@ -132,6 +136,7 @@ function RateLimitOptionsMenu({
     hasExtraUsageEnabled,
     claudeAiLimits.overageStatus,
     claudeAiLimits.overageDisabledReason,
+    upgradePaths,
   ])
 
   function handleCancel(): void {

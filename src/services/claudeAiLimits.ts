@@ -133,6 +133,12 @@ export type ClaudeAILimits = {
   overageDisabledReason?: OverageDisabledReason
   isUsingOverage?: boolean
   surpassedThreshold?: number
+  /**
+   * Upgrade paths the server offers for this account
+   * (anthropic-ratelimit-unified-upgrade-paths), e.g. 'overage', 'upgrade_plan'.
+   * Undefined when the header is absent.
+   */
+  upgradePaths?: string[]
 }
 
 // Exported for testing only
@@ -402,6 +408,12 @@ function computeNewLimitsFromHeaders(
   const overageDisabledReason = headers.get(
     'anthropic-ratelimit-unified-overage-disabled-reason',
   ) as OverageDisabledReason | null
+  const upgradePathsHeader = headers.get(
+    'anthropic-ratelimit-unified-upgrade-paths',
+  )
+  const upgradePaths = upgradePathsHeader
+    ? upgradePathsHeader.split(',').map(path => path.trim())
+    : undefined
 
   // Determine if we're using overage (standard limits rejected but overage allowed)
   const isUsingOverage =
@@ -417,7 +429,10 @@ function computeNewLimitsFromHeaders(
       unifiedRateLimitFallbackAvailable,
     )
     if (earlyWarning) {
-      return earlyWarning
+      return {
+        ...earlyWarning,
+        ...(upgradePaths && { upgradePaths }),
+      }
     }
     // No early warning threshold surpassed
     finalStatus = 'allowed'
@@ -431,6 +446,7 @@ function computeNewLimitsFromHeaders(
     ...(overageStatus && { overageStatus }),
     ...(overageResetsAt && { overageResetsAt }),
     ...(overageDisabledReason && { overageDisabledReason }),
+    ...(upgradePaths && { upgradePaths }),
     isUsingOverage,
   }
 }
