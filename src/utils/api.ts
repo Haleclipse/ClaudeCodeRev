@@ -35,6 +35,7 @@ import type { AgentDefinition } from '../tools/AgentTool/loadAgentsDir.js'
 import { EXIT_PLAN_MODE_V2_TOOL_NAME } from '../tools/ExitPlanModeTool/constants.js'
 import { TASK_OUTPUT_TOOL_NAME } from '../tools/TaskOutputTool/constants.js'
 import type { Message } from '../types/message.js'
+import { getAgentContext, isSubagentContext } from './agentContext.js'
 import { isAgentSwarmsEnabled } from './agentSwarmsEnabled.js'
 import {
   modelSupportsStructuredOutputs,
@@ -90,6 +91,28 @@ const SWARM_FIELDS_BY_TOOL: Record<string, string[]> = {
 }
 
 /**
+ * Remove the given properties from a tool input schema. Returns a copy;
+ * the original schema is not mutated.
+ */
+function omitSchemaProperties(
+  schema: Anthropic.Tool.InputSchema,
+  fieldsToRemove: readonly string[],
+): Anthropic.Tool.InputSchema {
+  if (fieldsToRemove.length === 0) {
+    return schema
+  }
+  const props = schema.properties
+  if (!props || typeof props !== 'object') {
+    return schema
+  }
+  const filteredProps = { ...(props as Record<string, unknown>) }
+  for (const field of fieldsToRemove) {
+    delete filteredProps[field]
+  }
+  return { ...schema, properties: filteredProps }
+}
+
+/**
  * Filter swarm-related fields from a tool's input schema.
  * Called at runtime when isAgentSwarmsEnabled() returns false.
  */
@@ -97,23 +120,7 @@ function filterSwarmFieldsFromSchema(
   toolName: string,
   schema: Anthropic.Tool.InputSchema,
 ): Anthropic.Tool.InputSchema {
-  const fieldsToRemove = SWARM_FIELDS_BY_TOOL[toolName]
-  if (!fieldsToRemove || fieldsToRemove.length === 0) {
-    return schema
-  }
-
-  // Clone the schema to avoid mutating the original
-  const filtered = { ...schema }
-  const props = filtered.properties
-  if (props && typeof props === 'object') {
-    const filteredProps = { ...(props as Record<string, unknown>) }
-    for (const field of fieldsToRemove) {
-      delete filteredProps[field]
-    }
-    filtered.properties = filteredProps
-  }
-
-  return filtered
+  return omitSchemaProperties(schema, SWARM_FIELDS_BY_TOOL[toolName] ?? [])
 }
 
 export async function toolToAPISchema(
@@ -144,10 +151,16 @@ export async function toolToAPISchema(
   // call — name-only keying returned a stale schema (5.4% → 51% err rate, see
   // PR#25424). MCP tools also set inputJSONSchema but each has a stable schema,
   // so including it preserves their GB-flip cache stability.
+  //
+  // Bash in a subagent gets its own key: its schema may be trimmed below.
+  const isSubagentBash =
+    tool.name === BashTool.name && isSubagentContext(getAgentContext())
   const cacheKey =
     'inputJSONSchema' in tool && tool.inputJSONSchema
       ? `${tool.name}:${stringifySchemaCached(tool.inputJSONSchema)}`
-      : tool.name
+      : isSubagentBash
+        ? `${tool.name}:subagent`
+        : tool.name
   const cache = getToolSchemaCache()
   let base = cache.get(cacheKey)
   if (!base) {
@@ -164,6 +177,18 @@ export async function toolToAPISchema(
     // This ensures external non-EAP users don't see swarm features in the schema
     if (!isAgentSwarmsEnabled()) {
       input_schema = filterSwarmFieldsFromSchema(tool.name, input_schema)
+    }
+
+    // Lean subagent schema (tengu_lean_sub_pf7q): drop Bash's description param
+    if (
+      isSubagentBash &&
+      getFeatureValue_CACHED_MAY_BE_STALE('tengu_lean_sub_pf7q', false)
+    ) {
+      const bytesBefore = jsonStringify(input_schema).length
+      input_schema = omitSchemaProperties(input_schema, ['description'])
+      logEvent('tengu_subagent_lean_schema_applied', {
+        schemaBytesSaved: bytesBefore - jsonStringify(input_schema).length,
+      })
     }
 
     base = {

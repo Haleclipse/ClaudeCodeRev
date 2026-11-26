@@ -771,7 +771,7 @@ export async function enhanceSystemPromptWithEnvDetails(
   additionalWorkingDirectories?: string[],
   enabledToolNames?: ReadonlySet<string>,
 ): Promise<string[]> {
-  const notes = `Notes:
+  let notes = `Notes:
 ${
   isRelativePathsEnabled()
     ? '- The Bash tool resets to cwd between calls; do not rely on `cd` persisting. File-tool paths can be relative to cwd.'
@@ -780,6 +780,12 @@ ${
 - In your final response, share file paths (always absolute, never relative) that are relevant to the task. Include code snippets only when the exact text is load-bearing (e.g., a bug you found, a function signature the caller asked for) — do not recap code you merely read.
 - For clear communication with the user the assistant MUST avoid using emojis.
 - Do not use a colon before tool calls. Text like "Let me read the file:" followed by a read tool call should just be "Let me read the file." with a period.`
+  // Findings go in the final message, not report files (tengu_sub_nomdrep_q7k;
+  // FileWriteTool also rejects such writes from subagents).
+  if (getFeatureValue_CACHED_MAY_BE_STALE('tengu_sub_nomdrep_q7k', false)) {
+    notes += `
+- Do NOT ${FILE_WRITE_TOOL_NAME} report/summary/findings/analysis .md files. Return findings directly as your final assistant message — the parent agent reads your text output, not files you create.`
+  }
   // Subagents get skill_discovery attachments (prefetch.ts runs in query(),
   // no agentId guard since #22830) but don't go through getSystemPrompt —
   // surface the same DiscoverSkills framing the main session gets. Gated on
