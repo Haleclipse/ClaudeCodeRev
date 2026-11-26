@@ -97,6 +97,7 @@ import { isAgentSwarmsEnabled } from './utils/agentSwarmsEnabled.js'
 import { count, uniq } from './utils/array.js'
 import { installAsciicastRecorder } from './utils/asciicast.js'
 import {
+  getAnthropicApiKeyWithSource,
   getSubscriptionType,
   isClaudeAISubscriber,
   prefetchAwsCredentialsAndBedRockInfoIfSafe,
@@ -161,6 +162,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from 'src/services/analytics/index.js'
+import { getCooAnalyticsFields } from 'src/services/analytics/metadata.js'
 import { initializeAnalyticsGates } from 'src/services/analytics/sink.js'
 import {
   getOriginalCwd,
@@ -6533,6 +6535,11 @@ async function logTenguInit({
         permissionMode as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       modeIsBypass,
       inProtectedNamespace: isInProtectedNamespace(),
+      ...getCooAnalyticsFields(),
+      // Source only — does not run apiKeyHelper
+      apiKeySource: getAnthropicApiKeyWithSource({
+        skipRetrievingKeyFromApiKeyHelper: true,
+      }).source as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       allowDangerouslySkipPermissionsPassed,
       thinkingType:
         thinkingConfig.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,

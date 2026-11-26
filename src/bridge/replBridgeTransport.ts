@@ -1,5 +1,5 @@
 import type { StdoutMessage } from 'src/entrypoints/sdk/controlTypes.js'
-import { CCRClient } from '../cli/transports/ccrClient.js'
+import { CCRClient, type InternalEvent } from '../cli/transports/ccrClient.js'
 import type { HybridTransport } from '../cli/transports/HybridTransport.js'
 import { SSETransport } from '../cli/transports/SSETransport.js'
 import { logForDebugging } from '../utils/debug.js'
@@ -67,6 +67,24 @@ export type ReplBridgeTransport = {
    * immediately — HybridTransport POSTs are already awaited per-write).
    */
   flush(): Promise<void>
+  /**
+   * CCR v2 internal-event writer / readers (v2 only; absent on v1). Used for
+   * session persistence: transcript entries are written as worker internal
+   * events, and the readers report what the server already has.
+   */
+  getInternalEventWriter?(): InternalEventWriter
+  getInternalEventReaders?(): InternalEventReaders
+}
+
+export type InternalEventWriter = (
+  eventType: string,
+  payload: Record<string, unknown>,
+  options?: { isCompaction?: boolean; agentId?: string },
+) => Promise<void>
+
+export type InternalEventReaders = {
+  readMain: () => Promise<InternalEvent[] | null>
+  readSubagents: () => Promise<InternalEvent[] | null>
 }
 
 /**
@@ -332,6 +350,16 @@ export async function createV2ReplTransport(opts: {
     },
     flush() {
       return ccr.flush()
+    },
+    getInternalEventWriter() {
+      return (eventType, payload, options) =>
+        ccr.writeInternalEvent(eventType, payload, options)
+    },
+    getInternalEventReaders() {
+      return {
+        readMain: () => ccr.readInternalEvents(),
+        readSubagents: () => ccr.readSubagentInternalEvents(),
+      }
     },
     connect() {
       // Outbound-only: skip the SSE read stream entirely — no inbound

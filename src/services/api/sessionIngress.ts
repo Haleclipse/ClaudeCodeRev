@@ -1,10 +1,11 @@
-import axios, { type AxiosError } from 'axios'
+import axios from 'axios'
 import type { UUID } from 'crypto'
 import { getOauthConfig } from '../../constants/oauth.js'
 import type { Entry, TranscriptMessage } from '../../types/logs.js'
 import { logForDebugging } from '../../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../../utils/diagLogs.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
+import { errorMessage } from '../../utils/errors.js'
 import { logError } from '../../utils/log.js'
 import { sequential } from '../../utils/sequential.js'
 import { getSessionIngressAuthToken } from '../../utils/sessionIngressAuth.js'
@@ -157,10 +158,11 @@ async function appendSessionLogImpl(
       })
     } catch (error) {
       // Network errors, 5xx - retryable
-      const axiosError = error as AxiosError<SessionIngressError>
-      logError(new Error(`Error persisting session log: ${axiosError.message}`))
+      logError(
+        new Error(`Error persisting session log: ${errorMessage(error)}`),
+      )
       logForDiagnosticsNoPII('error', 'session_persist_fail_status', {
-        status: axiosError.status,
+        status: axios.isAxiosError(error) ? error.status : undefined,
         attempt,
       })
     }
@@ -325,8 +327,7 @@ export async function getTeleportEvents(
         validateStatus: status => status < 500,
       })
     } catch (e) {
-      const err = e as AxiosError
-      logError(new Error(`Teleport events fetch failed: ${err.message}`))
+      logError(new Error(`Teleport events fetch failed: ${errorMessage(e)}`))
       logForDiagnosticsNoPII('error', 'teleport_events_fetch_fail')
       return null
     }
@@ -475,10 +476,11 @@ async function fetchSessionLogsFromUrl(
     })
     return null
   } catch (error) {
-    const axiosError = error as AxiosError<SessionIngressError>
-    logError(new Error(`Error fetching session logs: ${axiosError.message}`))
+    // Non-axios errors propagate to the caller
+    if (!axios.isAxiosError(error)) throw error
+    logError(new Error(`Error fetching session logs: ${error.message}`))
     logForDiagnosticsNoPII('error', 'session_get_fail_status', {
-      status: axiosError.status,
+      status: error.status,
     })
     return null
   }

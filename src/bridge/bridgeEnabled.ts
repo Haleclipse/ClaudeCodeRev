@@ -183,9 +183,19 @@ export function checkBridgeMinVersion(): string | null {
  * config.ts → growthbook.ts import cycle (growthbook.ts → user.ts → config.ts).
  */
 export function getCcrAutoConnectDefault(): boolean {
+  if (isPersistentRemoteSessionEnabled()) return true
   return feature('CCR_AUTO_CONNECT')
     ? getFeatureValue_CACHED_MAY_BE_STALE('tengu_cobalt_harbor', false)
     : false
+}
+
+/**
+ * Persistent remote sessions: Remote Control connects by default and the
+ * local transcript is mirrored to the session as CCR v2 internal events
+ * (see bridge/persistenceSync.ts). Not enabled in external builds.
+ */
+export function isPersistentRemoteSessionEnabled(): boolean {
+  return false
 }
 
 /**

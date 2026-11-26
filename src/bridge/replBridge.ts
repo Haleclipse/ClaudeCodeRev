@@ -13,6 +13,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../services/analytics/index.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
 import { registerCleanup } from '../utils/cleanupRegistry.js'
 import {
   handleIngressMessage,
@@ -32,6 +33,8 @@ import { toCompatSessionId, toInfraSessionId } from './sessionIdCompat.js'
 import { updateSessionBridgeId } from '../utils/concurrentSessions.js'
 import { HybridTransport } from '../cli/transports/HybridTransport.js'
 import {
+  type InternalEventReaders,
+  type InternalEventWriter,
   type ReplBridgeTransport,
   createV1ReplTransport,
   createV2ReplTransport,
@@ -229,6 +232,16 @@ export type BridgeCoreParams = {
    * history. REPL callers omit (fresh session each run → 0 is correct).
    */
   initialSSESequenceNum?: number
+  /**
+   * Session persistence (see initReplBridge): called with the transport's
+   * internal-event writer/readers once a CCR v2 transport is wired, and
+   * before any transport is closed or dropped.
+   */
+  onTransportPersistenceReady?: (
+    writer: InternalEventWriter,
+    readers: InternalEventReaders,
+  ) => void
+  onTransportPersistenceTeardown?: () => void
 }
 
 /**
@@ -306,6 +319,8 @@ export async function initBridgeCore(
     onSessionEstablished,
     perpetual,
     initialSSESequenceNum = 0,
+    onTransportPersistenceReady,
+    onTransportPersistenceTeardown,
   } = params
 
   const seq = ++initSequence
@@ -504,6 +519,7 @@ export async function initBridgeCore(
   logEvent('tengu_bridge_repl_started', {
     has_initial_messages: !!(initialMessages && initialMessages.length > 0),
     inProtectedNamespace: isInProtectedNamespace(),
+    ...getCooAnalyticsFields(),
   })
 
   // UUIDs of initial messages. Used for dedup in writeMessages to avoid
@@ -654,6 +670,7 @@ export async function initBridgeCore(
       if (seq > lastTransportSequenceNum) {
         lastTransportSequenceNum = seq
       }
+      onTransportPersistenceTeardown?.()
       transport.close()
       transport = null
     }
@@ -914,6 +931,7 @@ export async function initBridgeCore(
       if (closedSeq > lastTransportSequenceNum) {
         lastTransportSequenceNum = closedSeq
       }
+      onTransportPersistenceTeardown?.()
       transport = null
     }
     // Transport is gone — wake the poll loop out of its at-capacity
@@ -1059,6 +1077,7 @@ export async function initBridgeCore(
         if (seq > lastTransportSequenceNum) {
           lastTransportSequenceNum = seq
         }
+        onTransportPersistenceTeardown?.()
         transport.close()
         transport = null
       }
@@ -1184,6 +1203,7 @@ export async function initBridgeCore(
       // the close callback doesn't treat the programmatic close as
       // "session ended normally" and trigger a full teardown.
       if (transport) {
+        onTransportPersistenceTeardown?.()
         const oldTransport = transport
         transport = null
         // Capture the SSE sequence high-water mark so the next transport
@@ -1428,6 +1448,11 @@ export async function initBridgeCore(
               return
             }
             wireTransport(t)
+            if (onTransportPersistenceReady) {
+              const writer = t.getInternalEventWriter?.()
+              const readers = t.getInternalEventReaders?.()
+              if (writer && readers) onTransportPersistenceReady(writer, readers)
+            }
           },
           (err: unknown) => {
             logForDebugging(
@@ -1573,6 +1598,7 @@ export async function initBridgeCore(
       return
     }
     teardownStarted = true
+    onTransportPersistenceTeardown?.()
     const teardownStart = Date.now()
     logForDebugging(
       `[bridge:repl] Teardown starting: env=${environmentId} session=${currentSessionId} workId=${currentWorkId ?? 'none'} transportState=${transport?.getStateLabel() ?? 'null'}`,

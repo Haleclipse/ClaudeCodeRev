@@ -11,6 +11,7 @@ import {
   logEvent,
   logEventAsync,
 } from '../services/analytics/index.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
 import { isInBundledMode } from '../utils/bundledMode.js'
 import { logForDebugging } from '../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../utils/diagLogs.js'
@@ -1103,6 +1104,7 @@ export async function runBridgeLoop(
             spawn_duration_ms: spawnDurationMs,
             worktree_create_ms: worktreeCreateMs,
             inProtectedNamespace: isInProtectedNamespace(),
+            ...getCooAnalyticsFields(),
           })
           logForDiagnosticsNoPII('info', 'bridge_session_started', {
             spawn_mode: spawnModeAtDecision,

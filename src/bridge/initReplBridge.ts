@@ -47,7 +47,12 @@ import {
 } from '../utils/messages.js'
 import type { PermissionMode } from '../utils/permissions/PermissionMode.js'
 import { getSessionIngressAuthHeaders } from '../utils/sessionIngressAuth.js'
-import { getCurrentSessionTitle } from '../utils/sessionStorage.js'
+import {
+  clearInternalEventWriter,
+  getCurrentSessionTitle,
+  loadAllSubagentTranscriptsFromDisk,
+  setInternalEventWriter,
+} from '../utils/sessionStorage.js'
 import {
   extractConversationText,
   generateSessionTitle,
@@ -71,8 +76,13 @@ import {
 } from './createSession.js'
 import { logBridgeSkip } from './debugUtils.js'
 import { checkEnvLessBridgeMinVersion } from './envLessBridgeConfig.js'
+import { syncTranscriptToServer } from './persistenceSync.js'
 import { getPollIntervalConfig } from './pollConfig.js'
 import type { BridgeState, ReplBridgeHandle } from './replBridge.js'
+import type {
+  InternalEventReaders,
+  InternalEventWriter,
+} from './replBridgeTransport.js'
 import { initBridgeCore } from './replBridge.js'
 import { setCseShimGate, toInfraSessionId } from './sessionIdCompat.js'
 import { getTrustedDeviceToken } from './trustedDevice.js'
@@ -111,6 +121,12 @@ export type InitBridgeOptions = {
    */
   outboundOnly?: boolean
   tags?: string[]
+  /**
+   * Mirror the local transcript into the remote session as CCR v2 internal
+   * events (see isPersistentRemoteSessionEnabled). Only takes effect on a v2
+   * transport.
+   */
+  enableSessionPersistence?: boolean
 }
 
 export async function initReplBridge(
@@ -131,11 +147,52 @@ export async function initReplBridge(
     perpetual,
     outboundOnly,
     tags,
+    enableSessionPersistence,
   } = options ?? {}
 
   // Wire the cse_ shim kill switch so toCompatSessionId respects the
   // GrowthBook gate. Daemon/SDK paths skip this — shim defaults to active.
   setCseShimGate(isCseShimEnabled)
+
+  // Session persistence hooks, handed to the bridge core when enabled. When a
+  // v2 transport is ready: upload transcript entries the server is missing,
+  // then route new transcript writes through the transport's internal-event
+  // writer. Teardown (or a newer transport) uninstalls the writer; the
+  // generation counter stops a slow sync from installing a stale writer.
+  let persistenceGeneration = 0
+  const persistenceCallbacks = {
+    onTransportPersistenceReady: (
+      writer: InternalEventWriter,
+      readers: InternalEventReaders,
+    ) => {
+      const generation = ++persistenceGeneration
+      void (async () => {
+        try {
+          const subagents = await loadAllSubagentTranscriptsFromDisk()
+          await syncTranscriptToServer(writer, readers, Object.keys(subagents))
+        } catch (err) {
+          logForDebugging(
+            `[bridge:repl] Persistence sync failed: ${errorMessage(err)}`,
+            { level: 'error' },
+          )
+        }
+        if (generation !== persistenceGeneration) {
+          logForDebugging(
+            '[bridge:repl] Transport torn down during sync — skipping writer install',
+          )
+          return
+        }
+        setInternalEventWriter(writer)
+        logForDebugging(
+          '[bridge:repl] Session persistence enabled — transcript entries forwarded as internal events',
+        )
+      })()
+    },
+    onTransportPersistenceTeardown: () => {
+      persistenceGeneration++
+      clearInternalEventWriter()
+    },
+  }
 
   // 1. Runtime gate
   if (!(await isBridgeEnabledBlocking())) {
@@ -461,6 +518,7 @@ export async function initReplBridge(
       onStateChange,
       outboundOnly,
       tags,
+      ...(enableSessionPersistence ? persistenceCallbacks : {}),
     })
     return wrapBridgeHandleTeardown(handle)
   }
@@ -563,6 +621,7 @@ export async function initReplBridge(
     onSetPermissionMode,
     onStateChange,
     perpetual,
+    ...(enableSessionPersistence ? persistenceCallbacks : {}),
   })
   return wrapBridgeHandleTeardown(handle)
 }

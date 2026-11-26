@@ -32,6 +32,8 @@ import { feature } from 'bun:bundle'
 import axios from 'axios'
 import {
   createV2ReplTransport,
+  type InternalEventReaders,
+  type InternalEventWriter,
   type ReplBridgeTransport,
 } from './replBridgeTransport.js'
 import { buildCCRv2SdkUrl } from './workSecret.js'
@@ -62,6 +64,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../services/analytics/index.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
 import type { ReplBridgeHandle, BridgeState } from './replBridge.js'
 import type { Message } from '../types/message.js'
 import type { SDKMessage } from '../entrypoints/agentSdkTypes.js'
@@ -130,6 +133,16 @@ export type EnvLessBridgeParams = {
   outboundOnly?: boolean
   /** Free-form tags for session categorization (e.g. ['ccr-mirror']). */
   tags?: string[]
+  /**
+   * Session persistence (see initReplBridge): called with the transport's
+   * internal-event writer/readers each time a v2 transport connects, and
+   * before a transport is replaced or torn down.
+   */
+  onTransportPersistenceReady?: (
+    writer: InternalEventWriter,
+    readers: InternalEventReaders,
+  ) => void
+  onTransportPersistenceTeardown?: () => void
 }
 
 /**
@@ -162,6 +175,8 @@ export async function initEnvLessBridgeCore(
     onStateChange,
     outboundOnly,
     tags,
+    onTransportPersistenceReady,
+    onTransportPersistenceTeardown,
   } = params
 
   const cfg = await getEnvLessBridgeConfig()
@@ -386,6 +401,11 @@ export async function initEnvLessBridgeCore(
       clearTimeout(connectDeadline)
       logForDebugging('[remote-bridge] v2 transport connected')
       logForDiagnosticsNoPII('info', 'bridge_repl_v2_transport_connected')
+      if (onTransportPersistenceReady) {
+        const writer = transport.getInternalEventWriter?.()
+        const readers = transport.getInternalEventReaders?.()
+        if (writer && readers) onTransportPersistenceReady(writer, readers)
+      }
       logEvent('tengu_bridge_repl_ws_connected', {
         v2: true,
         cause:
@@ -487,6 +507,7 @@ export async function initEnvLessBridgeCore(
     // epoch is stale and its next write/heartbeat 409s. Without this gate,
     // writeMessages adds UUIDs to recentPostedUUIDs then writeBatch silently
     // no-ops (closed uploader after 409) → permanent silent message loss.
+    onTransportPersistenceTeardown?.()
     flushGate.start()
     try {
       const seq = transport.getLastSequenceNum()
@@ -668,6 +689,7 @@ export async function initEnvLessBridgeCore(
   async function teardown(): Promise<void> {
     if (tornDown) return
     tornDown = true
+    onTransportPersistenceTeardown?.()
     refresh.cancelAll()
     clearTimeout(connectDeadline)
     flushGate.drop()
@@ -760,6 +782,7 @@ export async function initEnvLessBridgeCore(
       v2: true,
       expires_in_s: credentials.expires_in,
       inProtectedNamespace: isInProtectedNamespace(),
+      ...getCooAnalyticsFields(),
     })
   }
 

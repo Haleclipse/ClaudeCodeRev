@@ -1,6 +1,7 @@
 import { feature } from 'bun:bundle'
 import React, { useCallback, useEffect, useRef } from 'react'
 import { setMainLoopModelOverride } from '../bootstrap/state.js'
+import { isPersistentRemoteSessionEnabled } from '../bridge/bridgeEnabled.js'
 import {
   type BridgePermissionCallbacks,
   type BridgePermissionResponse,
@@ -560,6 +561,7 @@ export function useReplBridge(
             previouslyFlushedUUIDs: flushedUUIDsRef.current,
             initialName: replBridgeInitialName,
             perpetual,
+            enableSessionPersistence: isPersistentRemoteSessionEnabled(),
           })
           if (cancelled) {
             // Effect was cancelled while initReplBridge was in flight.

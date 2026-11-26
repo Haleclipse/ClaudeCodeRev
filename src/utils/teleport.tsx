@@ -58,6 +58,7 @@ import { getSettings_DEPRECATED } from './settings/settings.js'
 import { jsonStringify } from './slowOperations.js'
 import { asSystemPrompt } from './systemPromptType.js'
 import {
+  axiosGetWithRetry,
   fetchSession,
   type GitRepositoryOutcome,
   type GitSource,
@@ -873,7 +874,7 @@ export async function pollRemoteSessionEvents(
   const sdkMessages: SDKMessage[] = []
   let cursor = afterId
   for (let page = 0; page < MAX_EVENT_PAGES; page++) {
-    const eventsResponse = await axios.get(eventsUrl, {
+    const eventsResponse = await axiosGetWithRetry<EventsResponse>(eventsUrl, {
       headers,
       params: cursor ? { after_id: cursor } : undefined,
       timeout: 30000,

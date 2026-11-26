@@ -146,6 +146,17 @@ export function isInProtectedNamespace(): boolean {
   return false
 }
 
+/**
+ * COO namespace and cluster of the environment this process runs in, for
+ * telemetry (see getCooAnalyticsFields). External builds report neither.
+ */
+export function getCooEnvironment(): {
+  namespace: string | undefined
+  cluster: string | undefined
+} {
+  return { namespace: undefined, cluster: undefined }
+}
+
 // @[MODEL LAUNCH]: Add a Vertex region override env var for the new model.
 /**
  * Model prefix → env var for Vertex region overrides.
