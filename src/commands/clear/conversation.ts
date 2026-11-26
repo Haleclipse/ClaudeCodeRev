@@ -11,6 +11,10 @@ import {
   regenerateSessionId,
 } from '../../bootstrap/state.js'
 import {
+  type MemorySelector,
+  resetMemorySelector,
+} from '../../memdir/memorySelector.js'
+import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../../services/analytics/index.js'
@@ -51,6 +55,7 @@ export async function clearConversation({
   readFileState,
   discoveredSkillNames,
   loadedNestedMemoryPaths,
+  memorySelector,
   getAppState,
   setAppState,
   setConversationId,
@@ -59,6 +64,7 @@ export async function clearConversation({
   readFileState: FileStateCache
   discoveredSkillNames?: Set<string>
   loadedNestedMemoryPaths?: Set<string>
+  memorySelector?: MemorySelector
   getAppState?: () => AppState
   setAppState?: (f: (prev: AppState) => AppState) => void
   setConversationId?: (id: UUID) => void
@@ -130,6 +136,7 @@ export async function clearConversation({
   readFileState.clear()
   discoveredSkillNames?.clear()
   loadedNestedMemoryPaths?.clear()
+  resetMemorySelector(memorySelector)
 
   // Clean out necessary items from App State
   if (setAppState) {

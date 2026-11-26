@@ -9,6 +9,7 @@ import { clearConversation } from '../../commands/clear/conversation.js'
 import { useRegisterOverlay } from '../../context/overlayContext.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 import { Box, Text, useInput, wrapText } from '../../ink.js'
+import type { MemorySelector } from '../../memdir/memorySelector.js'
 import { useSetAppState } from '../../state/AppState.js'
 import type { AppState } from '../../state/AppStateStore.js'
 import type { RemoteAgentTaskState } from '../../tasks/RemoteAgentTask/RemoteAgentTask.js'
@@ -41,6 +42,7 @@ type Props = {
   taskId: string
   setMessages: (updater: (prev: Message[]) => Message[]) => void
   readFileState: FileStateCache
+  memorySelector?: MemorySelector
   getAppState: () => AppState
   setConversationId: (id: UUID) => void
 }
@@ -56,6 +58,7 @@ export function UltraplanChoiceDialog({
   taskId,
   setMessages,
   readFileState,
+  memorySelector,
   getAppState,
   setConversationId,
 }: Props): React.ReactNode {
@@ -89,6 +92,7 @@ export function UltraplanChoiceDialog({
         await clearConversation({
           setMessages,
           readFileState,
+          memorySelector,
           getAppState,
           setAppState,
           setConversationId,
@@ -141,7 +145,7 @@ export function UltraplanChoiceDialog({
   }
 
   const { rows, columns } = useTerminalSize()
-  const visibleHeight = Math.min(
+  const maxVisibleLines = Math.min(
     MAX_PREVIEW_LINES,
     Math.max(1, Math.floor(rows / 2) - PREVIEW_CHROME_ROWS),
   )
@@ -149,7 +153,7 @@ export function UltraplanChoiceDialog({
     () => wrapText(plan, Math.max(1, columns - 4), 'wrap').split('\n'),
     [plan, columns],
   )
-  const maxOffset = Math.max(0, lines.length - visibleHeight)
+  const maxOffset = Math.max(0, lines.length - maxVisibleLines)
   const [scrollOffset, setScrollOffset] = useState(0)
   // Keep the offset in range when a resize shrinks the content
   useEffect(
@@ -157,12 +161,12 @@ export function UltraplanChoiceDialog({
     [maxOffset],
   )
 
-  const isScrollable = lines.length > visibleHeight
+  const scrollable = lines.length > maxVisibleLines
   // REPL's ScrollKeybindingHandler is inactive while this dialog is focused,
   // so wheel and ctrl+u/ctrl+d scroll the preview here.
   useInput((input, key) => {
-    if (!isScrollable) return
-    const halfPage = Math.max(1, Math.floor(visibleHeight / 2))
+    if (!scrollable) return
+    const halfPage = Math.max(1, Math.floor(maxVisibleLines / 2))
     if ((key.ctrl && input === 'd') || key.wheelDown) {
       const step = key.wheelDown ? 3 : halfPage
       setScrollOffset(offset => Math.min(offset + step, maxOffset))
@@ -173,7 +177,7 @@ export function UltraplanChoiceDialog({
   })
 
   const visibleText = lines
-    .slice(scrollOffset, scrollOffset + visibleHeight)
+    .slice(scrollOffset, scrollOffset + maxVisibleLines)
     .join('\n')
   const canScrollUp = scrollOffset > 0
   const canScrollDown = scrollOffset < maxOffset
@@ -189,11 +193,11 @@ export function UltraplanChoiceDialog({
       <Box flexDirection="column" marginBottom={1}>
         <Box flexDirection="column" marginBottom={1}>
           <Text>{visibleText}</Text>
-          {isScrollable && (
+          {scrollable && (
             <Text dimColor>
               {canScrollUp ? figures.arrowUp : ' '}
               {canScrollDown ? figures.arrowDown : ' '} {scrollOffset + 1}–
-              {Math.min(scrollOffset + visibleHeight, lines.length)} of{' '}
+              {Math.min(scrollOffset + maxVisibleLines, lines.length)} of{' '}
               {lines.length} · ctrl+u/ctrl+d to scroll
             </Text>
           )}

@@ -57,6 +57,7 @@ import type {
   WebSearchProgress,
 } from './types/tools.js'
 import type { FileStateCache } from './utils/fileStateCache.js'
+import type { MemorySelector } from './memdir/memorySelector.js'
 import type { DenialTrackingState } from './utils/permissions/denialTracking.js'
 import type { SystemPrompt } from './utils/systemPromptType.js'
 import type { ContentReplacementState } from './utils/toolResultStorage.js'
@@ -223,6 +224,11 @@ export type ToolUseContext = {
   dynamicSkillDirTriggers?: Set<string>
   /** Skill names surfaced via skill_discovery this session. Telemetry only (feeds was_discovered). */
   discoveredSkillNames?: Set<string>
+  /**
+   * Relevant-memory selector conversation for this session. Contexts without
+   * one skip the relevant-memory prefetch.
+   */
+  memorySelector?: MemorySelector
   userModified?: boolean
   setInProgressToolUseIDs: (f: (prev: Set<string>) => Set<string>) => void
   /** Only wired in interactive (REPL) contexts; SDK/QueryEngine don't set this. */

@@ -19,6 +19,7 @@ import {
   registerPermissionCallback,
   unregisterPermissionCallback,
 } from '../../hooks/useSwarmPermissionPoller.js'
+import { createMemorySelector } from '../../memdir/memorySelector.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -1078,11 +1079,12 @@ export async function runInProcessTeammate(
           `[inProcessRunner] ${identity.agentId} compacting history (${tokenCount} tokens)`,
         )
         // Create an isolated copy of toolUseContext so that compaction
-        // does not clear the main session's readFileState cache or
-        // trigger the main session's UI callbacks.
+        // does not clear the main session's readFileState cache or memory
+        // selector, or trigger the main session's UI callbacks.
         const isolatedContext: ToolUseContext = {
           ...toolUseContext,
           readFileState: cloneFileStateCache(toolUseContext.readFileState),
+          memorySelector: createMemorySelector(),
           onCompactProgress: undefined,
           setStreamMode: undefined,
         }

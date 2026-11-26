@@ -59,6 +59,7 @@ import {
   mergeFileStateCaches,
   READ_FILE_STATE_CACHE_SIZE,
 } from '../utils/fileStateCache.js'
+import { createMemorySelector } from '../memdir/memorySelector.js'
 import {
   updateLastInteractionTime,
   getLastInteractionTime,
@@ -2640,6 +2641,9 @@ export function REPL({
   // readFileState is a 100-entry LRU; once it evicts a CLAUDE.md path,
   // the next discovery cycle re-injects it. Cleared in clearConversation.
   const loadedNestedMemoryPathsRef = useRef(new Set<string>())
+  // Session-level relevant-memory selector conversation (cached manifest +
+  // prior selections). Reset in clearConversation and on compaction.
+  const memorySelectorRef = useRef(createMemorySelector())
 
   // Helper to restore read file state from messages (used for resume flows)
   // This allows Claude to edit files that were read in previous sessions
@@ -3327,6 +3331,7 @@ export function REPL({
         loadedNestedMemoryPaths: loadedNestedMemoryPathsRef.current,
         dynamicSkillDirTriggers: new Set<string>(),
         discoveredSkillNames: discoveredSkillNamesRef.current,
+        memorySelector: memorySelectorRef.current,
         setResponseLength,
         pushApiMetricsEntry:
           "external" === 'ant'
@@ -4190,6 +4195,7 @@ export function REPL({
           readFileState: readFileState.current,
           discoveredSkillNames: discoveredSkillNamesRef.current,
           loadedNestedMemoryPaths: loadedNestedMemoryPathsRef.current,
+          memorySelector: memorySelectorRef.current,
           getAppState: () => store.getState(),
           setAppState,
           setConversationId,
@@ -6632,6 +6638,7 @@ export function REPL({
                           discoveredSkillNames: discoveredSkillNamesRef.current,
                           loadedNestedMemoryPaths:
                             loadedNestedMemoryPathsRef.current,
+                          memorySelector: memorySelectorRef.current,
                           getAppState: () => store.getState(),
                           setAppState,
                           setConversationId,
@@ -6792,6 +6799,7 @@ export function REPL({
                         taskId={ultraplanPendingChoice.taskId}
                         setMessages={setMessages}
                         readFileState={readFileState.current}
+                        memorySelector={memorySelectorRef.current}
                         getAppState={() => store.getState()}
                         setConversationId={setConversationId}
                       />

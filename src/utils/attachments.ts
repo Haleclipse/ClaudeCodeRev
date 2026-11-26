@@ -234,6 +234,7 @@ import { getPDFPageCount } from './pdf.js'
 import { PDF_AT_MENTION_INLINE_THRESHOLD } from '../constants/apiLimits.js'
 import { isAgentSwarmsEnabled } from './agentSwarmsEnabled.js'
 import { findRelevantMemories } from '../memdir/findRelevantMemories.js'
+import type { MemorySelector } from '../memdir/memorySelector.js'
 import { memoryFreshnessText } from '../memdir/memoryAge.js'
 import { getAutoMemPath, isAutoMemoryEnabled } from '../memdir/paths.js'
 import { getAgentMemoryDir } from '../tools/AgentTool/agentMemory.js'
@@ -2229,8 +2230,8 @@ async function getNestedMemoryAttachments(
 async function getRelevantMemoryAttachments(
   input: string,
   agents: AgentDefinition[],
+  memorySelector: MemorySelector,
   readFileState: FileStateCache,
-  recentTools: readonly string[],
   signal: AbortSignal,
   alreadySurfaced: ReadonlySet<string>,
 ): Promise<Attachment[]> {
@@ -2250,17 +2251,16 @@ async function getRelevantMemoryAttachments(
       findRelevantMemories(
         input,
         dir,
+        memorySelector,
         signal,
-        recentTools,
         alreadySurfaced,
       ).catch(() => []),
     ),
   )
-  // alreadySurfaced is filtered inside the selector so Sonnet spends its
-  // 5-slot budget on fresh candidates; readFileState catches files the
-  // model read via FileReadTool. The redundant alreadySurfaced check here
-  // is a belt-and-suspenders guard (multi-dir results may re-introduce a
-  // path the selector filtered in a different dir).
+  // alreadySurfaced is filtered from each dir's selection (the selector
+  // prompt also asks Sonnet not to re-select earlier picks); readFileState
+  // catches files the model read via FileReadTool. The redundant
+  // alreadySurfaced check here is a belt-and-suspenders guard.
   const selected = allResults
     .flat()
     .filter(m => !readFileState.has(m.path) && !alreadySurfaced.has(m.path))
@@ -2385,9 +2385,13 @@ export type MemoryPrefetch = {
 
 // Memory-maintenance forks (extraction, auto-dream) work on the memory
 // directory itself — surfacing relevant memories into them is noise.
+// Prompt suggestion, speculation and compaction forks are skipped too.
 const MEMORY_PREFETCH_SKIP_SOURCES: ReadonlySet<string> = new Set([
   'extract_memories',
   'auto_dream',
+  'prompt_suggestion',
+  'speculation',
+  'compact',
 ])
 
 /**
@@ -2401,7 +2405,10 @@ export function startRelevantMemoryPrefetch(
   toolUseContext: ToolUseContext,
   querySource: QuerySource,
 ): MemoryPrefetch | undefined {
+  // Contexts without a memorySelector don't prefetch.
+  const memorySelector = toolUseContext.memorySelector
   if (
+    !memorySelector ||
     !isAutoMemoryEnabled() ||
     !getFeatureValue_CACHED_MAY_BE_STALE('tengu_moth_copse', false) ||
     MEMORY_PREFETCH_SKIP_SOURCES.has(querySource)
@@ -2432,8 +2439,8 @@ export function startRelevantMemoryPrefetch(
   const promise = getRelevantMemoryAttachments(
     input,
     toolUseContext.options.agentDefinitions.activeAgents,
+    memorySelector,
     toolUseContext.readFileState,
-    collectRecentSuccessfulTools(messages, lastUserMessage),
     controller.signal,
     surfaced.paths,
   ).catch(e => {
@@ -2449,11 +2456,15 @@ export function startRelevantMemoryPrefetch(
     consumedOnIteration: -1,
     [Symbol.dispose]() {
       controller.abort()
+      const usage = memorySelector.lastUsage
       logEvent('tengu_memdir_prefetch_collected', {
         hidden_by_first_iteration:
           handle.settledAt !== null && handle.consumedOnIteration === 0,
         consumed_on_iteration: handle.consumedOnIteration,
         latency_ms: (handle.settledAt ?? Date.now()) - firedAt,
+        cache_read_input_tokens: usage?.cacheReadInputTokens,
+        cache_creation_input_tokens: usage?.cacheCreationInputTokens,
+        selector_turn_count: usage?.turnCount,
       })
     },
   }
@@ -2486,60 +2497,6 @@ function isToolResultBlock(b: unknown): b is ToolResultBlock {
  */
 function hasToolResultContent(content: unknown): boolean {
   return Array.isArray(content) && content.some(isToolResultBlock)
-}
-
-/**
- * Tools that succeeded (and never errored) since the previous real turn
- * boundary.  The memory selector uses this to suppress docs about tools
- * that are working — surfacing reference material for a tool the model
- * is already calling successfully is noise.
- *
- * Any error → tool excluded (model is struggling, docs stay available).
- * No result yet → also excluded (outcome unknown).
- *
- * tool_use lives in assistant content; tool_result in user content
- * (toolUseResult set, isMeta undefined).  Both are within the scan window.
- * Backward scan sees results before uses so we collect both by id and
- * resolve after.
- */
-export function collectRecentSuccessfulTools(
-  messages: ReadonlyArray<Message>,
-  lastUserMessage: Message,
-): readonly string[] {
-  const useIdToName = new Map<string, string>()
-  const resultByUseId = new Map<string, boolean>()
-  for (let i = messages.length - 1; i >= 0; i--) {
-    const m = messages[i]
-    if (!m) continue
-    if (isHumanTurn(m) && m !== lastUserMessage) break
-    if (m.type === 'assistant' && typeof m.message.content !== 'string') {
-      for (const block of m.message.content) {
-        if (block.type === 'tool_use') useIdToName.set(block.id, block.name)
-      }
-    } else if (
-      m.type === 'user' &&
-      'message' in m &&
-      Array.isArray(m.message.content)
-    ) {
-      for (const block of m.message.content) {
-        if (isToolResultBlock(block)) {
-          resultByUseId.set(block.tool_use_id, block.is_error === true)
-        }
-      }
-    }
-  }
-  const failed = new Set<string>()
-  const succeeded = new Set<string>()
-  for (const [id, name] of useIdToName) {
-    const errored = resultByUseId.get(id)
-    if (errored === undefined) continue
-    if (errored) {
-      failed.add(name)
-    } else {
-      succeeded.add(name)
-    }
-  }
-  return [...succeeded].filter(t => !failed.has(t))
 }
 
 

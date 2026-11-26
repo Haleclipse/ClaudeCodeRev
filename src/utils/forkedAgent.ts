@@ -13,6 +13,7 @@ import { randomUUID } from 'crypto'
 import type { PromptCommand } from '../commands.js'
 import type { QuerySource } from '../constants/querySource.js'
 import type { CanUseToolFn } from '../hooks/useCanUseTool.js'
+import { createMemorySelector } from '../memdir/memorySelector.js'
 import { query } from '../query.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -386,6 +387,8 @@ export function createSubagentContext(
     dynamicSkillDirTriggers: new Set<string>(),
     // Per-subagent: tracks skills surfaced by discovery for was_discovered telemetry (SkillTool.ts:116)
     discoveredSkillNames: new Set<string>(),
+    // Per-subagent relevant-memory selector conversation
+    memorySelector: createMemorySelector(),
     toolDecisions: undefined,
     // Budget decisions: override > clone of parent > undefined (feature off).
     //
