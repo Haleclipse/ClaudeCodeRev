@@ -165,19 +165,9 @@ export function modelSupportsStructuredOutputs(model: string): boolean {
 export function modelSupportsAutoMode(model: string): boolean {
   if (feature('TRANSCRIPT_CLASSIFIER')) {
     const m = getCanonicalName(model)
-    const provider = getAPIProvider()
-    // External: firstParty / Claude Platform on AWS only (PI probes not wired
-    // for Bedrock/Vertex/Foundry yet). Checked before allowModels so the GB
-    // override can't enable auto mode on unsupported providers.
-    if (
-      process.env.USER_TYPE !== 'ant' &&
-      provider !== 'firstParty' &&
-      provider !== 'anthropicAws'
-    ) {
-      return false
-    }
     // GrowthBook override: tengu_auto_mode_config.allowModels force-enables
-    // auto mode for listed models, bypassing the denylist/allowlist below.
+    // auto mode for listed models, bypassing the provider check and the
+    // denylist/allowlist below.
     // Exact model IDs (e.g. "claude-strudel-v6-p") match only that model;
     // canonical names (e.g. "claude-strudel") match the whole family.
     const config = getFeatureValue_CACHED_MAY_BE_STALE<{
@@ -190,6 +180,17 @@ export function modelSupportsAutoMode(model: string): boolean {
       )
     ) {
       return true
+    }
+    const provider = getAPIProvider()
+    // External: firstParty / Claude Platform on AWS only (PI probes not wired
+    // for Bedrock/Vertex/Foundry yet). Checked after allowModels, so the GB
+    // override can enable auto mode on other providers.
+    if (
+      process.env.USER_TYPE !== 'ant' &&
+      provider !== 'firstParty' &&
+      provider !== 'anthropicAws'
+    ) {
+      return false
     }
     if (process.env.USER_TYPE === 'ant') {
       // Denylist: block known-unsupported claude models, allow everything else (ant-internal models etc.)

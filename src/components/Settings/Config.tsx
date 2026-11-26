@@ -612,7 +612,7 @@ export function Config({
       type: 'enum' as const,
       onChange(mode: string) {
         const parsedMode = permissionModeFromString(mode)
-        // Internal modes (e.g. auto) are stored directly
+        // Internal (non-external) modes are stored directly
         const validatedMode = isExternalPermissionMode(parsedMode)
           ? toExternalPermissionMode(parsedMode)
           : parsedMode

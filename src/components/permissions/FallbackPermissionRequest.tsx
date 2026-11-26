@@ -122,6 +122,11 @@ export function FallbackPermissionRequest({
 
   const originalCwd = getOriginalCwd()
   const showAlwaysAllowOptions = shouldShowAlwaysAllowOptions()
+  // A safety check the classifier can't approve must be asked every time
+  const decisionReason = toolUseConfirm.permissionResult.decisionReason
+  const isUnapprovableSafetyCheck =
+    decisionReason?.type === 'safetyCheck' &&
+    !decisionReason.classifierApprovable
   const options = useMemo((): PermissionPromptOption<FallbackOptionValue>[] => {
     const result: PermissionPromptOption<FallbackOptionValue>[] = [
       {
@@ -131,7 +136,7 @@ export function FallbackPermissionRequest({
       },
     ]
 
-    if (showAlwaysAllowOptions) {
+    if (showAlwaysAllowOptions && !isUnapprovableSafetyCheck) {
       result.push({
         label: (
           <Text>
@@ -150,7 +155,12 @@ export function FallbackPermissionRequest({
     })
 
     return result
-  }, [userFacingName, originalCwd, showAlwaysAllowOptions])
+  }, [
+    userFacingName,
+    originalCwd,
+    showAlwaysAllowOptions,
+    isUnapprovableSafetyCheck,
+  ])
 
   const toolAnalyticsContext = useMemo(
     (): ToolAnalyticsContext => ({
