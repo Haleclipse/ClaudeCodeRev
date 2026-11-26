@@ -81,6 +81,7 @@ import {
   saveAgentName,
   saveCustomTitle,
 } from '../../../utils/sessionStorage.js'
+import { isUltraplanEnabled } from '../../../utils/ultraplan/config.js'
 import { type OptionWithDescription, Select } from '../../CustomSelect/index.js'
 import { Markdown } from '../../Markdown.js'
 import { PermissionDialog } from '../PermissionDialog.js'
@@ -221,7 +222,7 @@ export function ExitPlanModePermissionRequest({
   // launchUltraplan can notice the session exists and return "already polling".
   // feature() must sit directly in an if/ternary (bun:bundle DCE constraint).
   const showUltraplan = feature('ULTRAPLAN')
-    ? !ultraplanSessionUrl && !ultraplanLaunching
+    ? isUltraplanEnabled() && !ultraplanSessionUrl && !ultraplanLaunching
     : false
   const usage = toolUseConfirm.assistantMessage.message.usage
   const { mode, isAutoModeAvailable, isBypassPermissionsModeAvailable } =

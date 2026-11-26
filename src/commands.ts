@@ -44,6 +44,7 @@ import releaseNotes from './commands/release-notes/index.js'
 import rename from './commands/rename/index.js'
 import resume from './commands/resume/index.js'
 import review, { ultrareview } from './commands/review.js'
+import ultraplan from './commands/ultraplan.js'
 import session from './commands/session/index.js'
 import share from './commands/share/index.js'
 import skills from './commands/skills/index.js'
@@ -106,9 +107,6 @@ const clearSkillIndexCache = feature('EXPERIMENTAL_SKILL_SEARCH')
   : null
 const subscribePr = feature('KAIROS_GITHUB_WEBHOOKS')
   ? require('./commands/subscribe-pr.js').default
-  : null
-const ultraplan = feature('ULTRAPLAN')
-  ? require('./commands/ultraplan.js').default
   : null
 const torch = feature('TORCH') ? require('./commands/torch.js').default : null
 const peersCmd = feature('UDS_INBOX')
@@ -244,7 +242,6 @@ export const INTERNAL_ONLY_COMMANDS = [
   mockLimits,
   bridgeKick,
   version,
-  ...(ultraplan ? [ultraplan] : []),
   ...(subscribePr ? [subscribePr] : []),
   resetLimits,
   resetLimitsNonInteractive,
@@ -316,6 +313,7 @@ const COMMANDS = memoize((): Command[] => [
   feedback,
   review,
   ultrareview,
+  ultraplan,
   rewind,
   securityReview,
   terminalSetup,

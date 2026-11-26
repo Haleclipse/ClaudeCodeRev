@@ -1489,7 +1489,10 @@ export async function teleportToRemote(options: {
  * success. Fire-and-forget; failure leaks a visible session until the
  * reaper collects it.
  */
-export async function archiveRemoteSession(sessionId: string): Promise<void> {
+export async function archiveRemoteSession(
+  sessionId: string,
+  timeoutMs = 10000,
+): Promise<void> {
   const accessToken = getClaudeAIOAuthTokens()?.accessToken
   if (!accessToken) return
   const orgUUID = await getOrganizationUUID()
@@ -1504,7 +1507,7 @@ export async function archiveRemoteSession(sessionId: string): Promise<void> {
     const resp = await axios.post(
       url,
       {},
-      { headers, timeout: 10000, validateStatus: s => s < 500 },
+      { headers, timeout: timeoutMs, validateStatus: s => s < 500 },
     )
     if (resp.status === 200 || resp.status === 409) {
       logForDebugging(`[archiveRemoteSession] archived ${sessionId}`)

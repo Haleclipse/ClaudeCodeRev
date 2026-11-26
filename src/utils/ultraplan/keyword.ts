@@ -120,8 +120,10 @@ export function hasUltrareviewKeyword(text: string): boolean {
 export function replaceUltraplanKeyword(text: string): string {
   const [trigger] = findUltraplanTriggerPositions(text)
   if (!trigger) return text
-  const before = text.slice(0, trigger.start)
+  let before = text.slice(0, trigger.start)
   const after = text.slice(trigger.end)
   if (!(before + after).trim()) return ''
+  // "an ultraplan" → "a plan"
+  before = before.replace(/\b(a)n(\s+)$/i, '$1$2')
   return before + trigger.word.slice('ultra'.length) + after
 }

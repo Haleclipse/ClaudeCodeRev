@@ -165,7 +165,13 @@ function UltraplanSessionDetail({
           </Text>
           <Select
             options={[
-              { label: 'Terminate session', value: 'stop' as const },
+              {
+                label:
+                  phase === 'plan_ready'
+                    ? 'Terminate session and discard plan'
+                    : 'Terminate session',
+                value: 'stop' as const,
+              },
               { label: 'Back', value: 'back' as const },
             ]}
             onChange={v => {
@@ -217,11 +223,24 @@ function UltraplanSessionDetail({
         <Select
           options={[
             {
-              label: 'Review in Claude Code on the web',
+              label:
+                phase === 'plan_ready'
+                  ? 'Review in Claude Code on the web'
+                  : phase === 'needs_input'
+                    ? 'Answer in Claude Code on the web'
+                    : 'Open in Claude Code on the web',
               value: 'open' as const,
             },
             ...(onKill && running
-              ? [{ label: 'Stop ultraplan', value: 'stop' as const }]
+              ? [
+                  {
+                    label: 'Stop ultraplan',
+                    value: 'stop' as const,
+                    ...(phase === 'plan_ready' && {
+                      description: 'Discard the generated plan',
+                    }),
+                  },
+                ]
               : []),
             { label: 'Back', value: 'back' as const },
           ]}

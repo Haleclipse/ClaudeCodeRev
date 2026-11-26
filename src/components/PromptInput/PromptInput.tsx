@@ -189,6 +189,7 @@ import {
   findUltraplanTriggerPositions,
   findUltrareviewTriggerPositions,
 } from '../../utils/ultraplan/keyword.js'
+import { isUltraplanEnabled } from '../../utils/ultraplan/config.js'
 import { AutoModeOptInDialog } from '../AutoModeOptInDialog.js'
 import { BridgeDialog } from '../BridgeDialog.js'
 import { ConfigurableShortcutHint } from '../ConfigurableShortcutHint.js'
@@ -579,6 +580,15 @@ function PromptInput({
   const [previousModeBeforeAuto, setPreviousModeBeforeAuto] =
     useState<PermissionMode | null>(null)
   const autoModeOptInTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Clear a pending auto-mode opt-in timer on unmount
+  useEffect(() => {
+    return () => {
+      if (autoModeOptInTimeoutRef.current) {
+        clearTimeout(autoModeOptInTimeoutRef.current)
+        autoModeOptInTimeoutRef.current = null
+      }
+    }
+  }, [])
 
   // Check if cursor is on the first line of input
   const isCursorOnFirstLine = useMemo(() => {
@@ -743,7 +753,10 @@ function PromptInput({
   const ultraplanLaunching = useAppState(s => s.ultraplanLaunching)
   const ultraplanTriggers = useMemo(
     () =>
-      feature('ULTRAPLAN') && !ultraplanSessionUrl && !ultraplanLaunching
+      feature('ULTRAPLAN') &&
+      isUltraplanEnabled() &&
+      !ultraplanSessionUrl &&
+      !ultraplanLaunching
         ? findUltraplanTriggerPositions(displayedValue)
         : [],
     [displayedValue, ultraplanSessionUrl, ultraplanLaunching],
@@ -969,7 +982,7 @@ function PromptInput({
     }
 
     // Same rainbow treatment for the ultraplan keyword
-    if (feature('ULTRAPLAN')) {
+    if (feature('ULTRAPLAN') && isUltraplanEnabled()) {
       for (const trigger of ultraplanTriggers) {
         for (let i = trigger.start; i < trigger.end; i++) {
           highlights.push({
@@ -1047,7 +1060,7 @@ function PromptInput({
   }, [addNotification, removeNotification, thinkTriggers.length])
 
   useEffect(() => {
-    if (feature('ULTRAPLAN') && ultraplanTriggers.length) {
+    if (feature('ULTRAPLAN') && isUltraplanEnabled() && ultraplanTriggers.length) {
       addNotification({
         key: 'ultraplan-active',
         text: 'This prompt will launch an ultraplan session in Claude Code on the web',

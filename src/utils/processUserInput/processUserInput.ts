@@ -58,6 +58,7 @@ import {
   hasUltraplanKeyword,
   replaceUltraplanKeyword,
 } from '../ultraplan/keyword.js'
+import { isUltraplanEnabled } from '../ultraplan/config.js'
 import { processTextPrompt } from './processTextPrompt.js'
 export type ProcessUserInputContext = ToolUseContext & LocalJSXCommandContext
 
@@ -451,6 +452,7 @@ async function processUserInputBase(
   // React batches both into one render, no flash).
   if (
     feature('ULTRAPLAN') &&
+    isUltraplanEnabled() &&
     mode === 'prompt' &&
     !context.options.isNonInteractiveSession &&
     inputString !== null &&

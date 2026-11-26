@@ -304,10 +304,12 @@ export async function pollForApprovedExitPlanMode(
     await sleep(POLL_INTERVAL_MS)
   }
 
+  const timeoutMinutes = Math.round(timeoutMs / 60000)
+  const minuteUnit = timeoutMinutes === 1 ? 'minute' : 'minutes'
   throw new UltraplanPollError(
     scanner.everSeenPending
-      ? `no approval after ${timeoutMs / 1000}s`
-      : `ExitPlanMode never reached after ${timeoutMs / 1000}s (the remote container failed to start, or session ID mismatch?)`,
+      ? `no approval after ${timeoutMinutes} ${minuteUnit}`
+      : `ExitPlanMode never reached after ${timeoutMinutes} ${minuteUnit} (the remote container failed to start, or session ID mismatch?)`,
     scanner.everSeenPending ? 'timeout_pending' : 'timeout_no_plan',
     scanner.rejectCount,
   )

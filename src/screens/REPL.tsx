@@ -452,6 +452,9 @@ import {
 } from '../utils/messageQueueManager.js'
 import { useCommandQueue } from '../hooks/useCommandQueue.js'
 import { SessionBackgroundHint } from '../components/SessionBackgroundHint.js'
+import { UltraplanChoiceDialog } from '../components/ultraplan/UltraplanChoiceDialog.js'
+import { UltraplanLaunchDialog } from '../components/ultraplan/UltraplanLaunchDialog.js'
+import { launchUltraplan } from '../commands/ultraplan.js'
 import { startBackgroundSession } from '../tasks/LocalMainSessionTask.js'
 import { useSessionBackgrounding } from '../hooks/useSessionBackgrounding.js'
 import { diagnosticTracker } from '../services/diagnosticTracking.js'
@@ -6806,7 +6809,11 @@ export function REPL({
                               ? { ...prev, ultraplanLaunchPending: undefined }
                               : prev,
                           )
-                          if (choice === 'cancel') return
+                          if (choice === 'cancel') {
+                            // "Not now": put the prompt back in the input box
+                            if (blurb) setInputValue(blurb)
+                            return
+                          }
                           // Command's onDone used display:'skip', so add the
                           // echo here — gives immediate feedback before the
                           // ~5s teleportToRemote resolves.
@@ -6816,13 +6823,27 @@ export function REPL({
                               formatCommandInputTags('ultraplan', blurb),
                             ),
                           ])
-                          const appendStdout = (msg: string) =>
-                            setMessages(prev => [
-                              ...prev,
-                              createCommandInputMessage(
-                                `<${LOCAL_COMMAND_STDOUT_TAG}>${escapeXml(msg)}</${LOCAL_COMMAND_STDOUT_TAG}>`,
-                              ),
-                            ])
+                          const toStdoutMessage = (msg: string) =>
+                            createCommandInputMessage(
+                              `<${LOCAL_COMMAND_STDOUT_TAG}>${escapeXml(msg)}</${LOCAL_COMMAND_STDOUT_TAG}>`,
+                            )
+                          // uuid of the "Starting…" launch message; the
+                          // session-ready message replaces it in place.
+                          let launchMessageUuid: string | undefined
+                          const appendStdout = (msg: string) => {
+                            const next = toStdoutMessage(msg)
+                            setMessages(prev => {
+                              const index = launchMessageUuid
+                                ? prev.findIndex(
+                                    m => m.uuid === launchMessageUuid,
+                                  )
+                                : -1
+                              if (index === -1) return [...prev, next]
+                              const updated = [...prev]
+                              updated[index] = next
+                              return updated
+                            })
+                          }
                           // Defer the second message if a query is mid-turn
                           // so it lands after the assistant reply, not
                           // between the user's prompt and the reply.
@@ -6843,13 +6864,18 @@ export function REPL({
                           }
                           void launchUltraplan({
                             blurb,
+                            promptIdentifier: opts?.promptIdentifier,
                             getAppState: () => store.getState(),
                             setAppState,
                             signal: createAbortController().signal,
                             disconnectedBridge: opts?.disconnectedBridge,
                             onSessionReady: appendWhenIdle,
                           })
-                            .then(appendStdout)
+                            .then(msg => {
+                              const launchMessage = toStdoutMessage(msg)
+                              launchMessageUuid = launchMessage.uuid
+                              setMessages(prev => [...prev, launchMessage])
+                            })
                             .catch(logError)
                         }}
                       />

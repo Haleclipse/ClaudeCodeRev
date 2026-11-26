@@ -7,12 +7,14 @@ import type { BackgroundTaskState } from './types.js'
  * Used by both the footer pill and the turn-duration transcript line so the
  * two surfaces agree on terminology.
  */
-export function getPillLabel(tasks: BackgroundTaskState[]): string {
+export function getPillLabel(tasks: BackgroundTaskState[]): string | null {
+  const first = tasks[0]
+  if (!first) return null
   const n = tasks.length
-  const allSameType = tasks.every(t => t.type === tasks[0]!.type)
+  const allSameType = tasks.every(t => t.type === first.type)
 
   if (allSameType) {
-    switch (tasks[0]!.type) {
+    switch (first.type) {
       case 'local_bash': {
         const monitors = count(
           tasks,
@@ -37,10 +39,9 @@ export function getPillLabel(tasks: BackgroundTaskState[]): string {
       case 'local_agent':
         return n === 1 ? '1 local agent' : `${n} local agents`
       case 'remote_agent': {
-        const first = tasks[0]!
         // Per design mockup: ◇ open diamond while running/needs-input,
         // ◆ filled once ExitPlanMode is awaiting approval.
-        if (n === 1 && first.type === 'remote_agent' && first.isUltraplan) {
+        if (n === 1 && first.isUltraplan) {
           switch (first.ultraplanPhase) {
             case 'plan_ready':
               return `${DIAMOND_FILLED} ultraplan ready`

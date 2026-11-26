@@ -16,17 +16,21 @@ import {
   registerRemoteAgentTask,
 } from '../tasks/RemoteAgentTask/RemoteAgentTask.js'
 import type { LocalJSXCommandCall } from '../types/command.js'
+import { registerCleanup } from '../utils/cleanupRegistry.js'
 import { logForDebugging } from '../utils/debug.js'
 import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
 import { enqueuePendingNotification } from '../utils/messageQueueManager.js'
 import { ALL_MODEL_CONFIGS } from '../utils/model/configs.js'
+import { deleteRemoteAgentMetadata } from '../utils/sessionStorage.js'
 import { updateTaskState } from '../utils/task/framework.js'
 import { archiveRemoteSession, teleportToRemote } from '../utils/teleport.js'
 import {
   pollForApprovedExitPlanMode,
   UltraplanPollError,
 } from '../utils/ultraplan/ccrSession.js'
+import { isUltraplanEnabled } from '../utils/ultraplan/config.js'
+import { replaceUltraplanKeyword } from '../utils/ultraplan/keyword.js'
 
 // TODO(prod-hardening): OAuth token may go stale over the 30min poll;
 // consider refresh.
@@ -223,6 +227,11 @@ function startDetachedPoll(
         // doesn't notify for a killed session.
         const task = getAppState().tasks?.[taskId]
         if (task?.status !== 'running') return
+        // Completed here — drop the sidecar so a resumed session doesn't
+        // restore the task.
+        void deleteRemoteAgentMetadata(taskId).catch(e =>
+          logForDebugging(`ultraplan meta delete failed: ${String(e)}`),
+        )
         updateTaskState<RemoteAgentTaskState>(taskId, setAppState, t =>
           t.status !== 'running'
             ? t
@@ -271,8 +280,14 @@ function startDetachedPoll(
           e instanceof UltraplanPollError ? e.rejectCount : undefined,
       })
       enqueuePendingNotification({
-        value: `Ultraplan failed: ${errorMessage(e)}\n\nSession: ${url}`,
+        value: `Ultraplan terminated: ${errorMessage(e)}\n\nSession: ${url}`,
         mode: 'task-notification',
+      })
+      enqueuePendingNotification({
+        value:
+          "Remote Ultraplan session failed. Wait for the user's next instructions.",
+        mode: 'task-notification',
+        isMeta: true,
       })
       // Error path owns cleanup; teleport path defers to the dialog; remote
       // path handled its own cleanup above.
@@ -336,6 +351,7 @@ export async function stopUltraplan(
   // RemoteAgentTask.kill archives the session (with .catch) — no separate
   // archive call needed here.
   await RemoteAgentTask.kill(taskId, setAppState)
+  logEvent('tengu_ultraplan_stopped', {})
   setAppState(prev =>
     prev.ultraplanSessionUrl ||
     prev.ultraplanPendingChoice ||
@@ -535,6 +551,13 @@ async function launchDetached(opts: {
       isUltraplan: true,
     })
     startDetachedPoll(taskId, session.id, url, getAppState, setAppState)
+    // Archive on exit if this is still the active ultraplan — short timeout
+    // so it can't hold up shutdown.
+    registerCleanup(async () => {
+      if (getAppState().ultraplanSessionUrl === url) {
+        await archiveRemoteSession(session.id, 1500)
+      }
+    })
   } catch (e) {
     logError(e)
     logEvent('tengu_ultraplan_create_failed', {
@@ -544,6 +567,12 @@ async function launchDetached(opts: {
     enqueuePendingNotification({
       value: `ultraplan: unexpected error — ${errorMessage(e)}`,
       mode: 'task-notification',
+    })
+    enqueuePendingNotification({
+      value:
+        "Ultraplan hit an unexpected error during launch. Wait for the user's next instructions.",
+      mode: 'task-notification',
+      isMeta: true,
     })
     if (sessionId) {
       // Error after teleport succeeded — archive so the remote doesn't sit
@@ -570,7 +599,7 @@ async function launchDetached(opts: {
 }
 
 const call: LocalJSXCommandCall = async (onDone, context, args) => {
-  const blurb = args.trim()
+  const blurb = replaceUltraplanKeyword(args).trim()
 
   // Bare /ultraplan (no args, no seed plan) just shows usage — no dialog.
   if (!blurb) {
@@ -614,9 +643,9 @@ export default {
   name: 'ultraplan',
   // Time estimate follows the active prompt variant
   get description() {
-    return `${getUltraplanPromptCopy().timeEstimate} · Claude Code on the web drafts an advanced plan you can edit and approve. See ${CCR_TERMS_URL}`
+    return `${getUltraplanPromptCopy().timeEstimate} · Claude Code on the web drafts a plan you can edit and approve. See ${CCR_TERMS_URL}`
   },
   argumentHint: '<prompt>',
-  isEnabled: () => "external" === 'ant',
+  isEnabled: () => isUltraplanEnabled(),
   load: () => Promise.resolve({ call }),
 } satisfies Command
