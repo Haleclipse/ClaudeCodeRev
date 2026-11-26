@@ -77,7 +77,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   TRANSCRIPT_CLASSIFIER: true,
   WORKFLOW_SCRIPTS: false, // official 2.1.88: gated modules absent from its sourcemap
   AGENT_MEMORY_SNAPSHOT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
-  AWAY_SUMMARY: false, // official 2.1.89: off (re-checked after porting: no away-summary code in the bundle)
+  AWAY_SUMMARY: false, // official 2.1.89: off (re-checked after porting: the bundle displays away_summary messages but has no code that generates them)
   AGENT_TRIGGERS: true,
   AGENT_TRIGGERS_REMOTE: true,
   POWERSHELL_AUTO_MODE: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
@@ -131,8 +131,8 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   ALLOW_TEST_VERSIONS: isDev,
   BREAK_CACHE_COMMAND: isDev,
   OVERFLOW_TEST_TOOL: isDev,
-  TREE_SITTER_BASH: true, // official 2.1.89: changed from 2.1.88 (bundle token-distance search)
-  TREE_SITTER_BASH_SHADOW: false, // official 2.1.89: changed from 2.1.88 (bundle token-distance search)
+  TREE_SITTER_BASH: true, // 2.1.89 sources no longer reference this flag (gate removed); value not observable, kept from the token-distance search
+  TREE_SITTER_BASH_SHADOW: false, // 2.1.89 sources no longer reference this flag (shadow branch removed); value not observable
 }
 
 // Env overrides: FEATURE_DAEMON=true

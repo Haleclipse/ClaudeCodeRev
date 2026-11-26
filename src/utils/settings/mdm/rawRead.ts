@@ -89,7 +89,8 @@ export function fireRawRead(): Promise<RawReadResult> {
 
     if (process.platform === 'win32') {
       // SECURITY: absolute path — a bare `reg` resolves against the cwd first
-      const regExe = `${process.env.SYSTEMROOT || 'C:\\Windows'}\\System32\\reg.exe`
+      const systemRoot = process.env.SYSTEMROOT || 'C:\\Windows'
+      const regExe = `${systemRoot}\\System32\\reg.exe`
       const [hklm, hkcu] = await Promise.all([
         execFilePromise(regExe, [
           'query',

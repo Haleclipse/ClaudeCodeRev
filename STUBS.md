@@ -6,7 +6,7 @@ Machine-readable copy: `stubs-manifest.json`.
 - **source**: real module recovered from the official sourcemap
 - **stub**: absent from the published build (DCE'd by a build-time gate or ant-only); placeholder generated here
 
-Source files: 1912 · stub files: 168 · build-gated require() targets: 124 (source 43, stub 81)
+Source files: 1911 · stub files: 168 · build-gated require() targets: 124 (source 43, stub 81)
 
 ## Build-gated require() targets
 
@@ -32,7 +32,7 @@ Reached only when a build-time gate is on: `feature(…)` flags, or `process.env
 | `src/commands/remoteControlServer/index.ts` | stub | `feature('DAEMON') && feature('BRIDGE_MODE')` | src/commands.ts:84 |
 | `src/commands/subscribe-pr.ts` | stub | `feature('KAIROS_GITHUB_WEBHOOKS')` | src/commands.ts:108 |
 | `src/commands/torch.ts` | stub | `feature('TORCH')` | src/commands.ts:113 |
-| `src/commands/ultraplanCommand.tsx` | source | `feature('ULTRAPLAN')` | src/commands.ts:111 |
+| `src/commands/ultraplan.tsx` | source | `feature('ULTRAPLAN')` | src/commands.ts:111 |
 | `src/commands/voice/index.ts` | source | `feature('VOICE_MODE')` | src/commands.ts:87 |
 | `src/commands/workflows/index.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/commands.ts:94 |
 | `src/components/AntModelSwitchCallout.ts` | stub | `"external" === 'ant'` | src/screens/REPL.tsx:472<br>src/screens/REPL.tsx:476 |

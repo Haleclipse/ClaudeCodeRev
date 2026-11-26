@@ -103,7 +103,7 @@ function AutoCompactDialog({ onDone, context }: Props): React.ReactNode {
     { context: 'Tabs' },
   )
 
-  const valueLabel =
+  const displayValue =
     value === MODEL_DEFAULT ? 'Model default' : `${formatTokens(value)} tokens`
   const subtitle = `Current setting: ${currentLabel}`
 
@@ -136,7 +136,7 @@ function AutoCompactDialog({ onDone, context }: Props): React.ReactNode {
           <Box>
             <Text>Select auto-compact window: </Text>
             <Text bold color="suggestion">
-              {valueLabel}
+              {displayValue}
             </Text>
           </Box>
         )}

@@ -58,7 +58,7 @@ export function UserToolResultMessage({
   // Ratings attach to the assistant message that issued the tool_use
   const assistantUuid = lookups.assistantUuidByToolUseID.get(param.tool_use_id)
   const rating = useMessageRating(assistantUuid)
-  const [isArrowHovered, setIsArrowHovered] = useState(false)
+  const [arrowHovered, setArrowHovered] = useState(false)
   if (!toolUse) {
     return null
   }
@@ -140,14 +140,14 @@ export function UserToolResultMessage({
         <NoSelect
           fromLeftEdge
           onClick={() => rateMessage(assistantUuid, 'negative')}
-          onMouseEnter={() => setIsArrowHovered(true)}
-          onMouseLeave={() => setIsArrowHovered(false)}
+          onMouseEnter={() => setArrowHovered(true)}
+          onMouseLeave={() => setArrowHovered(false)}
         >
           <Text
             color={
-              rating === 'negative' || isArrowHovered ? 'error' : undefined
+              rating === 'negative' || arrowHovered ? 'error' : undefined
             }
-            dimColor={rating !== 'negative' && !isArrowHovered}
+            dimColor={rating !== 'negative' && !arrowHovered}
           >
             {DOWN_ARROW}
           </Text>

@@ -504,12 +504,12 @@ export async function initBridgeCore(
     logForDebugging(`[bridge:repl] Session created: ${currentSessionId}`)
   }
 
+  onSessionEstablished?.(currentSessionId)
   // Crash-recovery pointer: written now so a kill -9 at any point after
   // this leaves a recoverable trail. Cleared in teardown (non-perpetual)
   // or left alone (perpetual mode — pointer survives clean exit too).
   // `claude remote-control --continue` from the same directory will detect
   // it and offer to resume.
-  onSessionEstablished?.(currentSessionId)
   await writeBridgePointer(dir, {
     sessionId: currentSessionId,
     environmentId,
@@ -820,7 +820,7 @@ export async function initBridgeCore(
     // Re-publish to the PID file so peer dedup (peerRegistry.ts) picks up the
     // new ID — setReplBridgeHandle only fires at init/teardown, not reconnect.
     void updateSessionBridgeId(toCompatSessionId(newSessionId)).catch(() => {})
-    onSessionEstablished?.(newSessionId)
+    onSessionEstablished?.(currentSessionId)
     // Reset per-session transport state IMMEDIATELY after the session swap,
     // before any await. If this runs after `await writeBridgePointer` below,
     // there's a window where handle.bridgeSessionId already returns session B
