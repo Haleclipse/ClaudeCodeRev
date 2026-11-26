@@ -158,20 +158,6 @@ function getAlternateScreenshotPath(filePath: string): string | undefined {
   )
 }
 
-// File read listeners - allows other services to be notified when files are read
-type FileReadListener = (filePath: string, content: string) => void
-const fileReadListeners: FileReadListener[] = []
-
-export function registerFileReadListener(
-  listener: FileReadListener,
-): () => void {
-  fileReadListeners.push(listener)
-  return () => {
-    const i = fileReadListeners.indexOf(listener)
-    if (i >= 0) fileReadListeners.splice(i, 1)
-  }
-}
-
 export class MaxFileReadTokenExceededError extends Error {
   constructor(
     public tokenCount: number,
@@ -1051,12 +1037,6 @@ async function callInner(
     limit,
   })
   context.nestedMemoryAttachmentTriggers?.add(fullFilePath)
-
-  // Snapshot before iterating — a listener that unsubscribes mid-callback
-  // would splice the live array and skip the next listener.
-  for (const listener of fileReadListeners.slice()) {
-    listener(resolvedFilePath, content)
-  }
 
   const data = {
     type: 'text' as const,

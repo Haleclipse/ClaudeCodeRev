@@ -39,7 +39,6 @@ import mcp from './commands/mcp/index.js'
 import mobile from './commands/mobile/index.js'
 import onboarding from './commands/onboarding/index.js'
 import powerup from './commands/powerup/index.js'
-import pr_comments from './commands/pr_comments/index.js'
 import releaseNotes from './commands/release-notes/index.js'
 import rename from './commands/rename/index.js'
 import resume from './commands/resume/index.js'
@@ -178,7 +177,6 @@ import exit from './commands/exit/index.js'
 import exportCommand from './commands/export/index.js'
 import model from './commands/model/index.js'
 import tag from './commands/tag/index.js'
-import outputStyle from './commands/output-style/index.js'
 import remoteEnv from './commands/remote-env/index.js'
 import upgrade from './commands/upgrade/index.js'
 import {
@@ -294,10 +292,8 @@ const COMMANDS = memoize((): Command[] => [
   mobile,
   toggleMemory,
   model,
-  outputStyle,
   remoteEnv,
   plugin,
-  pr_comments,
   releaseNotes,
   reloadPlugins,
   rename,
