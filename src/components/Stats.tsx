@@ -14,10 +14,10 @@ import stripAnsi from 'strip-ansi'
 import type { CommandResultDisplay } from '../commands.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { applyColor } from '../ink/colorize.js'
+import type { KeyboardEvent } from '../ink/events/keyboard-event.js'
 import { stringWidth as getStringWidth } from '../ink/stringWidth.js'
 import type { Color } from '../ink/styles.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw j/k/arrow stats navigation
-import { Ansi, Box, Text, useInput } from '../ink.js'
+import { Ansi, Box, Text } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'
 import { getGlobalConfig } from '../utils/config.js'
 import { formatDuration, formatNumber } from '../utils/format.js'
@@ -179,28 +179,35 @@ function StatsContent({
 
   useKeybinding('confirm:no', handleClose, { context: 'Confirmation' })
 
-  useInput((input, key) => {
+  function handleKeyDown(e: KeyboardEvent): void {
     // Handle ctrl+c and ctrl+d for closing
-    if (key.ctrl && (input === 'c' || input === 'd')) {
+    if (e.ctrl && (e.key === 'c' || e.key === 'd')) {
+      e.preventDefault()
       onClose('Stats dialog dismissed', { display: 'system' })
+      return
     }
     // Track tab changes
-    if (key.tab) {
+    if (e.key === 'tab') {
+      e.preventDefault()
       setActiveTab(prev => (prev === 'Overview' ? 'Models' : 'Overview'))
+      return
     }
     // r to cycle date range
-    if (input === 'r' && !key.ctrl && !key.meta) {
+    if (e.key === 'r' && !e.ctrl && !e.meta) {
+      e.preventDefault()
       setDateRange(getNextDateRange(dateRange))
+      return
     }
     // Ctrl+S to copy screenshot to clipboard
-    if (key.ctrl && input === 's' && displayStats) {
+    if (e.ctrl && e.key === 's' && displayStats) {
+      e.preventDefault()
       void handleScreenshot(displayStats, activeTab, setCopyStatus)
     }
-  })
+  }
 
   if (allTimeResult.type === 'error') {
     return (
-      <Box marginTop={1}>
+      <Box marginTop={1} tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
         <Text color="error">Failed to load stats: {allTimeResult.message}</Text>
       </Box>
     )
@@ -208,7 +215,7 @@ function StatsContent({
 
   if (allTimeResult.type === 'empty') {
     return (
-      <Box marginTop={1}>
+      <Box marginTop={1} tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
         <Text color="warning">
           No stats available yet. Start using Claude Code!
         </Text>
@@ -218,7 +225,7 @@ function StatsContent({
 
   if (!displayStats || !allTimeStats) {
     return (
-      <Box marginTop={1}>
+      <Box marginTop={1} tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
         <Spinner />
         <Text> Loading stats…</Text>
       </Box>
@@ -227,30 +234,37 @@ function StatsContent({
 
   return (
     <Pane color="claude">
-      <Box flexDirection="row" gap={1} marginBottom={1}>
-        <Tabs title="" color="claude" defaultTab="Overview">
-          <Tab title="Overview">
-            <OverviewTab
-              stats={displayStats}
-              allTimeStats={allTimeStats}
-              dateRange={dateRange}
-              isLoading={isLoadingFiltered}
-            />
-          </Tab>
-          <Tab title="Models">
-            <ModelsTab
-              stats={displayStats}
-              dateRange={dateRange}
-              isLoading={isLoadingFiltered}
-            />
-          </Tab>
-        </Tabs>
-      </Box>
-      <Box paddingLeft={2}>
-        <Text dimColor>
-          Esc to cancel · r to cycle dates · ctrl+s to copy
-          {copyStatus ? ` · ${copyStatus}` : ''}
-        </Text>
+      <Box
+        flexDirection="column"
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
+        <Box flexDirection="row" gap={1} marginBottom={1}>
+          <Tabs title="" color="claude" defaultTab="Overview">
+            <Tab title="Overview">
+              <OverviewTab
+                stats={displayStats}
+                allTimeStats={allTimeStats}
+                dateRange={dateRange}
+                isLoading={isLoadingFiltered}
+              />
+            </Tab>
+            <Tab title="Models">
+              <ModelsTab
+                stats={displayStats}
+                dateRange={dateRange}
+                isLoading={isLoadingFiltered}
+              />
+            </Tab>
+          </Tabs>
+        </Box>
+        <Box paddingLeft={2}>
+          <Text dimColor>
+            Esc to cancel · r to cycle dates · ctrl+s to copy
+            {copyStatus ? ` · ${copyStatus}` : ''}
+          </Text>
+        </Box>
       </Box>
     </Pane>
   )
@@ -628,26 +642,28 @@ function ModelsTab({
   )
 
   // Handle scrolling with arrow keys
-  useInput(
-    (_input, key) => {
-      if (
-        key.downArrow &&
-        scrollOffset < modelEntries.length - VISIBLE_MODELS
-      ) {
-        setScrollOffset(prev =>
-          Math.min(prev + 2, modelEntries.length - VISIBLE_MODELS),
-        )
+  function handleKeyDown(e: KeyboardEvent): void {
+    // Arrow keys belong to the tab header while it has focus
+    if (headerFocused) return
+    if (
+      e.key === 'down' &&
+      scrollOffset < modelEntries.length - VISIBLE_MODELS
+    ) {
+      e.preventDefault()
+      setScrollOffset(prev =>
+        Math.min(prev + 2, modelEntries.length - VISIBLE_MODELS),
+      )
+      return
+    }
+    if (e.key === 'up') {
+      e.preventDefault()
+      if (scrollOffset > 0) {
+        setScrollOffset(prev => Math.max(prev - 2, 0))
+      } else {
+        focusHeader()
       }
-      if (key.upArrow) {
-        if (scrollOffset > 0) {
-          setScrollOffset(prev => Math.max(prev - 2, 0))
-        } else {
-          focusHeader()
-        }
-      }
-    },
-    { isActive: !headerFocused },
-  )
+    }
+  }
 
   if (modelEntries.length === 0) {
     return (
@@ -683,7 +699,13 @@ function ModelsTab({
   const showScrollHint = modelEntries.length > VISIBLE_MODELS
 
   return (
-    <Box flexDirection="column" marginTop={1}>
+    <Box
+      flexDirection="column"
+      marginTop={1}
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+    >
       {/* Token usage chart */}
       {chartOutput && (
         <Box flexDirection="column" marginBottom={1}>
@@ -949,16 +971,13 @@ function renderStatsToAnsi(
   }
 
   // Trim trailing empty lines
-  while (
-    lines.length > 0 &&
-    stripAnsi(lines[lines.length - 1]!).trim() === ''
-  ) {
+  while (lines.length > 0 && stripAnsi(lines.at(-1)!).trim() === '') {
     lines.pop()
   }
 
   // Add "/stats" right-aligned on the last line
   if (lines.length > 0) {
-    const lastLine = lines[lines.length - 1]!
+    const lastLine = lines.at(-1)!
     const lastLineLen = getStringWidth(lastLine)
     // Use known content widths based on layout:
     // Overview: two-column stats = COL2_START(40) + COL2_LABEL_WIDTH(18) + max_value(~12) = 70

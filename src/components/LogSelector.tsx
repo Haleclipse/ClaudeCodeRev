@@ -7,8 +7,9 @@ import { useExitOnCtrlCDWithKeybindings } from '../hooks/useExitOnCtrlCDWithKeyb
 import { useSearchInput } from '../hooks/useSearchInput.js'
 import { useTerminalSize } from '../hooks/useTerminalSize.js'
 import { applyColor } from '../ink/colorize.js'
+import type { KeyboardEvent } from '../ink/events/keyboard-event.js'
 import type { Color } from '../ink/styles.js'
-import { Box, Text, useInput, useTerminalFocus, useTheme } from '../ink.js'
+import { Box, Text, useTerminalFocus, useTheme } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'
 import { logEvent } from '../services/analytics/index.js'
 import type { LogOption, SerializedMessage } from '../types/logs.js'
@@ -872,121 +873,132 @@ export function LogSelector({
   )
 
   // Handle non-escape input
-  useInput(
-    (input, key) => {
-      if (viewMode === 'preview') {
-        // Preview mode handles its own input
-        return
-      }
+  function handleKeyDown(e: KeyboardEvent): void {
+    if (viewMode === 'preview') {
+      // Preview mode handles its own input
+      return
+    }
 
-      // Agentic search abort is now handled via keybinding
-      if (agenticSearchState.status === 'searching') {
-        return
-      }
+    // Agentic search abort is now handled via keybinding
+    if (agenticSearchState.status === 'searching') {
+      return
+    }
 
-      if (viewMode === 'rename') {
-        // Rename mode escape is now handled via keybinding
-        // This branch only handles non-escape input in rename mode (via TextInput)
-      } else if (viewMode === 'search') {
-        // Text input is handled by useSearchInput hook
-        if (input.toLowerCase() === 'n' && key.ctrl) {
-          exitSearchMode()
-        } else if (key.return || key.downArrow) {
-          // Focus agentic search option if applicable
-          if (
-            searchQuery.trim() &&
-            onAgenticSearch &&
-            isAgenticSearchEnabled &&
-            agenticSearchState.status !== 'results'
-          ) {
-            setIsAgenticSearchOptionFocused(true)
-          }
+    if (viewMode === 'rename') {
+      // Rename mode escape is now handled via keybinding
+      // This branch only handles non-escape input in rename mode (via TextInput)
+    } else if (viewMode === 'search') {
+      // Text input is handled by useSearchInput hook
+      if (e.ctrl && e.key === 'n') {
+        e.preventDefault()
+        exitSearchMode()
+      } else if (e.key === 'return' || e.key === 'down') {
+        // Focus agentic search option if applicable
+        if (
+          searchQuery.trim() &&
+          onAgenticSearch &&
+          isAgenticSearchEnabled &&
+          agenticSearchState.status !== 'results'
+        ) {
+          setIsAgenticSearchOptionFocused(true)
         }
-      } else {
-        // Handle agentic search option when focused (escape handled via keybinding)
-        if (isAgenticSearchOptionFocused) {
-          if (key.return) {
-            // Trigger agentic search
-            void handleAgenticSearch()
-            setIsAgenticSearchOptionFocused(false)
-            return
-          } else if (key.downArrow) {
-            // Move focus to the session list
-            setIsAgenticSearchOptionFocused(false)
-            return
-          } else if (key.upArrow) {
-            // Go back to search mode
-            setViewMode('search')
-            setIsAgenticSearchOptionFocused(false)
-            return
-          }
-        }
-
-        // Handle tab cycling for tag tabs
-        if (hasTags && key.tab) {
-          const offset = key.shift ? -1 : 1
-          setSelectedTagIndex(prev => {
-            const current = prev < tagTabs.length ? prev : 0
-            const newIndex =
-              (current + tagTabs.length + offset) % tagTabs.length
-            const newTab = tagTabs[newIndex]
-            logEvent('tengu_session_tag_filter_changed', {
-              is_all: newTab === 'All',
-              tag_count: uniqueTags.length,
-            })
-            return newIndex
-          })
+      }
+    } else {
+      // Handle agentic search option when focused (escape handled via keybinding)
+      if (isAgenticSearchOptionFocused) {
+        if (e.key === 'return') {
+          e.preventDefault()
+          // Trigger agentic search
+          void handleAgenticSearch()
+          setIsAgenticSearchOptionFocused(false)
+          return
+        } else if (e.key === 'down') {
+          e.preventDefault()
+          // Move focus to the session list
+          setIsAgenticSearchOptionFocused(false)
+          return
+        } else if (e.key === 'up') {
+          e.preventDefault()
+          // Go back to search mode
+          setViewMode('search')
+          setIsAgenticSearchOptionFocused(false)
           return
         }
-
-        const keyIsNotCtrlOrMeta = !key.ctrl && !key.meta
-        const lowerInput = input.toLowerCase()
-        // Ctrl+letter shortcuts for actions (freeing up plain letters for type-to-search)
-        if (lowerInput === 'a' && key.ctrl && onToggleAllProjects) {
-          onToggleAllProjects()
-          logEvent('tengu_session_all_projects_toggled', {
-            enabled: !showAllProjects,
-          })
-        } else if (lowerInput === 'b' && key.ctrl) {
-          const newEnabled = !branchFilterEnabled
-          setBranchFilterEnabled(newEnabled)
-          logEvent('tengu_session_branch_filter_toggled', {
-            enabled: newEnabled,
-          })
-        } else if (lowerInput === 'w' && key.ctrl && hasMultipleWorktrees) {
-          const newValue = !showAllWorktrees
-          setShowAllWorktrees(newValue)
-          logEvent('tengu_session_worktree_filter_toggled', {
-            enabled: newValue,
-          })
-        } else if (lowerInput === '/' && keyIsNotCtrlOrMeta) {
-          setViewMode('search')
-          logEvent('tengu_session_search_toggled', { enabled: true })
-        } else if (lowerInput === 'r' && key.ctrl && focusedLog) {
-          setViewMode('rename')
-          setRenameValue('')
-          logEvent('tengu_session_rename_started', {})
-        } else if (lowerInput === 'v' && key.ctrl && focusedLog) {
-          setPreviewLog(focusedLog)
-          setViewMode('preview')
-          logEvent('tengu_session_preview_opened', {
-            messageCount: focusedLog.messageCount,
-          })
-        } else if (
-          focusedLog &&
-          keyIsNotCtrlOrMeta &&
-          input.length > 0 &&
-          !/^\s+$/.test(input)
-        ) {
-          // Any printable character enters search mode and starts typing
-          setViewMode('search')
-          setSearchQuery(input)
-          logEvent('tengu_session_search_toggled', { enabled: true })
-        }
       }
-    },
-    { isActive: true },
-  )
+
+      // Handle tab cycling for tag tabs
+      if (hasTags && e.key === 'tab') {
+        e.preventDefault()
+        const offset = e.shift ? -1 : 1
+        setSelectedTagIndex(prev => {
+          const current = prev < tagTabs.length ? prev : 0
+          const newIndex =
+            (current + tagTabs.length + offset) % tagTabs.length
+          const newTab = tagTabs[newIndex]
+          logEvent('tengu_session_tag_filter_changed', {
+            is_all: newTab === 'All',
+            tag_count: uniqueTags.length,
+          })
+          return newIndex
+        })
+        return
+      }
+
+      const keyIsNotCtrlOrMeta = !e.ctrl && !e.meta
+      const lowerInput = e.key.toLowerCase()
+      // Ctrl+letter shortcuts for actions (freeing up plain letters for type-to-search)
+      if (e.ctrl && e.key === 'a' && onToggleAllProjects) {
+        e.preventDefault()
+        onToggleAllProjects()
+        logEvent('tengu_session_all_projects_toggled', {
+          enabled: !showAllProjects,
+        })
+      } else if (e.ctrl && e.key === 'b') {
+        e.preventDefault()
+        const newEnabled = !branchFilterEnabled
+        setBranchFilterEnabled(newEnabled)
+        logEvent('tengu_session_branch_filter_toggled', {
+          enabled: newEnabled,
+        })
+      } else if (e.ctrl && e.key === 'w' && hasMultipleWorktrees) {
+        e.preventDefault()
+        const newValue = !showAllWorktrees
+        setShowAllWorktrees(newValue)
+        logEvent('tengu_session_worktree_filter_toggled', {
+          enabled: newValue,
+        })
+      } else if (lowerInput === '/' && keyIsNotCtrlOrMeta) {
+        e.preventDefault()
+        setViewMode('search')
+        logEvent('tengu_session_search_toggled', { enabled: true })
+      } else if (e.ctrl && e.key === 'r' && focusedLog) {
+        e.preventDefault()
+        setViewMode('rename')
+        setRenameValue('')
+        logEvent('tengu_session_rename_started', {})
+      } else if (e.ctrl && e.key === 'v' && focusedLog) {
+        e.preventDefault()
+        setPreviewLog(focusedLog)
+        setViewMode('preview')
+        logEvent('tengu_session_preview_opened', {
+          messageCount: focusedLog.messageCount,
+        })
+      } else if (
+        focusedLog &&
+        keyIsNotCtrlOrMeta &&
+        e.key.length > 0 &&
+        // Named keys (f1, pageup, …) are not text
+        (e.key.length === 1 || !/^[a-z]+\d*$/.test(e.key)) &&
+        !/^\s+$/.test(e.key)
+      ) {
+        // Any printable character enters search mode and starts typing
+        e.preventDefault()
+        setViewMode('search')
+        setSearchQuery(e.key)
+        logEvent('tengu_session_search_toggled', { enabled: true })
+      }
+    }
+  }
 
   const filterIndicators = []
   if (branchFilterEnabled && currentBranch) {
@@ -1038,7 +1050,11 @@ export function LogSelector({
   }
 
   return (
-    <Box flexDirection="column" height={maxHeight - 1}>
+    <Box
+      flexDirection="column"
+      height={maxHeight - 1}
+      onKeyDown={handleKeyDown}
+    >
       <Box flexShrink={0}>
         <Divider color="suggestion" />
       </Box>

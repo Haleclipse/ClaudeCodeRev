@@ -5,12 +5,19 @@ import type {
   PrimitiveSchemaDefinition,
 } from '@modelcontextprotocol/sdk/types.js'
 import figures from 'figures'
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { useRegisterOverlay } from '../../context/overlayContext.js'
 import { useNotifyAfterTimeout } from '../../hooks/useNotifyAfterTimeout.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw text input for elicitation form
-import { Box, Text, useInput } from '../../ink.js'
+import type { KeyboardEvent } from '../../ink/events/keyboard-event.js'
+import { Box, Text, useStdin } from '../../ink.js'
 import { useKeybinding } from '../../keybindings/useKeybinding.js'
 import type { ElicitationRequestEvent } from '../../services/mcp/elicitationHandler.js'
 import { openBrowser } from '../../utils/browser.js'
@@ -207,6 +214,14 @@ function ElicitationFormDialog({
       signal.removeEventListener('abort', handleAbort)
     }
   }, [signal, onResponse])
+
+  // Keys arrive via onKeyDown; raw mode used to come from useInput, so
+  // enable it explicitly while the dialog is mounted.
+  const { setRawMode } = useStdin()
+  useLayoutEffect(() => {
+    setRawMode(true)
+    return () => setRawMode(false)
+  }, [setRawMode])
 
   const schemaFields = useMemo(() => {
     const requiredFields = requestedSchema.required ?? []
@@ -606,291 +621,316 @@ function ElicitationFormDialog({
     },
   )
 
-  useInput(
-    (_input, key) => {
-      // Text fields handle their own character input; we only intercept
-      // navigation keys and backspace-on-empty here.
-      if (
-        isEditingTextField &&
-        !key.upArrow &&
-        !key.downArrow &&
-        !key.return &&
-        !key.backspace
-      ) {
+  function handleKeyDown(e: KeyboardEvent): void {
+    // Printable non-space character typed (typeahead); modifier combos excluded
+    const char =
+      e.key.length === 1 && e.key !== ' ' && !e.ctrl && !e.meta ? e.key : ''
+    // Text fields handle their own character input; we only intercept
+    // navigation keys and backspace-on-empty here.
+    if (
+      isEditingTextField &&
+      e.key !== 'up' &&
+      e.key !== 'down' &&
+      e.key !== 'return' &&
+      e.key !== 'backspace'
+    ) {
+      return
+    }
+
+    // Expanded multi-select accordion
+    if (
+      expandedAccordion &&
+      currentField &&
+      isMultiSelectEnumSchema(currentField.schema)
+    ) {
+      const msSchema = currentField.schema
+      const msValues = getMultiSelectValues(msSchema)
+      const selected = (formValues[currentField.name] as string[]) ?? []
+
+      if (e.key === 'left' || e.key === 'escape') {
+        e.preventDefault()
+        setExpandedAccordion(undefined)
+        validateMultiSelect(currentField.name, msSchema)
         return
       }
-
-      // Expanded multi-select accordion
-      if (
-        expandedAccordion &&
-        currentField &&
-        isMultiSelectEnumSchema(currentField.schema)
-      ) {
-        const msSchema = currentField.schema
-        const msValues = getMultiSelectValues(msSchema)
-        const selected = (formValues[currentField.name] as string[]) ?? []
-
-        if (key.leftArrow || key.escape) {
+      if (e.key === 'up') {
+        e.preventDefault()
+        if (accordionOptionIndex === 0) {
           setExpandedAccordion(undefined)
           validateMultiSelect(currentField.name, msSchema)
-          return
-        }
-        if (key.upArrow) {
-          if (accordionOptionIndex === 0) {
-            setExpandedAccordion(undefined)
-            validateMultiSelect(currentField.name, msSchema)
-          } else {
-            setAccordionOptionIndex(accordionOptionIndex - 1)
-          }
-          return
-        }
-        if (key.downArrow) {
-          if (accordionOptionIndex >= msValues.length - 1) {
-            setExpandedAccordion(undefined)
-            handleNavigation('down')
-          } else {
-            setAccordionOptionIndex(accordionOptionIndex + 1)
-          }
-          return
-        }
-        if (_input === ' ') {
-          const optionValue = msValues[accordionOptionIndex]
-          if (optionValue !== undefined) {
-            const newSelected = selected.includes(optionValue)
-              ? selected.filter(v => v !== optionValue)
-              : [...selected, optionValue]
-            const newValue = newSelected.length > 0 ? newSelected : undefined
-            setField(currentField.name, newValue)
-            const min = msSchema.minItems
-            const max = msSchema.maxItems
-            if (
-              min !== undefined &&
-              newSelected.length < min &&
-              (newSelected.length > 0 || currentField.isRequired)
-            ) {
-              updateValidationError(
-                currentField.name,
-                `Select at least ${min} ${plural(min, 'item')}`,
-              )
-            } else if (max !== undefined && newSelected.length > max) {
-              updateValidationError(
-                currentField.name,
-                `Select at most ${max} ${plural(max, 'item')}`,
-              )
-            } else {
-              updateValidationError(currentField.name)
-            }
-          }
-          return
-        }
-        if (key.return) {
-          // Check (not toggle) the focused item, then collapse and advance
-          const optionValue = msValues[accordionOptionIndex]
-          if (optionValue !== undefined && !selected.includes(optionValue)) {
-            setField(currentField.name, [...selected, optionValue])
-          }
-          setExpandedAccordion(undefined)
-          handleNavigation('down')
-          return
-        }
-        if (_input) {
-          const labels = msValues.map(v =>
-            getMultiSelectLabel(msSchema, v).toLowerCase(),
-          )
-          runTypeahead(_input, labels, setAccordionOptionIndex)
-          return
-        }
-        return
-      }
-
-      // Expanded single-select enum accordion
-      if (
-        expandedAccordion &&
-        currentField &&
-        isEnumSchema(currentField.schema)
-      ) {
-        const enumSchema = currentField.schema
-        const enumValues = getEnumValues(enumSchema)
-
-        if (key.leftArrow || key.escape) {
-          setExpandedAccordion(undefined)
-          return
-        }
-        if (key.upArrow) {
-          if (accordionOptionIndex === 0) {
-            setExpandedAccordion(undefined)
-          } else {
-            setAccordionOptionIndex(accordionOptionIndex - 1)
-          }
-          return
-        }
-        if (key.downArrow) {
-          if (accordionOptionIndex >= enumValues.length - 1) {
-            setExpandedAccordion(undefined)
-            handleNavigation('down')
-          } else {
-            setAccordionOptionIndex(accordionOptionIndex + 1)
-          }
-          return
-        }
-        // Space: select and collapse
-        if (_input === ' ') {
-          const optionValue = enumValues[accordionOptionIndex]
-          if (optionValue !== undefined) {
-            setField(currentField.name, optionValue)
-          }
-          setExpandedAccordion(undefined)
-          return
-        }
-        // Enter: select, collapse, and move to next field
-        if (key.return) {
-          const optionValue = enumValues[accordionOptionIndex]
-          if (optionValue !== undefined) {
-            setField(currentField.name, optionValue)
-          }
-          setExpandedAccordion(undefined)
-          handleNavigation('down')
-          return
-        }
-        if (_input) {
-          const labels = enumValues.map(v =>
-            getEnumLabel(enumSchema, v).toLowerCase(),
-          )
-          runTypeahead(_input, labels, setAccordionOptionIndex)
-          return
-        }
-        return
-      }
-
-      // Accept / Decline buttons
-      if (key.return && focusedButton === 'accept') {
-        if (validateRequired() && Object.keys(validationErrors).length === 0) {
-          onResponse('accept', formValues)
         } else {
-          // Show "required" validation errors on missing fields
-          const requiredFields = requestedSchema.required || []
-          for (const fieldName of requiredFields) {
-            if (formValues[fieldName] === undefined) {
-              updateValidationError(fieldName, 'This field is required')
-            }
-          }
-          const firstBadIndex = schemaFields.findIndex(
-            f =>
-              (requiredFields.includes(f.name) &&
-                formValues[f.name] === undefined) ||
-              validationErrors[f.name] !== undefined,
-          )
-          if (firstBadIndex !== -1) {
-            setCurrentFieldIndex(firstBadIndex)
-            setFocusedButton(null)
-            syncTextInput(firstBadIndex)
-          }
+          setAccordionOptionIndex(accordionOptionIndex - 1)
         }
         return
       }
-
-      if (key.return && focusedButton === 'decline') {
-        onResponse('decline')
-        return
-      }
-
-      // Up/Down navigation
-      if (key.upArrow || key.downArrow) {
-        // Reset enum typeahead when leaving a field
-        const ta = enumTypeaheadRef.current
-        ta.buffer = ''
-        if (ta.timer !== undefined) {
-          clearTimeout(ta.timer)
-          ta.timer = undefined
-        }
-        handleNavigation(key.upArrow ? 'up' : 'down')
-        return
-      }
-
-      // Left/Right to switch between Accept and Decline buttons
-      if (focusedButton && (key.leftArrow || key.rightArrow)) {
-        setFocusedButton(focusedButton === 'accept' ? 'decline' : 'accept')
-        return
-      }
-
-      if (!currentField) return
-      const { schema, name } = currentField
-      const value = formValues[name]
-
-      // Boolean: Space to toggle, Enter to move on
-      if (schema.type === 'boolean') {
-        if (_input === ' ') {
-          setField(name, value === undefined ? true : !value)
-          return
-        }
-        if (key.return) {
+      if (e.key === 'down') {
+        e.preventDefault()
+        if (accordionOptionIndex >= msValues.length - 1) {
+          setExpandedAccordion(undefined)
           handleNavigation('down')
-          return
-        }
-        if (key.backspace && value !== undefined) {
-          unsetField(name)
-          return
-        }
-        // y/n typeahead
-        if (_input && !key.return) {
-          runTypeahead(_input, ['yes', 'no'], i => setField(name, i === 0))
-          return
-        }
-        return
-      }
-
-      // Enum or multi-select (collapsed) — accordion style
-      if (isEnumSchema(schema) || isMultiSelectEnumSchema(schema)) {
-        if (key.return) {
-          handleNavigation('down')
-          return
-        }
-        if (key.backspace && value !== undefined) {
-          unsetField(name)
-          return
-        }
-        // Compute option labels + initial focus index for rightArrow expand.
-        // Single-select focuses on the current value; multi-select starts at 0.
-        let labels: string[]
-        let startIdx = 0
-        if (isEnumSchema(schema)) {
-          const vals = getEnumValues(schema)
-          labels = vals.map(v => getEnumLabel(schema, v).toLowerCase())
-          if (value !== undefined) {
-            startIdx = Math.max(0, vals.indexOf(value as string))
-          }
         } else {
-          const vals = getMultiSelectValues(schema)
-          labels = vals.map(v => getMultiSelectLabel(schema, v).toLowerCase())
+          setAccordionOptionIndex(accordionOptionIndex + 1)
         }
-        if (key.rightArrow) {
+        return
+      }
+      if (e.key === ' ') {
+        e.preventDefault()
+        const optionValue = msValues[accordionOptionIndex]
+        if (optionValue !== undefined) {
+          const newSelected = selected.includes(optionValue)
+            ? selected.filter(v => v !== optionValue)
+            : [...selected, optionValue]
+          const newValue = newSelected.length > 0 ? newSelected : undefined
+          setField(currentField.name, newValue)
+          const min = msSchema.minItems
+          const max = msSchema.maxItems
+          if (
+            min !== undefined &&
+            newSelected.length < min &&
+            (newSelected.length > 0 || currentField.isRequired)
+          ) {
+            updateValidationError(
+              currentField.name,
+              `Select at least ${min} ${plural(min, 'item')}`,
+            )
+          } else if (max !== undefined && newSelected.length > max) {
+            updateValidationError(
+              currentField.name,
+              `Select at most ${max} ${plural(max, 'item')}`,
+            )
+          } else {
+            updateValidationError(currentField.name)
+          }
+        }
+        return
+      }
+      if (e.key === 'return') {
+        e.preventDefault()
+        // Check (not toggle) the focused item, then collapse and advance
+        const optionValue = msValues[accordionOptionIndex]
+        if (optionValue !== undefined && !selected.includes(optionValue)) {
+          setField(currentField.name, [...selected, optionValue])
+        }
+        setExpandedAccordion(undefined)
+        handleNavigation('down')
+        return
+      }
+      if (char) {
+        e.preventDefault()
+        const labels = msValues.map(v =>
+          getMultiSelectLabel(msSchema, v).toLowerCase(),
+        )
+        runTypeahead(char, labels, setAccordionOptionIndex)
+        return
+      }
+      return
+    }
+
+    // Expanded single-select enum accordion
+    if (
+      expandedAccordion &&
+      currentField &&
+      isEnumSchema(currentField.schema)
+    ) {
+      const enumSchema = currentField.schema
+      const enumValues = getEnumValues(enumSchema)
+
+      if (e.key === 'left' || e.key === 'escape') {
+        e.preventDefault()
+        setExpandedAccordion(undefined)
+        return
+      }
+      if (e.key === 'up') {
+        e.preventDefault()
+        if (accordionOptionIndex === 0) {
+          setExpandedAccordion(undefined)
+        } else {
+          setAccordionOptionIndex(accordionOptionIndex - 1)
+        }
+        return
+      }
+      if (e.key === 'down') {
+        e.preventDefault()
+        if (accordionOptionIndex >= enumValues.length - 1) {
+          setExpandedAccordion(undefined)
+          handleNavigation('down')
+        } else {
+          setAccordionOptionIndex(accordionOptionIndex + 1)
+        }
+        return
+      }
+      // Space: select and collapse
+      if (e.key === ' ') {
+        e.preventDefault()
+        const optionValue = enumValues[accordionOptionIndex]
+        if (optionValue !== undefined) {
+          setField(currentField.name, optionValue)
+        }
+        setExpandedAccordion(undefined)
+        return
+      }
+      // Enter: select, collapse, and move to next field
+      if (e.key === 'return') {
+        e.preventDefault()
+        const optionValue = enumValues[accordionOptionIndex]
+        if (optionValue !== undefined) {
+          setField(currentField.name, optionValue)
+        }
+        setExpandedAccordion(undefined)
+        handleNavigation('down')
+        return
+      }
+      if (char) {
+        e.preventDefault()
+        const labels = enumValues.map(v =>
+          getEnumLabel(enumSchema, v).toLowerCase(),
+        )
+        runTypeahead(char, labels, setAccordionOptionIndex)
+        return
+      }
+      return
+    }
+
+    // Accept / Decline buttons
+    if (e.key === 'return' && focusedButton === 'accept') {
+      e.preventDefault()
+      if (validateRequired() && Object.keys(validationErrors).length === 0) {
+        onResponse('accept', formValues)
+      } else {
+        // Show "required" validation errors on missing fields
+        const requiredFields = requestedSchema.required || []
+        for (const fieldName of requiredFields) {
+          if (formValues[fieldName] === undefined) {
+            updateValidationError(fieldName, 'This field is required')
+          }
+        }
+        const firstBadIndex = schemaFields.findIndex(
+          f =>
+            (requiredFields.includes(f.name) &&
+              formValues[f.name] === undefined) ||
+            validationErrors[f.name] !== undefined,
+        )
+        if (firstBadIndex !== -1) {
+          setCurrentFieldIndex(firstBadIndex)
+          setFocusedButton(null)
+          syncTextInput(firstBadIndex)
+        }
+      }
+      return
+    }
+
+    if (e.key === 'return' && focusedButton === 'decline') {
+      e.preventDefault()
+      onResponse('decline')
+      return
+    }
+
+    // Up/Down navigation
+    if (e.key === 'up' || e.key === 'down') {
+      e.preventDefault()
+      // Reset enum typeahead when leaving a field
+      const ta = enumTypeaheadRef.current
+      ta.buffer = ''
+      if (ta.timer !== undefined) {
+        clearTimeout(ta.timer)
+        ta.timer = undefined
+      }
+      handleNavigation(e.key === 'up' ? 'up' : 'down')
+      return
+    }
+
+    // Left/Right to switch between Accept and Decline buttons
+    if (focusedButton && (e.key === 'left' || e.key === 'right')) {
+      e.preventDefault()
+      setFocusedButton(focusedButton === 'accept' ? 'decline' : 'accept')
+      return
+    }
+
+    if (!currentField) return
+    const { schema, name } = currentField
+    const value = formValues[name]
+
+    // Boolean: Space to toggle, Enter to move on
+    if (schema.type === 'boolean') {
+      if (e.key === ' ') {
+        e.preventDefault()
+        setField(name, value === undefined ? true : !value)
+        return
+      }
+      if (e.key === 'return') {
+        e.preventDefault()
+        handleNavigation('down')
+        return
+      }
+      if (e.key === 'backspace' && value !== undefined) {
+        e.preventDefault()
+        unsetField(name)
+        return
+      }
+      // y/n typeahead
+      if (char && e.key !== 'return') {
+        e.preventDefault()
+        runTypeahead(char, ['yes', 'no'], i => setField(name, i === 0))
+        return
+      }
+      return
+    }
+
+    // Enum or multi-select (collapsed) — accordion style
+    if (isEnumSchema(schema) || isMultiSelectEnumSchema(schema)) {
+      if (e.key === 'return') {
+        e.preventDefault()
+        handleNavigation('down')
+        return
+      }
+      if (e.key === 'backspace' && value !== undefined) {
+        e.preventDefault()
+        unsetField(name)
+        return
+      }
+      // Compute option labels + initial focus index for rightArrow expand.
+      // Single-select focuses on the current value; multi-select starts at 0.
+      let labels: string[]
+      let startIdx = 0
+      if (isEnumSchema(schema)) {
+        const vals = getEnumValues(schema)
+        labels = vals.map(v => getEnumLabel(schema, v).toLowerCase())
+        if (value !== undefined) {
+          startIdx = Math.max(0, vals.indexOf(value as string))
+        }
+      } else {
+        const vals = getMultiSelectValues(schema)
+        labels = vals.map(v => getMultiSelectLabel(schema, v).toLowerCase())
+      }
+      if (e.key === 'right') {
+        e.preventDefault()
+        setExpandedAccordion(name)
+        setAccordionOptionIndex(startIdx)
+        return
+      }
+      // Typeahead: expand and jump to matching option
+      if (char && e.key !== 'left') {
+        e.preventDefault()
+        runTypeahead(char, labels, i => {
           setExpandedAccordion(name)
-          setAccordionOptionIndex(startIdx)
-          return
-        }
-        // Typeahead: expand and jump to matching option
-        if (_input && !key.leftArrow) {
-          runTypeahead(_input, labels, i => {
-            setExpandedAccordion(name)
-            setAccordionOptionIndex(i)
-          })
-          return
-        }
+          setAccordionOptionIndex(i)
+        })
         return
       }
+      return
+    }
 
-      // Backspace: text fields when empty
-      if (key.backspace) {
-        if (isEditingTextField && textInputValue === '') {
-          unsetField(name)
-          return
-        }
+    // Backspace: text fields when empty
+    if (e.key === 'backspace') {
+      if (isEditingTextField && textInputValue === '') {
+        e.preventDefault()
+        unsetField(name)
+        return
       }
+    }
 
-      // Text field Enter is handled by TextInput's onSubmit
-    },
-    { isActive: true },
-  )
+    // Text field Enter is handled by TextInput's onSubmit
+  }
 
   function validateRequired(): boolean {
     const requiredFields = requestedSchema.required || []
@@ -1261,7 +1301,12 @@ function ElicitationFormDialog({
         )
       }
     >
-      <Box flexDirection="column">
+      <Box
+        flexDirection="column"
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         {renderFormFields()}
         <Box>
           <Text color="success">
@@ -1308,6 +1353,13 @@ function ElicitationURLDialog({
     'accept' | 'decline' | 'open' | 'action' | 'cancel'
   >('accept')
   const showCancel = waitingState?.showCancel ?? false
+  // Keys arrive via onKeyDown; raw mode used to come from useInput, so
+  // enable it explicitly while the dialog is mounted.
+  const { setRawMode } = useStdin()
+  useLayoutEffect(() => {
+    setRawMode(true)
+    return () => setRawMode(false)
+  }, [setRawMode])
 
   useNotifyAfterTimeout(
     'Claude Code needs your input',
@@ -1365,14 +1417,15 @@ function ElicitationURLDialog({
     setFocusedButton('open')
   }, [onResponse, url])
 
-  // eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw input for button navigation
-  useInput((_input, key) => {
+  function handleKeyDown(e: KeyboardEvent): void {
     if (phase === 'prompt') {
-      if (key.leftArrow || key.rightArrow) {
+      if (e.key === 'left' || e.key === 'right') {
+        e.preventDefault()
         setFocusedButton(prev => (prev === 'accept' ? 'decline' : 'accept'))
         return
       }
-      if (key.return) {
+      if (e.key === 'return') {
+        e.preventDefault()
         if (focusedButton === 'accept') {
           handleAccept()
         } else {
@@ -1385,17 +1438,20 @@ function ElicitationURLDialog({
       const waitingButtons: readonly ButtonName[] = showCancel
         ? ['open', 'action', 'cancel']
         : ['open', 'action']
-      if (key.leftArrow || key.rightArrow) {
+      if (e.key === 'left' || e.key === 'right') {
+        e.preventDefault()
+        const forward = e.key === 'right'
         setFocusedButton(prev => {
           const idx = waitingButtons.indexOf(prev)
-          const delta = key.rightArrow ? 1 : -1
           return waitingButtons[
-            (idx + delta + waitingButtons.length) % waitingButtons.length
+            (idx + (forward ? 1 : -1) + waitingButtons.length) %
+              waitingButtons.length
           ]!
         })
         return
       }
-      if (key.return) {
+      if (e.key === 'return') {
+        e.preventDefault()
         if (focusedButton === 'open') {
           void openBrowser(url)
         } else if (focusedButton === 'cancel') {
@@ -1405,7 +1461,7 @@ function ElicitationURLDialog({
         }
       }
     }
-  })
+  }
 
   if (phase === 'waiting') {
     const actionLabel = waitingState?.actionLabel ?? 'Continue without waiting'
@@ -1432,7 +1488,12 @@ function ElicitationURLDialog({
           )
         }
       >
-        <Box flexDirection="column">
+        <Box
+          flexDirection="column"
+          tabIndex={0}
+          autoFocus
+          onKeyDown={handleKeyDown}
+        >
           <Box marginBottom={1} flexDirection="column">
             <Text>
               {urlBeforeDomain}
@@ -1510,7 +1571,12 @@ function ElicitationURLDialog({
         )
       }
     >
-      <Box flexDirection="column">
+      <Box
+        flexDirection="column"
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Box marginBottom={1} flexDirection="column">
           <Text>
             {urlBeforeDomain}

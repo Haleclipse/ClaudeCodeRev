@@ -6,8 +6,8 @@ import {
 import { Pane } from '../../components/design-system/Pane.js'
 import { Spinner } from '../../components/Spinner.js'
 import { useExitOnCtrlCDWithKeybindings } from '../../hooks/useExitOnCtrlCDWithKeybindings.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- enter to proceed through setup steps
-import { Box, Text, useInput } from '../../ink.js'
+import { Box, Text } from '../../ink.js'
+import type { KeyboardEvent } from '../../ink/events/keyboard-event.js'
 import { useKeybinding } from '../../keybindings/useKeybinding.js'
 import {
   detectPythonPackageManager,
@@ -61,8 +61,9 @@ export function It2SetupPrompt({
   })
 
   // Handle keyboard input for verification step
-  useInput((_input, key) => {
-    if (step === 'api-instructions' && key.return) {
+  function handleKeyDown(e: KeyboardEvent): void {
+    if (step === 'api-instructions' && e.key === 'return') {
+      e.preventDefault()
       setStep('verifying')
       void verifyIt2Setup().then(result => {
         if (result.success) {
@@ -75,7 +76,7 @@ export function It2SetupPrompt({
         }
       })
     }
-  })
+  }
 
   // Handle installation
   async function handleInstall(): Promise<void> {
@@ -355,7 +356,14 @@ export function It2SetupPrompt({
 
   return (
     <Pane color="permission">
-      <Box flexDirection="column" gap={1} paddingBottom={1}>
+      <Box
+        flexDirection="column"
+        gap={1}
+        paddingBottom={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text bold color="permission">
           iTerm2 Split Pane Setup
         </Text>

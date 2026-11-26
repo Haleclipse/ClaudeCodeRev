@@ -4,9 +4,9 @@ import * as React from 'react'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useInterval } from 'usehooks-ts'
 import { useRegisterOverlay } from '../../context/overlayContext.js'
+import type { KeyboardEvent } from '../../ink/events/keyboard-event.js'
 import { stringWidth } from '../../ink/stringWidth.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw j/k/arrow dialog navigation
-import { Box, Text, useInput } from '../../ink.js'
+import { Box, Text } from '../../ink.js'
 import { useKeybindings } from '../../keybindings/useKeybinding.js'
 import { useShortcutDisplay } from '../../keybindings/useShortcutDisplay.js'
 import {
@@ -153,9 +153,10 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     { context: 'Confirmation' },
   )
 
-  useInput((input, key) => {
+  function handleKeyDown(e: KeyboardEvent): void {
     // Handle left arrow to go back
-    if (key.leftArrow) {
+    if (e.key === 'left') {
+      e.preventDefault()
       if (dialogLevel.type === 'teammateDetail') {
         goBackToList()
       }
@@ -163,9 +164,10 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle up/down navigation
-    if (key.upArrow || key.downArrow) {
+    if (e.key === 'up' || e.key === 'down') {
+      e.preventDefault()
       const maxIndex = getMaxIndex()
-      if (key.upArrow) {
+      if (e.key === 'up') {
         setSelectedIndex(prev => Math.max(0, prev - 1))
       } else {
         setSelectedIndex(prev => Math.min(maxIndex, prev + 1))
@@ -174,7 +176,8 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle Enter to drill down or view output
-    if (key.return) {
+    if (e.key === 'return') {
+      e.preventDefault()
       if (
         dialogLevel.type === 'teammateList' &&
         teammateStatuses[selectedIndex]
@@ -196,7 +199,8 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle 'k' to kill teammate
-    if (input === 'k') {
+    if (e.key === 'k' && !e.ctrl && !e.meta) {
+      e.preventDefault()
       if (
         dialogLevel.type === 'teammateList' &&
         teammateStatuses[selectedIndex]
@@ -230,7 +234,8 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle 's' for shutdown of selected teammate
-    if (input === 's') {
+    if (e.key === 's' && !e.ctrl && !e.meta) {
+      e.preventDefault()
       if (
         dialogLevel.type === 'teammateList' &&
         teammateStatuses[selectedIndex]
@@ -253,7 +258,8 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle 'h' to hide/show individual teammate (only for backends that support it)
-    if (input === 'h') {
+    if (e.key === 'h' && !e.ctrl && !e.meta) {
+      e.preventDefault()
       const backend = getCachedBackend()
       const teammate =
         dialogLevel.type === 'teammateList'
@@ -277,7 +283,13 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle 'H' to hide/show all teammates (only for backends that support it)
-    if (input === 'H' && dialogLevel.type === 'teammateList') {
+    if (
+      e.key === 'H' &&
+      !e.ctrl &&
+      !e.meta &&
+      dialogLevel.type === 'teammateList'
+    ) {
+      e.preventDefault()
       const backend = getCachedBackend()
       if (backend?.supportsHideShow && teammateStatuses.length > 0) {
         // If any are visible, hide all. Otherwise, show all.
@@ -297,7 +309,13 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Handle 'p' to prune (kill) all idle teammates
-    if (input === 'p' && dialogLevel.type === 'teammateList') {
+    if (
+      e.key === 'p' &&
+      !e.ctrl &&
+      !e.meta &&
+      dialogLevel.type === 'teammateList'
+    ) {
+      e.preventDefault()
       const idleTeammates = teammateStatuses.filter(t => t.status === 'idle')
       if (idleTeammates.length > 0) {
         void Promise.all(
@@ -328,7 +346,7 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
     }
 
     // Note: Mode cycling (shift+tab) is handled via useKeybindings with confirm:cycleMode action
-  })
+  }
 
   function getMaxIndex(): number {
     if (dialogLevel.type === 'teammateList') {
@@ -340,22 +358,32 @@ export function TeamsDialog({ initialTeams, onDone }: Props): React.ReactNode {
   // Render based on dialog level
   if (dialogLevel.type === 'teammateList') {
     return (
-      <TeamDetailView
-        teamName={dialogLevel.teamName}
-        teammates={teammateStatuses}
-        selectedIndex={selectedIndex}
-        onCancel={onDone}
-      />
+      <Box
+        flexDirection="column"
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
+        <TeamDetailView
+          teamName={dialogLevel.teamName}
+          teammates={teammateStatuses}
+          selectedIndex={selectedIndex}
+          onCancel={onDone}
+        />
+      </Box>
     )
   }
 
   if (dialogLevel.type === 'teammateDetail' && currentTeammate) {
+    // TeammateDetailView owns focus; its key events bubble up to here
     return (
-      <TeammateDetailView
-        teammate={currentTeammate}
-        teamName={dialogLevel.teamName}
-        onCancel={goBackToList}
-      />
+      <Box flexDirection="column" onKeyDown={handleKeyDown}>
+        <TeammateDetailView
+          teammate={currentTeammate}
+          teamName={dialogLevel.teamName}
+          onCancel={goBackToList}
+        />
+      </Box>
     )
   }
 
@@ -496,12 +524,13 @@ function TeammateDetailView({
     }
   }, [teamName, teammate.agentId, teammate.name])
 
-  useInput(input => {
+  function handleKeyDown(e: KeyboardEvent): void {
     // Handle 'p' to expand/collapse prompt
-    if (input === 'p') {
+    if (e.key === 'p' && !e.ctrl && !e.meta) {
+      e.preventDefault()
       setPromptExpanded(prev => !prev)
     }
-  })
+  }
 
   // Determine working directory display
   const workingPath = teammate.worktreePath || teammate.cwd
@@ -536,7 +565,12 @@ function TeammateDetailView({
   )
 
   return (
-    <>
+    <Box
+      flexDirection="column"
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+    >
       <Dialog
         title={title}
         subtitle={subtitle}
@@ -583,7 +617,7 @@ function TeammateDetailView({
           {cycleModeShortcut} cycle mode
         </Text>
       </Box>
-    </>
+    </Box>
   )
 }
 

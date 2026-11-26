@@ -4,8 +4,8 @@ import {
   type CodeSession,
   fetchCodeSessionsFromSessionsAPI,
 } from 'src/utils/teleport/api.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw j/k/arrow list navigation
-import { Box, Text, useInput } from '../ink.js'
+import type { KeyboardEvent } from '../ink/events/keyboard-event.js'
+import { Box, Text } from '../ink.js'
 import { useKeybinding } from '../keybindings/useKeybinding.js'
 import { useShortcutDisplay } from '../keybindings/useShortcutDisplay.js'
 import { logForDebugging } from '../utils/debug.js'
@@ -101,25 +101,28 @@ export function ResumeTask({
   // Handle escape via keybinding
   useKeybinding('confirm:no', onCancel, { context: 'Confirmation' })
 
-  useInput((input, key) => {
+  function handleKeyDown(e: KeyboardEvent): void {
     // We need to handle ctrl+c in case we don't render a <Select>
-    if (key.ctrl && input === 'c') {
+    if (e.ctrl && e.key === 'c') {
+      e.preventDefault()
       onCancel()
       return
     }
 
     // Handle retry in error state with 'ctrl+r'
-    if (key.ctrl && input === 'r' && loadErrorType) {
+    if (e.ctrl && e.key === 'r' && loadErrorType) {
+      e.preventDefault()
       handleRetry()
       return
     }
 
     // Handle enter key for error states to allow continuation with regular teleport
-    if (loadErrorType !== null && key.return) {
+    if (loadErrorType !== null && e.key === 'return') {
+      e.preventDefault()
       onCancel() // This will continue with regular teleport flow
       return
     }
-  })
+  }
 
   const handleErrorComplete = useCallback(() => {
     setHasCompletedTeleportErrorFlow(true)
@@ -133,7 +136,13 @@ export function ResumeTask({
 
   if (loading) {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box
+        flexDirection="column"
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Box flexDirection="row">
           <Spinner />
           <Text bold>Loading Claude Code sessions…</Text>
@@ -147,7 +156,13 @@ export function ResumeTask({
 
   if (loadErrorType) {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box
+        flexDirection="column"
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text bold color="error">
           Error loading Claude Code sessions
         </Text>
@@ -164,7 +179,13 @@ export function ResumeTask({
 
   if (sessions.length === 0) {
     return (
-      <Box flexDirection="column" padding={1}>
+      <Box
+        flexDirection="column"
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text bold>
           No Claude Code sessions found
           {currentRepo && <Text> for {currentRepo}</Text>}
@@ -212,7 +233,14 @@ export function ResumeTask({
   const showScrollPosition = sessions.length > maxVisibleOptions
 
   return (
-    <Box flexDirection="column" padding={1} height={maxHeight}>
+    <Box
+      flexDirection="column"
+      padding={1}
+      height={maxHeight}
+      tabIndex={0}
+      autoFocus
+      onKeyDown={handleKeyDown}
+    >
       <Text bold>
         Select a session to resume
         {showScrollPosition && (

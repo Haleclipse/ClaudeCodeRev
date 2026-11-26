@@ -8,9 +8,9 @@ import type { CommandResultDisplay } from '../../commands.js'
 import { getOauthConfig } from '../../constants/oauth.js'
 import { useExitOnCtrlCDWithKeybindings } from '../../hooks/useExitOnCtrlCDWithKeybindings.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
+import type { KeyboardEvent } from '../../ink/events/keyboard-event.js'
 import { setClipboard } from '../../ink/termio/osc.js'
-// eslint-disable-next-line custom-rules/prefer-use-keybindings -- raw j/k/arrow menu navigation
-import { Box, color, Link, Text, useInput, useTheme } from '../../ink.js'
+import { Box, color, Link, Text, useTheme } from '../../ink.js'
 import { useKeybinding } from '../../keybindings/useKeybinding.js'
 import {
   AuthenticationCancelledError,
@@ -239,11 +239,13 @@ export function MCPRemoteServerMenu({
   )
 
   // Return key handling for authentication flows and 'c' to copy URL
-  useInput((input, key) => {
-    if (key.return && isClaudeAIAuthenticating) {
+  function handleKeyDown(e: KeyboardEvent): void {
+    if (e.key === 'return' && isClaudeAIAuthenticating) {
+      e.preventDefault()
       void handleClaudeAIAuthComplete()
     }
-    if (key.return && isClaudeAIClearingAuth) {
+    if (e.key === 'return' && isClaudeAIClearingAuth) {
+      e.preventDefault()
       if (claudeAIClearAuthBrowserOpened) {
         void handleClaudeAIClearAuthComplete()
       } else {
@@ -254,10 +256,11 @@ export function MCPRemoteServerMenu({
         void openBrowser(connectorsUrl)
       }
     }
-    if (input === 'c' && !urlCopied) {
+    if (e.key === 'c' && !e.ctrl && !e.meta && !urlCopied) {
       const urlToCopy =
         authorizationUrl || claudeAIAuthUrl || claudeAIClearAuthUrl
       if (urlToCopy) {
+        e.preventDefault()
         void setClipboard(urlToCopy).then(raw => {
           if (unmountedRef.current) return
           if (raw) process.stdout.write(raw)
@@ -269,7 +272,7 @@ export function MCPRemoteServerMenu({
         })
       }
     }
-  })
+  }
 
   const capitalizedServerName = capitalize(String(server.name))
 
@@ -480,7 +483,14 @@ export function MCPRemoteServerMenu({
         ? ' Authenticating via your identity provider'
         : ' A browser window will open for authentication'
     return (
-      <Box flexDirection="column" gap={1} padding={1}>
+      <Box
+        flexDirection="column"
+        gap={1}
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text color="claude">Authenticating with {server.name}…</Text>
         <Box>
           <Spinner />
@@ -538,7 +548,14 @@ export function MCPRemoteServerMenu({
 
   if (isClaudeAIAuthenticating) {
     return (
-      <Box flexDirection="column" gap={1} padding={1}>
+      <Box
+        flexDirection="column"
+        gap={1}
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text color="claude">Authenticating with {server.name}…</Text>
         <Box>
           <Spinner />
@@ -581,7 +598,14 @@ export function MCPRemoteServerMenu({
 
   if (isClaudeAIClearingAuth) {
     return (
-      <Box flexDirection="column" gap={1} padding={1}>
+      <Box
+        flexDirection="column"
+        gap={1}
+        padding={1}
+        tabIndex={0}
+        autoFocus
+        onKeyDown={handleKeyDown}
+      >
         <Text color="claude">Clear authentication for {server.name}</Text>
         {claudeAIClearAuthBrowserOpened ? (
           <>
