@@ -27,6 +27,7 @@ import type { PluginError } from '../../types/plugin.js'
 import { logForDebugging } from '../debug.js'
 import { errorMessage } from '../errors.js'
 import { logError } from '../log.js'
+import { clearShellConfigCache } from '../Shell.js'
 import { clearAllCaches } from './cacheUtils.js'
 import { getPluginCommands } from './loadPluginCommands.js'
 import { loadPluginHooks } from './loadPluginHooks.js'
@@ -86,6 +87,8 @@ export async function refreshActivePlugins(
   // the plugin, returning plugin-cache-miss. loadAllPlugins warms the
   // cache-only memoize on completion, so the awaits below are ~free.
   const pluginResult = await loadAllPlugins()
+  // Rebuild the shell snapshot so PATH picks up plugin bin/ dir changes
+  clearShellConfigCache()
   const [pluginCommands, agentDefinitions] = await Promise.all([
     getPluginCommands(),
     getAgentDefinitionsWithOverrides(getOriginalCwd()),

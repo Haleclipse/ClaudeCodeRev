@@ -145,6 +145,14 @@ async function getShellConfigImpl(): Promise<ShellConfig> {
 // Memoize the entire shell config so it only happens once per session
 export const getShellConfig = memoize(getShellConfigImpl)
 
+/**
+ * Drop the memoized shell config so the next command rebuilds the provider
+ * (and its snapshot, e.g. PATH with plugin bin/ dirs).
+ */
+export function clearShellConfigCache(): void {
+  getShellConfig.cache?.clear?.()
+}
+
 export const getPsProvider = memoize(async (): Promise<ShellProvider> => {
   const psPath = await getCachedPowerShellPath()
   if (!psPath) {
@@ -320,11 +328,9 @@ export async function exec(
         GIT_EDITOR: 'true',
         CLAUDECODE: '1',
         ...envOverrides,
-        ...(process.env.USER_TYPE === 'ant'
-          ? {
-              CLAUDE_CODE_SESSION_ID: getSessionId(),
-            }
-          : {}),
+        ...(process.env.USER_TYPE === 'ant' && {
+          CLAUDE_CODE_SESSION_ID: getSessionId(),
+        }),
       },
       cwd,
       stdio: usePipeMode

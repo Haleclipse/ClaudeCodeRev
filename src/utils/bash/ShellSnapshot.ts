@@ -15,9 +15,11 @@ import { pathExists } from '../file.js'
 import { getFsImplementation } from '../fsOperations.js'
 import { logError } from '../log.js'
 import { getPlatform } from '../platform.js'
+import { getPluginBinDirs } from '../plugins/pluginLoader.js'
 import { ripgrepCommand } from '../ripgrep.js'
 import { execaShell } from '../safeExeca.js'
 import { subprocessEnv } from '../subprocessEnv.js'
+import { windowsPathToPosixPath } from '../windowsPaths.js'
 import { quote } from './shellQuote.js'
 
 const LITERAL_BACKSLASH = '\\'
@@ -278,6 +280,18 @@ async function getClaudeCodeSnapshotContent(): Promise<string> {
       pathValue = cygwinResult.stdout.trim()
     }
     // Fall back to process.env.PATH if we can't get Cygwin PATH
+  }
+
+  // Append enabled plugins' bin/ dirs so their executables run as bare
+  // commands. Appended, not prepended: existing PATH entries win, so a plugin
+  // can't shadow a system command of the same name.
+  const pluginBinDirs = await getPluginBinDirs()
+  if (pluginBinDirs.length > 0) {
+    const binDirs =
+      getPlatform() === 'windows'
+        ? pluginBinDirs.map(windowsPathToPosixPath)
+        : pluginBinDirs
+    pathValue = [pathValue, ...binDirs].filter(Boolean).join(':')
   }
 
   const rgIntegration = createRipgrepShellIntegration()

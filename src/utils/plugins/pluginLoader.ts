@@ -3160,6 +3160,16 @@ export const loadAllPluginsCacheOnly = memoize(
 )
 
 /**
+ * bin/ directories of enabled (non-builtin) plugins, for the Bash PATH.
+ */
+export async function getPluginBinDirs(): Promise<string[]> {
+  const { enabled } = await loadAllPluginsCacheOnly()
+  return enabled
+    .filter(plugin => !plugin.isBuiltin && plugin.path)
+    .map(plugin => join(plugin.path, 'bin'))
+}
+
+/**
  * Shared body of loadAllPlugins and loadAllPluginsCacheOnly.
  *
  * The only difference between the two is which marketplace loader runs —
