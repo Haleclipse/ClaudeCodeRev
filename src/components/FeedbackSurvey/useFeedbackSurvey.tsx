@@ -321,7 +321,7 @@ export function useFeedbackSurvey(
 
     // Force display for testing
     if (
-      process.env.CLAUDE_FORCE_DISPLAY_SURVEY &&
+      isEnvTruthy(process.env.CLAUDE_FORCE_DISPLAY_SURVEY) &&
       !feedbackSurvey.timeLastShown
     ) {
       return true

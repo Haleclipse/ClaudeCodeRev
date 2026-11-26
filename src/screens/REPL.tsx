@@ -3290,6 +3290,7 @@ export function REPL({
         setAppState,
         messages,
         turnStartIndex: 0,
+        replHydration: { kind: 'resume' },
         setMessages,
         updateFileHistoryState(
           updater: (prev: FileHistoryState) => FileHistoryState,

@@ -551,7 +551,7 @@ function buildNamespace(targetDir: string, baseDir: string): string {
     ? baseDir.slice(0, -1)
     : baseDir
 
-  if (targetDir === normalizedBaseDir) {
+  if (!targetDir.startsWith(normalizedBaseDir + pathSep)) {
     return ''
   }
 

@@ -45,11 +45,43 @@ export function clearAllDumpState(): void {
   dumpState.clear()
 }
 
+function truncateBase64InRequest(
+  req: Record<string, unknown>,
+): Record<string, unknown> {
+  const messages = req.messages
+  if (!Array.isArray(messages)) return req
+  const truncated = messages.map(msg => {
+    if (!msg || typeof msg !== 'object') return msg
+    const content = (msg as { content?: unknown }).content
+    if (!Array.isArray(content)) return msg
+    return { ...msg, content: content.map(truncateBase64Block) }
+  })
+  return { ...req, messages: truncated }
+}
+
+// Replaces base64 payloads over 256 chars with "[N base64 chars]",
+// recursing into nested content (e.g. tool_result blocks).
+function truncateBase64Block(block: unknown): unknown {
+  if (!block || typeof block !== 'object') return block
+  const b = block as { source?: unknown; content?: unknown }
+  const source = b.source
+  if (source && typeof source === 'object') {
+    const s = source as { data?: unknown }
+    if (typeof s.data === 'string' && s.data.length > 256) {
+      return { ...b, source: { ...s, data: `[${s.data.length} base64 chars]` } }
+    }
+  }
+  if (Array.isArray(b.content)) {
+    return { ...b, content: b.content.map(truncateBase64Block) }
+  }
+  return block
+}
+
 export function addApiRequestToCache(requestData: unknown): void {
   if (process.env.USER_TYPE !== 'ant') return
   cachedApiRequests.push({
     timestamp: new Date().toISOString(),
-    request: requestData,
+    request: truncateBase64InRequest(requestData as Record<string, unknown>),
   })
   if (cachedApiRequests.length > MAX_CACHED_REQUESTS) {
     cachedApiRequests.shift()
@@ -157,10 +189,8 @@ export function createDumpPromptsFetch(
     }
     dumpState.set(agentIdOrSessionId, state)
 
-    let timestamp: string | undefined
-
     if (init?.method === 'POST' && init.body) {
-      timestamp = new Date().toISOString()
+      const timestamp = new Date().toISOString()
       // Parsing + stringifying the request (system prompt + tool schemas = MBs)
       // takes hundreds of ms. Defer so it doesn't block the actual API call —
       // this is debug tooling for /issue, not on the critical path.
@@ -168,59 +198,6 @@ export function createDumpPromptsFetch(
     }
 
     // eslint-disable-next-line eslint-plugin-n/no-unsupported-features/node-builtins
-    const response = await globalThis.fetch(input, init)
-
-    // Save response async
-    if (timestamp && response.ok && process.env.USER_TYPE === 'ant') {
-      const cloned = response.clone()
-      void (async () => {
-        try {
-          const isStreaming = cloned.headers
-            .get('content-type')
-            ?.includes('text/event-stream')
-
-          let data: unknown
-          if (isStreaming && cloned.body) {
-            // Parse SSE stream into chunks
-            const reader = cloned.body.getReader()
-            const decoder = new TextDecoder()
-            let buffer = ''
-            try {
-              while (true) {
-                const { done, value } = await reader.read()
-                if (done) break
-                buffer += decoder.decode(value, { stream: true })
-              }
-            } finally {
-              reader.releaseLock()
-            }
-            const chunks: unknown[] = []
-            for (const event of buffer.split('\n\n')) {
-              for (const line of event.split('\n')) {
-                if (line.startsWith('data: ') && line !== 'data: [DONE]') {
-                  try {
-                    chunks.push(jsonParse(line.slice(6)))
-                  } catch {
-                    // Ignore parse errors
-                  }
-                }
-              }
-            }
-            data = { stream: true, chunks }
-          } else {
-            data = await cloned.json()
-          }
-
-          await fs.appendFile(
-            filePath,
-            jsonStringify({ type: 'response', timestamp, data }) + '\n',
-          )
-        } catch {
-          // Best effort
-        }
-      })()
-    }
-
-    return response
+    return globalThis.fetch(input, init)
   }
 }

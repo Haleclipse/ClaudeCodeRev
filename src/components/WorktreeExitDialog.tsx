@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import type { CommandResultDisplay } from 'src/commands.js'
 import { logEvent } from 'src/services/analytics/index.js'
 import { logForDebugging } from 'src/utils/debug.js'
+import { getSessionId } from '../bootstrap/state.js'
 import { Box, Text } from '../ink.js'
 import { execFileNoThrow } from '../utils/execFileNoThrow.js'
 import { getPlansDirectory } from '../utils/plans.js'
@@ -18,13 +19,16 @@ import { Spinner } from './Spinner.js'
 
 // Inline require breaks the cycle this file would otherwise close:
 // sessionStorage → commands → exit → ExitFlow → here. All call sites
-// are inside callbacks, so the lazy require never sees an undefined import.
-function recordWorktreeExit(): void {
+// run after module init (render and callbacks), so the lazy require never
+// sees an undefined import.
+function getSessionStorage(): typeof import('../utils/sessionStorage.js') {
   /* eslint-disable @typescript-eslint/no-require-imports */
-  ;(
-    require('../utils/sessionStorage.js') as typeof import('../utils/sessionStorage.js')
-  ).saveWorktreeState(null)
+  return require('../utils/sessionStorage.js') as typeof import('../utils/sessionStorage.js')
   /* eslint-enable @typescript-eslint/no-require-imports */
+}
+
+function recordWorktreeExit(): void {
+  getSessionStorage().saveWorktreeState(null)
 }
 
 type Props = {
@@ -46,6 +50,9 @@ export function WorktreeExitDialog({
   const [commitCount, setCommitCount] = useState<number>(0)
   const [resultMessage, setResultMessage] = useState<string | undefined>()
   const worktreeSession = getCurrentWorktreeSession()
+  const sessionTitle = getSessionStorage().getCurrentSessionTitle(
+    getSessionId(),
+  )
 
   useEffect(() => {
     async function loadChanges() {
@@ -67,8 +74,9 @@ export function WorktreeExitDialog({
         const count = parseInt(commitsStr.trim()) || 0
         setCommitCount(count)
 
-        // If no changes and no commits, clean up silently
-        if (changeLines.length === 0 && count === 0) {
+        // If no changes, no commits and the session isn't named, clean up
+        // silently
+        if (changeLines.length === 0 && count === 0 && !sessionTitle) {
           setStatus('removing')
           void cleanupWorktree()
             .then(() => {
@@ -96,7 +104,7 @@ export function WorktreeExitDialog({
     void loadChanges()
     // eslint-disable-next-line react-hooks/exhaustive-deps
     // biome-ignore lint/correctness/useExhaustiveDependencies: intentional
-  }, [worktreeSession])
+  }, [worktreeSession, sessionTitle])
 
   useEffect(() => {
     if (status === 'done') {
@@ -229,6 +237,8 @@ export function WorktreeExitDialog({
     subtitle = `You have ${changes.length} uncommitted ${changes.length === 1 ? 'file' : 'files'}. These will be lost if you remove the worktree.`
   } else if (hasCommits) {
     subtitle = `You have ${commitCount} ${commitCount === 1 ? 'commit' : 'commits'} on ${branchName}. The branch will be deleted if you remove the worktree.`
+  } else if (sessionTitle) {
+    subtitle = `This session was named "${sessionTitle}". Keep the worktree to resume it later, or remove it to clean up.`
   } else {
     subtitle =
       'You are working in a worktree. Keep it to continue working there, or remove it to clean up.'

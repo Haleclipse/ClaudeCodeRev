@@ -261,7 +261,12 @@ export async function installChromeNativeHostManifest(
           `[Claude in Chrome] First-time install detected, but extension not installed, skipping reconnect`,
         )
       }
-    })
+    }).catch(error =>
+      logForDebugging(
+        `[Claude in Chrome] Failed to check extension installation during manifest install: ${error}`,
+        { level: 'error' },
+      ),
+    )
   }
 }
 
@@ -375,7 +380,12 @@ function isChromeExtensionInstalled_CACHED_MAY_BE_STALE(): boolean {
         cachedChromeExtensionInstalled: isInstalled,
       }))
     }
-  })
+  }).catch(error =>
+    logForDebugging(
+      `[Claude in Chrome] Failed to check extension installation during cache refresh: ${error}`,
+      { level: 'error' },
+    ),
+  )
 
   // Return cached value immediately from disk
   const cached = getGlobalConfig().cachedChromeExtensionInstalled

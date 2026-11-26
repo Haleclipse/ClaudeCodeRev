@@ -288,6 +288,9 @@ export type ToolUseContext = {
   /** When true, preserve toolUseResult on messages even for subagents.
    * Used by in-process teammates whose transcripts are viewable by the user. */
   preserveToolUseResults?: boolean
+  /** Set by the REPL screen and forwarded to subagents through runAgent's
+   * override. Nothing reads it in external builds. */
+  replHydration?: { kind: 'resume' }
   /** Local denial tracking state for async subagents whose setAppState is a
    *  no-op. Without this, the denial counter never accumulates and the
    *  fallback-to-prompting threshold is never reached. Mutable — the
@@ -799,12 +802,16 @@ type ToolDefaults = typeof TOOL_DEFAULTS
 type AnyToolDef = ToolDef<any, any, any>
 
 export function buildTool<D extends AnyToolDef>(def: D): BuiltTool<D> {
-  // The runtime spread is straightforward; the `as` bridges the gap between
-  // the structural-any constraint and the precise BuiltTool<D> return. The
-  // type semantics are proven by the 0-error typecheck across all 60+ tools.
-  return {
-    ...TOOL_DEFAULTS,
-    userFacingName: () => def.name,
-    ...def,
-  } as BuiltTool<D>
+  // The runtime merge copies def's own property descriptors over the
+  // defaults, so getters in def stay getters instead of being evaluated by a
+  // spread; the `as` bridges the gap between the structural-any constraint
+  // and the precise BuiltTool<D> return. The type semantics are proven by the
+  // 0-error typecheck across all 60+ tools.
+  return Object.defineProperties(
+    {
+      ...TOOL_DEFAULTS,
+      userFacingName: () => def.name,
+    },
+    Object.getOwnPropertyDescriptors(def),
+  ) as BuiltTool<D>
 }

@@ -41,7 +41,7 @@ export function plural(
  * Returns the part of `s` before the first `separator` (all of `s` if absent),
  * without allocating a split array.
  */
-function textBefore(s: string, separator: string): string {
+export function textBefore(s: string, separator: string): string {
   const i = s.indexOf(separator)
   return i === -1 ? s : s.slice(0, i)
 }

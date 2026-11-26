@@ -308,9 +308,17 @@ export function calculateShouldShowGrove(
   // whether to help improve Claude.
   const reminderFrequency = config.notice_reminder_frequency
   if (reminderFrequency !== null && settings.grove_notice_viewed_at) {
+    const viewedAtMs = new Date(settings.grove_notice_viewed_at).getTime()
+    if (isNaN(viewedAtMs)) {
+      logError(
+        new Error(
+          `Invalid grove_notice_viewed_at from API: ${settings.grove_notice_viewed_at}`,
+        ),
+      )
+      return true
+    }
     const daysSinceViewed = Math.floor(
-      (Date.now() - new Date(settings.grove_notice_viewed_at).getTime()) /
-        (1000 * 60 * 60 * 24),
+      (Date.now() - viewedAtMs) / (1000 * 60 * 60 * 24),
     )
     return daysSinceViewed >= reminderFrequency
   } else {

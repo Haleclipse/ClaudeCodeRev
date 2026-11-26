@@ -45,8 +45,10 @@ import {
 } from './utils/config.js'
 import { updateDeepLinkTerminalPreference } from './utils/deepLink/terminalPreference.js'
 import { isEnvTruthy, isRunningOnHomespace } from './utils/envUtils.js'
+import { toError } from './utils/errors.js'
 import { type FpsMetrics, FpsTracker } from './utils/fpsTracker.js'
 import { updateGithubRepoPathMapping } from './utils/githubRepoPathMapping.js'
+import { logError } from './utils/log.js'
 import { applyConfigEnvironmentVariables } from './utils/managedEnv.js'
 import type { PermissionMode } from './utils/permissions/PermissionMode.js'
 import { getBaseRenderOptions } from './utils/renderOptions.js'
@@ -209,7 +211,7 @@ export async function showSetupScreens(
     // Defense for login/logout: clears any prior client so the next init
     // picks up fresh auth headers.
     resetGrowthBook()
-    void initializeGrowthBook()
+    void initializeGrowthBook().catch(error => logError(toError(error)))
 
     // Now that trust is established, prefetch system context if it wasn't already
     void getSystemContext()

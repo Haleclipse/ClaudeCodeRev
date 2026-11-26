@@ -227,13 +227,12 @@ export function AssistantTextMessage({
           rateMessage !== null &&
           shouldShowDot
         : false
+      const showRating = ratingVisible && (isHovered || rating !== undefined)
       return (
         <Box
           alignItems="flex-start"
           flexDirection="row"
-          justifyContent="space-between"
           marginTop={addMargin ? 1 : 0}
-          minHeight={ratingVisible ? 2 : undefined}
           width="100%"
           backgroundColor={isSelected ? 'messageActionsBackground' : undefined}
           onMouseEnter={
@@ -245,39 +244,37 @@ export function AssistantTextMessage({
             ratingVisible ? () => setHoveredMessage?.(null) : undefined
           }
         >
-          <Box flexDirection="row">
-            {shouldShowDot &&
-              ((isHovered || rating !== undefined) && ratingVisible ? (
-                <NoSelect
-                  fromLeftEdge
-                  minWidth={2}
-                  onClick={() => rateMessage!(messageUuid!, 'positive')}
-                  onMouseEnter={() => setHoveredArrow('up')}
-                  onMouseLeave={() => setHoveredArrow(null)}
+          {shouldShowDot &&
+            (showRating ? (
+              <NoSelect
+                fromLeftEdge
+                minWidth={2}
+                onClick={() => rateMessage!(messageUuid!, 'positive')}
+                onMouseEnter={() => setHoveredArrow('up')}
+                onMouseLeave={() => setHoveredArrow(null)}
+              >
+                <Text
+                  color={
+                    rating === 'positive' || hoveredArrow === 'up'
+                      ? 'success'
+                      : undefined
+                  }
+                  dimColor={rating !== 'positive' && hoveredArrow !== 'up'}
                 >
-                  <Text
-                    color={
-                      rating === 'positive' || hoveredArrow === 'up'
-                        ? 'success'
-                        : undefined
-                    }
-                    dimColor={rating !== 'positive' && hoveredArrow !== 'up'}
-                  >
-                    {UP_ARROW}
-                  </Text>
-                </NoSelect>
-              ) : (
-                <NoSelect fromLeftEdge minWidth={2}>
-                  <Text color={isSelected ? 'suggestion' : 'text'}>
-                    {BLACK_CIRCLE}
-                  </Text>
-                </NoSelect>
-              ))}
-            <Box flexDirection="column">
-              <Markdown>{text}</Markdown>
-            </Box>
+                  {UP_ARROW}
+                </Text>
+              </NoSelect>
+            ) : (
+              <NoSelect fromLeftEdge minWidth={2}>
+                <Text color={isSelected ? 'suggestion' : 'text'}>
+                  {BLACK_CIRCLE}
+                </Text>
+              </NoSelect>
+            ))}
+          <Box flexDirection="column">
+            <Markdown>{text}</Markdown>
           </Box>
-          {(isHovered || rating !== undefined) && ratingVisible && (
+          {showRating && (
             <NoSelect
               fromLeftEdge
               position="absolute"

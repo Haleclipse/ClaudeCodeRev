@@ -25,7 +25,6 @@ import type { FeedbackSurveyResponse } from './utils.js'
 const HIDE_THANKS_AFTER_MS = 3000
 const MEMORY_SURVEY_GATE = 'tengu_dunwich_bell'
 const MEMORY_SURVEY_EVENT = 'tengu_memory_survey_event'
-const SURVEY_PROBABILITY = 0.2
 const TRANSCRIPT_SHARE_TRIGGER = 'memory_survey'
 
 const MEMORY_WORD_RE = /\bmemor(?:y|ies)\b/i
@@ -266,9 +265,7 @@ export function useMemorySurvey(
       return
     }
 
-    if (Math.random() < SURVEY_PROBABILITY) {
-      open()
-    }
+    open()
   }, [
     enabled,
     state,

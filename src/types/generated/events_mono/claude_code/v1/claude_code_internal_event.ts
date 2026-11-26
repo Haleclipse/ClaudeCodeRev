@@ -50,7 +50,6 @@ export interface EnvironmentMetadata {
   deployment_environment?: string | undefined
   is_conductor?: boolean | undefined
   version_base?: string | undefined
-  coworker_type?: string | undefined
   build_time?: string | undefined
   is_local_agent_mode?: boolean | undefined
   linux_distro_id?: string | undefined
@@ -207,7 +206,6 @@ function createBaseEnvironmentMetadata(): EnvironmentMetadata {
     deployment_environment: '',
     is_conductor: false,
     version_base: '',
-    coworker_type: '',
     build_time: '',
     is_local_agent_mode: false,
     linux_distro_id: '',
@@ -297,9 +295,6 @@ export const EnvironmentMetadata: MessageFns<EnvironmentMetadata> = {
         : false,
       version_base: isSet(object.version_base)
         ? globalThis.String(object.version_base)
-        : '',
-      coworker_type: isSet(object.coworker_type)
-        ? globalThis.String(object.coworker_type)
         : '',
       build_time: isSet(object.build_time)
         ? globalThis.String(object.build_time)
@@ -409,9 +404,6 @@ export const EnvironmentMetadata: MessageFns<EnvironmentMetadata> = {
     if (message.version_base !== undefined) {
       obj.version_base = message.version_base
     }
-    if (message.coworker_type !== undefined) {
-      obj.coworker_type = message.coworker_type
-    }
     if (message.build_time !== undefined) {
       obj.build_time = message.build_time
     }
@@ -478,7 +470,6 @@ export const EnvironmentMetadata: MessageFns<EnvironmentMetadata> = {
     message.deployment_environment = object.deployment_environment ?? ''
     message.is_conductor = object.is_conductor ?? false
     message.version_base = object.version_base ?? ''
-    message.coworker_type = object.coworker_type ?? ''
     message.build_time = object.build_time ?? ''
     message.is_local_agent_mode = object.is_local_agent_mode ?? false
     message.linux_distro_id = object.linux_distro_id ?? ''

@@ -84,6 +84,7 @@ import {
 import type { HooksSettings } from '../settings/types.js'
 import { SettingsSchema } from '../settings/types.js'
 import { jsonParse, jsonStringify } from '../slowOperations.js'
+import { textBefore } from '../stringUtils.js'
 import { getAddDirEnabledPlugins } from './addDirPluginSettings.js'
 import { verifyAndDemote } from './dependencyResolver.js'
 import { classifyFetchError, logPluginFetch } from './fetchTelemetry.js'
@@ -2093,7 +2094,7 @@ async function loadPluginsFromMarketplaces({
       errors.push({
         type: 'generic-error',
         source: pluginId,
-        plugin: pluginId.split('@')[0],
+        plugin: textBefore(pluginId, '@'),
         error: err.message,
       })
     }

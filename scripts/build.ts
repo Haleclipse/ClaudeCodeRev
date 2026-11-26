@@ -124,7 +124,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   CCR_MIRROR: isDev,
   CCR_REMOTE_SETUP: true, // official 2.1.88: gated modules present in its sourcemap
   ENHANCED_TELEMETRY_BETA: true, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
-  COWORKER_TYPE_TELEMETRY: isDev,
+  COWORKER_TYPE_TELEMETRY: isDev, // 2.1.91 sources no longer reference this flag (coworker_type telemetry removed)
   MEMORY_SHAPE_TELEMETRY: isDev,
   PERFETTO_TRACING: isDev,
   ANTI_DISTILLATION_CC: isDev,

@@ -68,6 +68,7 @@ import {
   isRestrictedToPluginOnly,
   isSourceAdminTrusted,
 } from '../../utils/settings/pluginOnlyPolicy.js'
+import { textBefore } from '../../utils/stringUtils.js'
 import {
   asSystemPrompt,
   type SystemPrompt,
@@ -284,6 +285,7 @@ export async function* runAgent({
     systemPrompt?: SystemPrompt
     abortController?: AbortController
     agentId?: AgentId
+    replHydration?: ToolUseContext['replHydration']
   }
   model?: ModelAlias
   maxTurns?: number
@@ -713,6 +715,10 @@ export async function* runAgent({
     contentReplacementState,
   })
 
+  if (override?.replHydration) {
+    agentToolUseContext.replHydration = override.replHydration
+  }
+
   // Preserve tool use results for subagents with viewable transcripts (in-process teammates)
   if (preserveToolUseResults) {
     agentToolUseContext.preserveToolUseResults = true
@@ -965,7 +971,7 @@ function resolveSkillName(
 
   // 2. Try prefixing with the agent's plugin name
   // Plugin agents have agentType like "pluginName:agentName"
-  const pluginPrefix = agentDefinition.agentType.split(':')[0]
+  const pluginPrefix = textBefore(agentDefinition.agentType, ':')
   if (pluginPrefix) {
     const qualifiedName = `${pluginPrefix}:${skillName}`
     if (hasCommand(qualifiedName, allSkills)) {
