@@ -6,6 +6,18 @@ import { registerBundledSkill } from '../bundledSkills.js'
 // getPromptForCommand so they only enter memory when /claude-api is invoked.
 type SkillContent = typeof import('./claudeApiContent.js')
 
+/**
+ * Optional extra doc bundle merged over SKILL_FILES. Its SECTION replaces the
+ * `<!-- __S3__ -->` placeholder in SKILL.md; files under SHARED_PREFIX are
+ * included only for languages it has docs for. External builds pass null.
+ */
+type ExtraSkillContent = {
+  FILES: Record<string, string>
+  SECTION: string
+  SHARED_PREFIX: string
+  hasDocsForLang(lang: DetectedLanguage): boolean
+}
+
 type DetectedLanguage =
   | 'python'
   | 'typescript'
@@ -54,11 +66,16 @@ async function detectLanguage(): Promise<DetectedLanguage | null> {
 
 function getFilesForLanguage(
   lang: DetectedLanguage,
-  content: SkillContent,
+  files: Record<string, string>,
+  extra: ExtraSkillContent | null,
 ): string[] {
-  return Object.keys(content.SKILL_FILES).filter(
-    path => path.startsWith(`${lang}/`) || path.startsWith('shared/'),
-  )
+  return Object.keys(files).filter(path => {
+    if (path.startsWith(`${lang}/`)) return true
+    if (extra && path.startsWith(extra.SHARED_PREFIX)) {
+      return extra.hasDocsForLang(lang)
+    }
+    return path.startsWith('shared/')
+  })
 }
 
 function processContent(md: string, content: SkillContent): string {
@@ -80,11 +97,12 @@ function processContent(md: string, content: SkillContent): string {
 
 function buildInlineReference(
   filePaths: string[],
+  files: Record<string, string>,
   content: SkillContent,
 ): string {
   const sections: string[] = []
   for (const filePath of filePaths.sort()) {
-    const md = content.SKILL_FILES[filePath]
+    const md = files[filePath]
     if (!md) continue
     sections.push(
       `<doc path="${filePath}">\n${processContent(md, content).trim()}\n</doc>`,
@@ -120,6 +138,9 @@ The relevant documentation for your detected language is included below in \`<do
 **File uploads across multiple requests:**
 → Refer to \`{lang}/claude-api/README.md\` + \`{lang}/claude-api/files-api.md\`
 
+**Agent design (tool surface, context management, caching strategy):**
+→ Refer to \`shared/agent-design.md\`
+
 **Agent with built-in tools (file/web/terminal) (Python & TypeScript only):**
 → Refer to \`{lang}/agent-sdk/README.md\` + \`{lang}/agent-sdk/patterns.md\`
 
@@ -133,9 +154,15 @@ function buildPrompt(
   lang: DetectedLanguage | null,
   args: string,
   content: SkillContent,
+  extra: ExtraSkillContent | null,
 ): string {
+  const files = { ...content.SKILL_FILES, ...extra?.FILES }
+  const skillPrompt = content.SKILL_PROMPT.replace(
+    '<!-- __S3__ -->',
+    extra?.SECTION ?? '',
+  )
   // Take the SKILL.md content up to the "Reading Guide" section
-  const cleanPrompt = processContent(content.SKILL_PROMPT, content)
+  const cleanPrompt = processContent(skillPrompt, content)
   const readingGuideIdx = cleanPrompt.indexOf('## Reading Guide')
   const basePrompt =
     readingGuideIdx !== -1
@@ -143,24 +170,27 @@ function buildPrompt(
       : cleanPrompt
 
   const parts: string[] = [basePrompt]
+  const readingGuide = INLINE_READING_GUIDE.replace(
+    /\{lang\}/g,
+    lang ?? 'unknown',
+  )
 
   if (lang) {
-    const filePaths = getFilesForLanguage(lang, content)
-    const readingGuide = INLINE_READING_GUIDE.replace(/\{lang\}/g, lang)
+    const filePaths = getFilesForLanguage(lang, files, extra)
     parts.push(readingGuide)
     parts.push(
       '---\n\n## Included Documentation\n\n' +
-        buildInlineReference(filePaths, content),
+        buildInlineReference(filePaths, files, content),
     )
   } else {
     // No language detected — include all docs and let the model ask
-    parts.push(INLINE_READING_GUIDE.replace(/\{lang\}/g, 'unknown'))
+    parts.push(readingGuide)
     parts.push(
       'No project language was auto-detected. Ask the user which language they are using, then refer to the matching docs below.',
     )
     parts.push(
       '---\n\n## Included Documentation\n\n' +
-        buildInlineReference(Object.keys(content.SKILL_FILES), content),
+        buildInlineReference(Object.keys(files), files, content),
     )
   }
 
@@ -188,8 +218,10 @@ export function registerClaudeApiSkill(): void {
     userInvocable: true,
     async getPromptForCommand(args) {
       const content = await import('./claudeApiContent.js')
+      // Extra doc bundle; not shipped in external builds
+      const extra: ExtraSkillContent | null = null
       const lang = await detectLanguage()
-      const prompt = buildPrompt(lang, args, content)
+      const prompt = buildPrompt(lang, args, content, extra)
       return [{ type: 'text', text: prompt }]
     },
   })

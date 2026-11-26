@@ -146,7 +146,7 @@ A note: if any of the model strings above look unfamiliar to you, that's to be e
 
 **Opus 4.6 — Adaptive thinking (recommended):** Use `thinking: {type: "adaptive"}`. Claude dynamically decides when and how much to think. No `budget_tokens` needed — `budget_tokens` is deprecated on Opus 4.6 and Sonnet 4.6 and must not be used. Adaptive thinking also automatically enables interleaved thinking (no beta header needed). **When the user asks for "extended thinking", a "thinking budget", or `budget_tokens`: always use Opus 4.6 with `thinking: {type: "adaptive"}`. The concept of a fixed token budget for thinking is deprecated — adaptive thinking replaces it. Do NOT use `budget_tokens` and do NOT switch to an older model.**
 
-**Effort parameter (GA, no beta header):** Controls thinking depth and overall token spend via `output_config: {effort: "low"|"medium"|"high"|"max"}` (inside `output_config`, not top-level). Default is `high` (equivalent to omitting it). `max` is Opus 4.6 only. Works on Opus 4.5, Opus 4.6, and Sonnet 4.6. Will error on Sonnet 4.5 / Haiku 4.5. Combine with adaptive thinking for the best cost-quality tradeoffs. Use `low` for subagents or simple tasks; `max` for the deepest reasoning.
+**Effort parameter (GA, no beta header):** Controls thinking depth and overall token spend via `output_config: {effort: "low"|"medium"|"high"|"max"}` (inside `output_config`, not top-level). Default is `high` (equivalent to omitting it). `max` is Opus 4.6 only. Works on Opus 4.5, Opus 4.6, and Sonnet 4.6. Will error on Sonnet 4.5 / Haiku 4.5. Combine with adaptive thinking for the best cost-quality tradeoffs. Lower effort means fewer and more-consolidated tool calls, less preamble, and terser confirmations — `medium` is often a favorable balance; use `max` when correctness matters more than cost; use `low` for subagents or simple tasks.
 
 **Sonnet 4.6:** Supports adaptive thinking (`thinking: {type: "adaptive"}`). `budget_tokens` is deprecated on Sonnet 4.6 — use adaptive thinking instead.
 
@@ -174,6 +174,8 @@ See `{lang}/claude-api/README.md` (Compaction section) for code examples. Full d
 
 For placement patterns, architectural guidance, and the silent-invalidator audit checklist: read `shared/prompt-caching.md`. Language-specific syntax: `{lang}/claude-api/README.md` (Prompt Caching section).
 
+<!-- __S3__ -->
+
 ---
 
 ## Reading Guide
@@ -197,6 +199,9 @@ After detecting the language, read the relevant files based on what the user nee
 **Function calling / tool use / agents:**
 → Read `{lang}/claude-api/README.md` + `shared/tool-use-concepts.md` + `{lang}/claude-api/tool-use.md`
 
+**Agent design (tool surface, context management, caching strategy):**
+→ Read `shared/agent-design.md`
+
 **Batch processing (non-latency-sensitive):**
 → Read `{lang}/claude-api/README.md` + `{lang}/claude-api/batches.md`
 
@@ -212,13 +217,14 @@ Read the **language-specific Claude API folder** (`{language}/claude-api/`):
 
 1. **`{language}/claude-api/README.md`** — **Read this first.** Installation, quick start, common patterns, error handling.
 2. **`shared/tool-use-concepts.md`** — Read when the user needs function calling, code execution, memory, or structured outputs. Covers conceptual foundations.
-3. **`{language}/claude-api/tool-use.md`** — Read for language-specific tool use code examples (tool runner, manual loop, code execution, memory, structured outputs).
-4. **`{language}/claude-api/streaming.md`** — Read when building chat UIs or interfaces that display responses incrementally.
-5. **`{language}/claude-api/batches.md`** — Read when processing many requests offline (not latency-sensitive). Runs asynchronously at 50% cost.
-6. **`{language}/claude-api/files-api.md`** — Read when sending the same file across multiple requests without re-uploading.
-7. **`shared/prompt-caching.md`** — Read when adding or optimizing prompt caching. Covers prefix-stability design, breakpoint placement, and anti-patterns that silently invalidate cache.
-8. **`shared/error-codes.md`** — Read when debugging HTTP errors or implementing error handling.
-9. **`shared/live-sources.md`** — WebFetch URLs for fetching the latest official documentation.
+3. **`shared/agent-design.md`** — Read when designing an agent: bash vs. dedicated tools, programmatic tool calling, tool search/skills, context editing vs. compaction vs. memory, caching principles.
+4. **`{language}/claude-api/tool-use.md`** — Read for language-specific tool use code examples (tool runner, manual loop, code execution, memory, structured outputs).
+5. **`{language}/claude-api/streaming.md`** — Read when building chat UIs or interfaces that display responses incrementally.
+6. **`{language}/claude-api/batches.md`** — Read when processing many requests offline (not latency-sensitive). Runs asynchronously at 50% cost.
+7. **`{language}/claude-api/files-api.md`** — Read when sending the same file across multiple requests without re-uploading.
+8. **`shared/prompt-caching.md`** — Read when adding or optimizing prompt caching. Covers prefix-stability design, breakpoint placement, and anti-patterns that silently invalidate cache.
+9. **`shared/error-codes.md`** — Read when debugging HTTP errors or implementing error handling.
+10. **`shared/live-sources.md`** — WebFetch URLs for fetching the latest official documentation.
 
 > **Note:** For Java, Go, Ruby, C#, PHP, and cURL — these have a single file each covering all basics. Read that file plus `shared/tool-use-concepts.md` and `shared/error-codes.md` as needed.
 

@@ -55,8 +55,14 @@ the CLI prompting or auto-allowing when you type the command.
 
 **No runtime surface at all** — docs-only, type declarations with no
 emit, build config that produces no behavioral diff — report
-**BLOCKED — no runtime surface: (reason).** Don't run tests to fill
+**SKIP — no runtime surface: (reason).** Don't run tests to fill
 the space.
+
+**Tests in the diff are the author's evidence, not a surface.** CI
+runs them. You'd be re-running CI. Tests-only PR → SKIP, one line.
+Mixed src+tests → verify the src, ignore the test files. Reading a
+test to learn what to check is fine — it's a spec. But then go run
+the app. Checking that assertions match source is code review.
 
 ## Get a handle
 
@@ -123,7 +129,7 @@ Inline, final message:
 ```
 ## Verification: <one-line what changed>
 
-**Verdict:** PASS | FAIL | BLOCKED
+**Verdict:** PASS | FAIL | BLOCKED | SKIP
 
 **Claim:** <what it's supposed to do — your read of the diff and/or
 the stated claim; note any mismatch>
@@ -164,10 +170,13 @@ sticking out is itself rare.>
   surface. Not: tests pass, builds clean, code looks right.
 - **FAIL** — you ran it and it doesn't. Or it breaks something else.
   Or claim and diff disagree materially.
-- **BLOCKED** — couldn't reach a state where the change is observable,
-  or no runtime surface exists. Not a verdict on the change. Env
-  blocker → say exactly where + `/run-skill-generator` prompt. No
-  surface → one line why.
+- **BLOCKED** — couldn't reach a state where the change is observable.
+  Build broke, env missing a dep, handle wouldn't come up. Not a
+  verdict on the change. Say exactly where it stopped +
+  `/run-skill-generator` prompt.
+- **SKIP** — no runtime surface exists. Docs-only, types-only,
+  tests-only. Nothing went wrong; there's just nothing here to run.
+  One line why.
 
 No partial pass. "3 of 4 passed" is FAIL until 4 passes or is
 explained away.
