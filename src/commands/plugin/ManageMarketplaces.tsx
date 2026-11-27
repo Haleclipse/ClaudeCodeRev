@@ -92,6 +92,18 @@ export function ManageMarketplaces({
     useState<MarketplaceState | null>(null)
   const [detailsMenuIndex, setDetailsMenuIndex] = useState(0)
   const hasAttemptedAutoAction = useRef(false)
+  // Pending "return to menu" timer and mount state, so async work and timers
+  // don't touch state after unmount
+  const menuTimerRef = useRef<Timer | undefined>(undefined)
+  const isMountedRef = useRef(true)
+
+  useEffect(
+    () => () => {
+      isMountedRef.current = false
+      clearTimeout(menuTimerRef.current)
+    },
+    [],
+  )
 
   // Load marketplaces and their installed plugins
   useEffect(() => {
@@ -157,19 +169,23 @@ export function ManageMarketplaces({
             if (action) {
               // Mark the action as pending and execute
               setSelectedIndex(targetIndex + 1) // +1 because "Add Marketplace" is at index 0
-              const newStates = [...states]
-              if (action === 'update') {
-                newStates[targetIndex]!.pendingUpdate = true
-              } else if (action === 'remove') {
-                newStates[targetIndex]!.pendingRemove = true
-              }
+              const newStates = states.map((state, idx) =>
+                idx === targetIndex
+                  ? {
+                      ...state,
+                      pendingUpdate: action === 'update',
+                      pendingRemove: action === 'remove',
+                    }
+                  : state,
+              )
               setMarketplaceStates(newStates)
               // Apply the change immediately
-              setTimeout(applyChanges, 100, newStates)
+              void applyChanges(newStates)
             } else if (targetState) {
               // No action - just show the details view for this marketplace
               setSelectedIndex(targetIndex + 1) // +1 because "Add Marketplace" is at index 0
               setSelectedMarketplace(targetState)
+              clearTimeout(menuTimerRef.current)
               setInternalView('details')
             }
           } else if (setError) {
@@ -290,14 +306,17 @@ export function ManageMarketplaces({
       if (onManageComplete) {
         await onManageComplete()
       }
+      if (!isMountedRef.current) return
 
       // Reload marketplace data to show updated timestamps
       const config = await loadKnownMarketplacesConfig()
       const { enabled, disabled } = await loadAllPlugins()
+      if (!isMountedRef.current) return
       const allPlugins = [...enabled, ...disabled]
 
       const { marketplaces } =
         await loadMarketplacesWithGracefulDegradation(config)
+      if (!isMountedRef.current) return
 
       const newStates: MarketplaceState[] = []
       for (const { name, config: entry, data: marketplace } of marketplaces) {
@@ -359,21 +378,29 @@ export function ManageMarketplaces({
           setSuccessMessage(successMsg)
         } else {
           // Otherwise show result and exit to menu
+          if (!isMountedRef.current) return
           setResult(successMsg)
-          setTimeout(setViewState, 2000, { type: 'menu' as const })
+          clearTimeout(menuTimerRef.current)
+          menuTimerRef.current = setTimeout(setViewState, 2000, {
+            type: 'menu' as const,
+          })
         }
       } else if (!wasInDetailsView) {
+        if (!isMountedRef.current) return
         setViewState({ type: 'menu' })
       }
     } catch (err) {
       const errorMsg = errorMessage(err)
+      if (!isMountedRef.current) return
       setProcessError(errorMsg)
       if (setError) {
         setError(errorMsg)
       }
     } finally {
-      setIsProcessing(false)
-      setProgressMessage(null)
+      if (isMountedRef.current) {
+        setIsProcessing(false)
+        setProgressMessage(null)
+      }
     }
   }
 
@@ -460,6 +487,7 @@ export function ManageMarketplaces({
   useKeybinding(
     'confirm:no',
     () => {
+      clearTimeout(menuTimerRef.current)
       setInternalView('list')
       setDetailsMenuIndex(0)
     },
@@ -475,6 +503,7 @@ export function ManageMarketplaces({
   useKeybinding(
     'confirm:no',
     () => {
+      clearTimeout(menuTimerRef.current)
       setMarketplaceStates(prev =>
         prev.map(state => ({
           ...state,
@@ -512,6 +541,7 @@ export function ManageMarketplaces({
         setSelectedIndex(prev => Math.min(totalItems - 1, prev + 1))
       },
       'select:accept': () => {
+        clearTimeout(menuTimerRef.current)
         const marketplaceIndex = selectedIndex - 1
         if (selectedIndex === 0) {
           setViewState({ type: 'add-marketplace' })
@@ -535,6 +565,7 @@ export function ManageMarketplaces({
     input => {
       const marketplaceIndex = selectedIndex - 1
       if ((input === 'u' || input === 'U') && marketplaceIndex >= 0) {
+        clearTimeout(menuTimerRef.current)
         setMarketplaceStates(prev =>
           prev.map((state, idx) =>
             idx === marketplaceIndex
@@ -552,6 +583,7 @@ export function ManageMarketplaces({
         const marketplace = marketplaceStates[marketplaceIndex]
         if (marketplace) {
           setSelectedMarketplace(marketplace)
+          clearTimeout(menuTimerRef.current)
           setInternalView('confirm-remove')
         }
       }
@@ -569,6 +601,7 @@ export function ManageMarketplaces({
         setDetailsMenuIndex(prev => Math.min(menuOptions.length - 1, prev + 1))
       },
       'select:accept': () => {
+        clearTimeout(menuTimerRef.current)
         if (!selectedMarketplace) return
         const menuOptions = buildDetailsMenuOptions(selectedMarketplace)
         const selectedOption = menuOptions[detailsMenuIndex]
@@ -602,8 +635,10 @@ export function ManageMarketplaces({
   useInput(
     input => {
       if (input === 'y' || input === 'Y') {
+        clearTimeout(menuTimerRef.current)
         void confirmRemove()
       } else if (input === 'n' || input === 'N') {
+        clearTimeout(menuTimerRef.current)
         setInternalView('list')
         setSelectedMarketplace(null)
       }

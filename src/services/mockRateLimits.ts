@@ -813,6 +813,11 @@ export function setMockSubscriptionType(
   mockSubscriptionType = subscriptionType
 }
 
+// Mock rate-limit tier override; null when no override is active
+export function getMockRateLimitTier(): string | null {
+  return null
+}
+
 export function getMockSubscriptionType(): SubscriptionType | null {
   if (!mockEnabled || process.env.USER_TYPE !== 'ant') {
     return null

@@ -4,6 +4,7 @@ import { promises as fs } from 'fs'
 import { dirname, join } from 'path'
 import { getSessionId } from 'src/bootstrap/state.js'
 import { getClaudeConfigHomeDir } from '../../utils/envUtils.js'
+import { hashContent } from '../../utils/hash.js'
 import { jsonParse, jsonStringify } from '../../utils/slowOperations.js'
 
 function hashString(str: string): string {
@@ -104,19 +105,16 @@ function appendToFile(filePath: string, entries: string[]): void {
 }
 
 function initFingerprint(req: Record<string, unknown>): string {
-  const tools = req.tools as Array<{ name?: string }> | undefined
+  const tools = req.tools as unknown[] | undefined
   const system = req.system as unknown[] | string | undefined
-  const sysLen =
+  const systemText =
     typeof system === 'string'
-      ? system.length
+      ? system
       : Array.isArray(system)
-        ? system.reduce(
-            (n: number, b) => n + ((b as { text?: string }).text?.length ?? 0),
-            0,
-          )
-        : 0
-  const toolNames = tools?.map(t => t.name ?? '').join(',') ?? ''
-  return `${req.model}|${toolNames}|${sysLen}`
+        ? system.map(b => jsonStringify(b)).join('\0')
+        : ''
+  const toolsText = tools ? tools.map(t => jsonStringify(t)).join('\0') : ''
+  return `${req.model}|${hashContent(toolsText)}|${hashContent(systemText)}`
 }
 
 function dumpRequest(

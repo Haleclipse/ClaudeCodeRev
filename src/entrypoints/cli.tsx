@@ -185,13 +185,12 @@ async function main(): Promise<void> {
     return
   }
 
-  // Fast-path for `claude ps|logs|attach|kill` and `--bg`/`--background`.
+  // Fast-path for `claude logs|attach|kill` and `--bg`/`--background`.
   // Session management against the ~/.claude/sessions/ registry. Flag
   // literals are inlined so bg.js only loads when actually dispatching.
   if (
     feature('BG_SESSIONS') &&
-    (args[0] === 'ps' ||
-      args[0] === 'logs' ||
+    (args[0] === 'logs' ||
       args[0] === 'attach' ||
       args[0] === 'kill' ||
       args.includes('--bg') ||
@@ -202,9 +201,6 @@ async function main(): Promise<void> {
     enableConfigs()
     const bg = await import('../cli/bg.js')
     switch (args[0]) {
-      case 'ps':
-        await bg.psHandler(args.slice(1))
-        break
       case 'logs':
         await bg.logsHandler(args[1])
         break

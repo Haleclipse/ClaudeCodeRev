@@ -345,7 +345,19 @@ export async function generateSuggestion(
     if (msg.type !== 'assistant') continue
     const textBlock = msg.message.content.find(b => b.type === 'text')
     if (textBlock?.type === 'text') {
-      const suggestion = textBlock.text.trim()
+      // Unwrap a single outer <suggestion>/<response>/... tag the model may
+      // add, unless the inner text closes the same tag again.
+      const suggestion = textBlock.text
+        .trim()
+        .replace(
+          /^<(suggestion|response|output|answer|result)>([\s\S]*)<\/\1>$/i,
+          (match: string, tag: string, inner: string) =>
+            inner.includes(`</${tag.toLowerCase()}>`) ||
+            inner.includes(`</${tag.toUpperCase()}>`)
+              ? match
+              : inner,
+        )
+        .trim()
       if (suggestion) {
         return { suggestion, generationRequestId }
       }

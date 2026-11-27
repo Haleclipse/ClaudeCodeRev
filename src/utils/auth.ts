@@ -15,6 +15,7 @@ import {
   preferThirdPartyAuthentication,
 } from '../bootstrap/state.js'
 import {
+  getMockRateLimitTier,
   getMockSubscriptionType,
   shouldUseMockSubscription,
 } from '../services/mockRateLimits.js'
@@ -1700,6 +1701,10 @@ export function isProSubscriber(): boolean {
 }
 
 export function getRateLimitTier(): string | null {
+  const mockTier = getMockRateLimitTier()
+  if (mockTier !== null) {
+    return mockTier
+  }
   if (!isAnthropicAuthEnabled()) {
     return null
   }

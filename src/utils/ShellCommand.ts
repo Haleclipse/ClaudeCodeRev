@@ -305,8 +305,13 @@ class ShellCommandImpl implements ShellCommand {
 
     if (this.taskOutput.stdoutToFile && !this.#backgroundTaskId) {
       if (this.taskOutput.outputFileRedundant) {
-        // Small file — full content is in result.stdout, delete the file
-        void this.taskOutput.deleteOutputFile()
+        // Small file — full content is in result.stdout, delete the file.
+        // Deferred; skipped if the command was backgrounded in the meantime.
+        setImmediate(() => {
+          if (!this.#backgroundTaskId) {
+            void this.taskOutput.deleteOutputFile()
+          }
+        })
       } else {
         // Large file — tell the caller where the full output lives
         result.outputFilePath = this.taskOutput.path

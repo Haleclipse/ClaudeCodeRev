@@ -10,6 +10,7 @@ import { AGENT_TOOL_NAME } from '../tools/AgentTool/constants.js'
 import { toError } from './errors.js'
 import { formatFileSize } from './format.js'
 import { logError } from './log.js'
+import { textBefore } from './stringUtils.js'
 import { ensureToolResultsDir, getToolResultsDir } from './toolResultStorage.js'
 
 /**
@@ -70,7 +71,7 @@ export function getLargeOutputInstructions(
   return (
     header +
     `- For targeted queries (find a row, filter by field): use jq or grep on the file directly.\n` +
-    `- For analysis or summarization that requires reading the full content: use the ${AGENT_TOOL_NAME} tool to process the file in an isolated context so the full output does not enter your main context. Be explicit about what the subagent must return — e.g. "Read ALL of ${rawOutputPath}; summarize it and quote any key findings, decisions, or action items verbatim" — a vague "summarize this" may lose the detail you actually need. Require it to read the entire file before answering.\n`
+    `- For analysis or summarization that requires reading the full content: use the ${AGENT_TOOL_NAME} tool to process the file in an isolated context so the full output does not enter your main context. Be explicit about what the subagent must return — e.g. "Read ${rawOutputPath} in sequential chunks using offset/limit until you have read 100% of it, then summarize it and quote any key findings, decisions, or action items verbatim" — a vague "summarize this" may lose the detail you actually need. Require it to read the entire file in chunks before answering.\n`
   )
 }
 
@@ -103,7 +104,7 @@ function getFullReadRequirements(
 export function extensionForMimeType(mimeType: string | undefined): string {
   if (!mimeType) return 'bin'
   // Strip any charset/boundary parameter
-  const mt = (mimeType.split(';')[0] ?? '').trim().toLowerCase()
+  const mt = textBefore(mimeType, ';').trim().toLowerCase()
   switch (mt) {
     case 'application/pdf':
       return 'pdf'
@@ -161,7 +162,7 @@ export function extensionForMimeType(mimeType: string | undefined): string {
  */
 export function isBinaryContentType(contentType: string): boolean {
   if (!contentType) return false
-  const mt = (contentType.split(';')[0] ?? '').trim().toLowerCase()
+  const mt = textBefore(contentType, ';').trim().toLowerCase()
   if (mt.startsWith('text/')) return false
   // Structured text formats delivered with an application/ type. Use suffix
   // or exact match rather than substring so 'openxmlformats' (docx/xlsx) stays binary.

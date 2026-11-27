@@ -32,7 +32,7 @@ import {
   loadAllLogsFromSessionFile,
 } from '../utils/sessionStorage.js'
 import { jsonParse, jsonStringify } from '../utils/slowOperations.js'
-import { countCharInString } from '../utils/stringUtils.js'
+import { countCharInString, textBefore } from '../utils/stringUtils.js'
 import { asSystemPrompt } from '../utils/systemPromptType.js'
 import { getTempDir } from '../utils/tempfile.js'
 import { escapeXmlAttr as escapeHtml } from '../utils/xml.js'
@@ -1283,7 +1283,7 @@ function aggregateData(
     if (result.session_summaries.length < 50) {
       result.session_summaries.push({
         id: session.session_id.slice(0, 8),
-        date: session.start_time.split('T')[0] || '',
+        date: textBefore(session.start_time, 'T'),
         summary: session.summary || session.first_prompt.slice(0, 100),
         goal: sessionFacets?.underlying_goal,
       })
@@ -1291,8 +1291,8 @@ function aggregateData(
   }
 
   dates.sort()
-  result.date_range.start = dates[0]?.split('T')[0] || ''
-  result.date_range.end = dates[dates.length - 1]?.split('T')[0] || ''
+  result.date_range.start = textBefore(dates[0] ?? '', 'T')
+  result.date_range.end = textBefore(dates.at(-1) ?? '', 'T')
 
   // Calculate response time stats
   result.user_response_times = allResponseTimes
@@ -1304,7 +1304,7 @@ function aggregateData(
   }
 
   // Calculate days active and messages per day
-  const uniqueDays = new Set(dates.map(d => d.split('T')[0]))
+  const uniqueDays = new Set(dates.map(d => textBefore(d, 'T')))
   result.days_active = uniqueDays.size
   result.messages_per_day =
     result.days_active > 0
@@ -2473,8 +2473,9 @@ function generateHtmlReport(
       }
     });
     document.getElementById('custom-offset').addEventListener('change', function() {
-      const offset = parseInt(this.value) + 8;
-      updateHourHistogram(offset);
+      const parsed = parseInt(this.value, 10);
+      if (isNaN(parsed)) return;
+      updateHourHistogram(parsed + 8);
     });
   `
 

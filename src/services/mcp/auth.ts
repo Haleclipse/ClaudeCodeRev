@@ -28,6 +28,7 @@ import axios from 'axios'
 import { createHash, randomBytes, randomUUID } from 'crypto'
 import { mkdir } from 'fs/promises'
 import { createServer, type Server } from 'http'
+import mapValues from 'lodash-es/mapValues.js'
 import { join } from 'path'
 import { parse } from 'url'
 import xss from 'xss'
@@ -594,21 +595,17 @@ export async function revokeServerTokens(
           serverUrl: serverConfig.url,
           accessToken: freshData.mcpOAuth?.[serverKey]?.accessToken ?? '',
           expiresAt: freshData.mcpOAuth?.[serverKey]?.expiresAt ?? 0,
-          ...(tokenData.stepUpScope
-            ? { stepUpScope: tokenData.stepUpScope }
-            : {}),
-          ...(tokenData.discoveryState
-            ? {
-                // Strip legacy bulky metadata fields here too so users with
-                // existing overflowed blobs recover on next re-auth (#30337).
-                discoveryState: {
-                  authorizationServerUrl:
-                    tokenData.discoveryState.authorizationServerUrl,
-                  resourceMetadataUrl:
-                    tokenData.discoveryState.resourceMetadataUrl,
-                },
-              }
-            : {}),
+          ...(tokenData.stepUpScope && { stepUpScope: tokenData.stepUpScope }),
+          ...(tokenData.discoveryState && {
+            // Strip legacy bulky metadata fields here too so users with
+            // existing overflowed blobs recover on next re-auth (#30337).
+            discoveryState: {
+              authorizationServerUrl:
+                tokenData.discoveryState.authorizationServerUrl,
+              resourceMetadataUrl:
+                tokenData.discoveryState.resourceMetadataUrl,
+            },
+          }),
         },
       },
     }
@@ -696,10 +693,8 @@ async function performMCPXaaAuth(
     const haveKeys = Object.keys(
       getSecureStorage().read()?.mcpOAuthClientConfig ?? {},
     )
-    const headersForLogging = Object.fromEntries(
-      Object.entries(serverConfig.headers ?? {}).map(([k, v]) =>
-        k.toLowerCase() === 'authorization' ? [k, '[REDACTED]'] : [k, v],
-      ),
+    const headersForLogging = mapValues(serverConfig.headers ?? {}, (v, k) =>
+      k.toLowerCase() === 'authorization' ? '[REDACTED]' : v,
     )
     logMCPDebug(
       serverName,
@@ -880,13 +875,11 @@ export async function performMCPOAuthFlow(
         'xaa' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       transportType:
         serverConfig.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      ...(getLoggingSafeMcpBaseUrl(serverConfig)
-        ? {
-            mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
-              serverConfig,
-            ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          }
-        : {}),
+      ...(getLoggingSafeMcpBaseUrl(serverConfig) && {
+        mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
+          serverConfig,
+        ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      }),
     })
     // performMCPXaaAuth logs its own success/failure events (with
     // idTokenCacheHit + xaaFailureStage).
@@ -942,13 +935,11 @@ export async function performMCPOAuthFlow(
     isOAuthFlow: true,
     transportType:
       serverConfig.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-    ...(getLoggingSafeMcpBaseUrl(serverConfig)
-      ? {
-          mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
-            serverConfig,
-          ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        }
-      : {}),
+    ...(getLoggingSafeMcpBaseUrl(serverConfig) && {
+      mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
+        serverConfig,
+      ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+    }),
   })
 
   // Track whether we reached the token-exchange phase so the catch block can
@@ -1245,13 +1236,11 @@ export async function performMCPOAuthFlow(
           flowAttemptId as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
         transportType:
           serverConfig.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        ...(getLoggingSafeMcpBaseUrl(serverConfig)
-          ? {
-              mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
-                serverConfig,
-              ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-            }
-          : {}),
+        ...(getLoggingSafeMcpBaseUrl(serverConfig) && {
+          mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
+            serverConfig,
+          ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+        }),
       })
     } else {
       throw new Error('Unexpected auth result: ' + result)
@@ -1329,13 +1318,11 @@ export async function performMCPOAuthFlow(
         httpStatus?.toString() as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       transportType:
         serverConfig.type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-      ...(getLoggingSafeMcpBaseUrl(serverConfig)
-        ? {
-            mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
-              serverConfig,
-            ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          }
-        : {}),
+      ...(getLoggingSafeMcpBaseUrl(serverConfig) && {
+        mcpServerBaseUrl: getLoggingSafeMcpBaseUrl(
+          serverConfig,
+        ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      }),
     })
     throw error
   }
@@ -1850,6 +1837,22 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
   }
 
   async redirectToAuthorization(authorizationUrl: URL): Promise<void> {
+    const requestedScope = authorizationUrl.searchParams.get('scope')
+    const scopeWithOfflineAccess = withOfflineAccessScope(
+      requestedScope,
+      this._metadata,
+    )
+    if (
+      scopeWithOfflineAccess !== requestedScope &&
+      scopeWithOfflineAccess !== null
+    ) {
+      authorizationUrl.searchParams.set('scope', scopeWithOfflineAccess)
+      logMCPDebug(
+        this.serverName,
+        'Appended offline_access to authorization scope',
+      )
+    }
+
     // Store the authorization URL
     this._authorizationUrl = authorizationUrl.toString()
 
@@ -2191,18 +2194,14 @@ export class ClaudeAuthProvider implements OAuthClientProvider {
         {
           transportType: this.serverConfig
             .type as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-          ...(mcpServerBaseUrl
-            ? {
-                mcpServerBaseUrl:
-                  mcpServerBaseUrl as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
-          ...(reason
-            ? {
-                reason:
-                  reason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-              }
-            : {}),
+          ...(mcpServerBaseUrl && {
+            mcpServerBaseUrl:
+              mcpServerBaseUrl as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
+          ...(reason && {
+            reason:
+              reason as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
         },
       )
     }
@@ -2462,4 +2461,20 @@ function getScopeFromMetadata(
     return metadata.scopes_supported.join(' ')
   }
   return undefined
+}
+
+/**
+ * Append offline_access to the authorization scope when the server metadata
+ * advertises it and the scope doesn't already include it, so the server
+ * issues a refresh token.
+ */
+function withOfflineAccessScope(
+  scope: string | null,
+  metadata: AuthorizationServerMetadata | undefined,
+): string | null {
+  if (scope !== null && scope.split(' ').includes('offline_access')) {
+    return scope
+  }
+  if (!metadata?.scopes_supported?.includes('offline_access')) return scope
+  return scope === null ? 'offline_access' : `${scope} offline_access`
 }

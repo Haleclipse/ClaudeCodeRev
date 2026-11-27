@@ -1,14 +1,19 @@
+import memoize from 'lodash-es/memoize.js'
 import type { RGBColor as RGBColorString } from '../../ink/styles.js'
 import type { RGBColor as RGBColorType } from './types.js'
 
-export function getDefaultCharacters(): string[] {
-  if (process.env.TERM === 'xterm-ghostty') {
-    return ['·', '✢', '✳', '✶', '✻', '*'] // Use * instead of ✽ for Ghostty because the latter renders in a way that's slightly offset
-  }
-  return process.platform === 'darwin'
-    ? ['·', '✢', '✳', '✶', '✻', '✽']
-    : ['·', '✢', '*', '✶', '✻', '✽']
-}
+// Memoized per TERM
+export const getDefaultCharacters = memoize(
+  (): string[] => {
+    if (process.env.TERM === 'xterm-ghostty') {
+      return ['·', '✢', '✳', '✶', '✻', '*'] // Use * instead of ✽ for Ghostty because the latter renders in a way that's slightly offset
+    }
+    return process.platform === 'darwin'
+      ? ['·', '✢', '✳', '✶', '✻', '✽']
+      : ['·', '✢', '*', '✶', '✻', '✽']
+  },
+  () => process.env.TERM,
+)
 
 // Interpolate between two RGB colors
 export function interpolateColor(
