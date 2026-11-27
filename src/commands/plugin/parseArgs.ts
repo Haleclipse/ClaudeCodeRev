@@ -35,19 +35,23 @@ export function parsePluginArgs(args?: string): ParsedCommand {
         return { type: 'install' }
       }
 
-      // Check if it's in format plugin@marketplace
-      if (target.includes('@')) {
-        const [plugin, marketplace] = target.split('@')
+      // Check if it's in format plugin@marketplace (split on the last @;
+      // a leading @ is part of a scoped name, not a separator)
+      const atIndex = target.lastIndexOf('@')
+      if (atIndex > 0) {
+        const plugin = target.slice(0, atIndex)
+        const marketplace = target.slice(atIndex + 1)
         return { type: 'install', plugin, marketplace }
       }
 
       // Check if the target looks like a marketplace (URL or path)
       const isMarketplace =
-        target.startsWith('http://') ||
-        target.startsWith('https://') ||
-        target.startsWith('file://') ||
-        target.includes('/') ||
-        target.includes('\\')
+        !target.startsWith('@') &&
+        (target.startsWith('http://') ||
+          target.startsWith('https://') ||
+          target.startsWith('file://') ||
+          target.includes('/') ||
+          target.includes('\\'))
 
       if (isMarketplace) {
         // This is a marketplace URL/path, no plugin specified

@@ -136,7 +136,7 @@ function createPermissionContext(
         toolName: sanitizeToolNameForAnalytics(tool.name),
       })
     },
-    async persistPermissions(updates: PermissionUpdate[]) {
+    persistPermissions(updates: PermissionUpdate[]) {
       if (updates.length === 0) return false
       persistPermissionUpdates(updates)
       const appState = toolUseContext.getAppState()
@@ -232,7 +232,7 @@ function createPermissionContext(
           const decision = hookResult.permissionRequestResult
           if (decision.behavior === 'allow') {
             const finalInput = decision.updatedInput ?? updatedInput ?? input
-            return await this.handleHookAllow(
+            return this.handleHookAllow(
               finalInput,
               decision.updatedPermissions ?? [],
               permissionPromptStartTimeMs,
@@ -288,16 +288,16 @@ function createPermissionContext(
     ): PermissionDenyDecision {
       return { behavior: 'deny' as const, message, decisionReason }
     },
-    async handleUserAllow(
+    handleUserAllow(
       updatedInput: Record<string, unknown>,
       permissionUpdates: PermissionUpdate[],
       feedback?: string,
       permissionPromptStartTimeMs?: number,
       contentBlocks?: ContentBlockParam[],
       decisionReason?: PermissionDecisionReason,
-    ): Promise<PermissionAllowDecision> {
+    ): PermissionAllowDecision {
       const acceptedPermanentUpdates =
-        await this.persistPermissions(permissionUpdates)
+        this.persistPermissions(permissionUpdates)
       this.logDecision(
         {
           decision: 'accept',
@@ -316,13 +316,13 @@ function createPermissionContext(
         contentBlocks,
       })
     },
-    async handleHookAllow(
+    handleHookAllow(
       finalInput: Record<string, unknown>,
       permissionUpdates: PermissionUpdate[],
       permissionPromptStartTimeMs?: number,
-    ): Promise<PermissionAllowDecision> {
+    ): PermissionAllowDecision {
       const acceptedPermanentUpdates =
-        await this.persistPermissions(permissionUpdates)
+        this.persistPermissions(permissionUpdates)
       this.logDecision(
         {
           decision: 'accept',

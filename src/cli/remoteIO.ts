@@ -218,6 +218,10 @@ export class RemoteIO extends StructuredIO {
     return this.ccrClient?.flushInternalEvents() ?? Promise.resolve()
   }
 
+  override flushDeliveryAcks(): Promise<void> {
+    return this.ccrClient?.flushDeliveryAcks() ?? Promise.resolve()
+  }
+
   override get internalEventsPending(): number {
     return this.ccrClient?.internalEventsPending ?? 0
   }

@@ -151,13 +151,13 @@ function handleInteractivePermission(
       )
       resolveOnce(ctx.cancelAndAbort(undefined, true))
     },
-    async onAllow(
+    onAllow(
       updatedInput,
       permissionUpdates: PermissionUpdate[],
       feedback?: string,
       contentBlocks?: ContentBlockParam[],
     ) {
-      if (!claim()) return // atomic check-and-mark before await
+      if (!claim()) return // atomic check-and-mark
 
       if (bridgeCallbacks && bridgeRequestId) {
         bridgeCallbacks.sendResponse(bridgeRequestId, {
@@ -170,7 +170,7 @@ function handleInteractivePermission(
       channelUnsubscribe?.()
 
       resolveOnce(
-        await ctx.handleUserAllow(
+        ctx.handleUserAllow(
           updatedInput,
           permissionUpdates,
           feedback,

@@ -50,7 +50,10 @@ const TAB_STATUS_PRESETS: Record<
  * `null` emits CLEAR_TAB_STATUS so toggling off mid-session doesn't leave
  * a stale dot. Process-exit cleanup is handled by ink.tsx's unmount path.
  */
-export function useTabStatus(kind: TabStatusKind | null): void {
+export function useTabStatus(
+  kind: TabStatusKind | null,
+  statusDetail?: string,
+): void {
   const writeRaw = useContext(TerminalWriteContext)
   const prevKindRef = useRef<TabStatusKind | null>(null)
 
@@ -67,6 +70,12 @@ export function useTabStatus(kind: TabStatusKind | null): void {
 
     prevKindRef.current = kind
     if (!writeRaw || !supportsTabStatus()) return
-    writeRaw(wrapForMultiplexer(tabStatus(TAB_STATUS_PRESETS[kind])))
-  }, [kind, writeRaw])
+    // Idle can show a caller-provided status detail instead of the default
+    const preset = TAB_STATUS_PRESETS[kind]
+    const status =
+      kind === 'idle' && statusDetail !== undefined
+        ? { ...preset, status: statusDetail }
+        : preset
+    writeRaw(wrapForMultiplexer(tabStatus(status)))
+  }, [kind, writeRaw, statusDetail])
 }

@@ -42,6 +42,8 @@ const DEFAULT_TIMEOUT_MS = 8000
 
 // Track current timeout to clear it when immediate notifications arrive
 let currentTimeoutId: NodeJS.Timeout | null = null
+// Mounted useNotifications instances; the last one to unmount clears the timer
+let mountedInstances = 0
 
 export function useNotifications(): {
   addNotification: AddNotificationFn
@@ -290,8 +292,16 @@ export function useNotifications(): {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect, store is a stable context ref
   useEffect(() => {
+    mountedInstances++
     if (store.getState().notifications.queue.length > 0) {
       processQueue()
+    }
+    return () => {
+      mountedInstances--
+      if (mountedInstances === 0 && currentTimeoutId) {
+        clearTimeout(currentTimeoutId)
+        currentTimeoutId = null
+      }
     }
   }, [])
 

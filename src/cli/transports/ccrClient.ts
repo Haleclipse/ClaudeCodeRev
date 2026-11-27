@@ -479,11 +479,10 @@ export class CCRClient {
       {
         worker_status: 'idle',
         worker_epoch: this.workerEpoch,
-        // Clear stale pending_action/task_summary left by a prior
-        // worker crash — the in-session clears don't survive process restart.
+        // Clear stale pending_action left by a prior worker crash — the
+        // in-session clears don't survive process restart.
         external_metadata: {
           pending_action: null,
-          task_summary: null,
         },
       },
       'PUT worker (init)',
@@ -819,6 +818,11 @@ export class CCRClient {
    */
   flushInternalEvents(): Promise<void> {
     return this.internalEventUploader.flush()
+  }
+
+  /** Flush pending delivery acks (received/processing/processed). */
+  flushDeliveryAcks(): Promise<void> {
+    return this.deliveryUploader.flush()
   }
 
   /**

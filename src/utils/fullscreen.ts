@@ -129,6 +129,16 @@ export function isFullscreenEnvEnabled(): boolean {
 }
 
 /**
+ * Explicit CLAUDE_CODE_NO_FLICKER setting ('on' / 'off'), or undefined when
+ * unset. Reported in tengu_init.
+ */
+export function getNoFlickerEnvSetting(): 'on' | 'off' | undefined {
+  if (isEnvTruthy(process.env.CLAUDE_CODE_NO_FLICKER)) return 'on'
+  if (isEnvDefinedFalsy(process.env.CLAUDE_CODE_NO_FLICKER)) return 'off'
+  return undefined
+}
+
+/**
  * Whether fullscreen mode should enable SGR mouse tracking (DEC 1000/1002/1006).
  * Set CLAUDE_CODE_DISABLE_MOUSE=1 to keep alt-screen + virtualized scroll
  * (keyboard PgUp/PgDn/Ctrl+Home/End still work) but skip mouse capture,

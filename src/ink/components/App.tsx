@@ -25,6 +25,7 @@ import {
 } from '../selection.js'
 import {
   isXtermJs,
+  SYNC_OUTPUT_SUPPORTED,
   setXtversionName,
   supportsExtendedKeys,
 } from '../terminal.js'
@@ -340,6 +341,9 @@ export default class App extends PureComponent<Props, State> {
             } else {
               logForDebugging('XTVERSION: no reply (terminal ignored query)')
             }
+            logForDebugging(
+              `DECSTBM: ${SYNC_OUTPUT_SUPPORTED ? 'enabled' : 'gated'} (TMUX=${process.env.TMUX ? 'set' : 'unset'} TERM_PROGRAM=${process.env.TERM_PROGRAM ?? 'unset'} TERM=${process.env.TERM ?? 'unset'})`,
+            )
           })
         })
       }

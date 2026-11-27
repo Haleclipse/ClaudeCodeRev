@@ -191,6 +191,11 @@ export class StructuredIO {
     return Promise.resolve()
   }
 
+  /** Flush pending delivery acks. Overridden by RemoteIO; no-op otherwise. */
+  flushDeliveryAcks(): Promise<void> {
+    return Promise.resolve()
+  }
+
   /** Internal-event queue depth. Overridden by RemoteIO; zero otherwise. */
   get internalEventsPending(): number {
     return 0

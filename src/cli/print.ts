@@ -2487,6 +2487,13 @@ function runHeadlessStreaming(
       // Flush pending internal events before going idle
       await structuredIO.flushInternalEvents()
       runPhase = 'finally_post_flush'
+      // Give delivery acks a bounded window to upload before going idle.
+      if (!isShuttingDown()) {
+        await Promise.race([
+          structuredIO.flushDeliveryAcks(),
+          sleep(5000, undefined, { unref: true }),
+        ])
+      }
       if (!isShuttingDown()) {
         notifySessionStateChanged('idle')
         // Drain so the idle session_state_changed SDK event (plus any

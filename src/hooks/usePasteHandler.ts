@@ -51,12 +51,19 @@ export function usePasteHandler({
   // reads stale pasteState.timeoutId (null) and takes the onInput path. If
   // that key is Enter, it submits the old input and the paste is lost.
   const pastePendingRef = React.useRef(false)
+  // Latest paste-completion timer, cleared on unmount
+  const pasteTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  )
 
   const isMacOS = React.useMemo(() => getPlatform() === 'macos', [])
 
   React.useEffect(() => {
     return () => {
       isMountedRef.current = false
+      if (pasteTimeoutRef.current) {
+        clearTimeout(pasteTimeoutRef.current)
+      }
     }
   }, [])
 
@@ -96,7 +103,7 @@ export function usePasteHandler({
       if (currentTimeoutId) {
         clearTimeout(currentTimeoutId)
       }
-      return setTimeout(
+      const timeoutId = setTimeout(
         (
           setPasteState,
           onImagePaste,
@@ -201,6 +208,8 @@ export function usePasteHandler({
         isMacOS,
         pastePendingRef,
       )
+      pasteTimeoutRef.current = timeoutId
+      return timeoutId
     },
     [checkClipboardForImage, isMacOS, onImagePaste, onPaste],
   )

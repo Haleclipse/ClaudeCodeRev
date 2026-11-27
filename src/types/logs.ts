@@ -88,19 +88,6 @@ export type LastPromptMessage = {
   lastPrompt: string
 }
 
-/**
- * Periodic fork-generated summary of what the agent is currently doing.
- * Written every min(5 steps, 2min) by forking the main thread mid-turn so
- * `claude ps` can show something more useful than the last user prompt
- * (which is often "ok go" or "fix it").
- */
-export type TaskSummaryMessage = {
-  type: 'task-summary'
-  sessionId: UUID
-  summary: string
-  timestamp: string
-}
-
 export type TagMessage = {
   type: 'tag'
   sessionId: UUID
@@ -311,7 +298,6 @@ export type Entry =
   | CustomTitleMessage
   | AiTitleMessage
   | LastPromptMessage
-  | TaskSummaryMessage
   | TagMessage
   | AgentNameMessage
   | AgentColorMessage

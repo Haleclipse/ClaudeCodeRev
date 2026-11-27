@@ -360,6 +360,8 @@ import {
   savePermissionMode,
   subscribeSessionTitleChanged,
   getAgentTranscript,
+  getCurrentSessionAgentName,
+  subscribeSessionAgentNameChanged,
 } from '../utils/sessionStorage.js'
 import { deserializeMessages } from '../utils/conversationRecovery.js'
 import {
@@ -1600,6 +1602,23 @@ export function REPL({
         ? getCurrentSessionTitle(getSessionId())
         : undefined,
   )
+  // Keep standaloneAgentContext.name in sync with saveAgentName.
+  useEffect(() => {
+    return subscribeSessionAgentNameChanged(() => {
+      const agentName = getCurrentSessionAgentName()
+      if (!agentName) return
+      setAppState(prev => {
+        if (prev.standaloneAgentContext?.name === agentName) return prev
+        return {
+          ...prev,
+          standaloneAgentContext: {
+            ...prev.standaloneAgentContext,
+            name: agentName,
+          },
+        }
+      })
+    })
+  }, [setAppState])
   const [haikuTitle, setHaikuTitle] = useState<string>()
   // Gates the one-shot Haiku call that generates the tab title. Seeded true
   // on resume (initialMessages present) so we don't re-title a resumed
@@ -1672,7 +1691,13 @@ export function REPL({
   )
   const showStatusInTerminalTab =
     tabStatusGateEnabled && (getGlobalConfig().showStatusInTerminalTab ?? false)
-  useTabStatus(titleDisabled || !showStatusInTerminalTab ? null : sessionStatus)
+  const postTurnStatusDetail = useAppState(
+    s => s.postTurnSummary?.status_detail,
+  )
+  useTabStatus(
+    titleDisabled || !showStatusInTerminalTab ? null : sessionStatus,
+    postTurnStatusDetail,
+  )
 
   // Register the leader's setToolUseConfirmQueue for in-process teammates
   useEffect(() => {

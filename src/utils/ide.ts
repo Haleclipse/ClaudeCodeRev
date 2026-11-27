@@ -657,6 +657,14 @@ export async function findAvailableIDE(): Promise<DetectedIDEInfo | null> {
   return null
 }
 
+/** Abort an in-flight findAvailableIDE search (e.g. on unmount). */
+export function abortIdeSearch(): void {
+  if (currentIDESearch) {
+    currentIDESearch.abort()
+    currentIDESearch = null
+  }
+}
+
 /**
  * Detects IDEs that have a running extension/plugin.
  * @param includeInvalid If true, also return IDEs that are invalid (ie. where

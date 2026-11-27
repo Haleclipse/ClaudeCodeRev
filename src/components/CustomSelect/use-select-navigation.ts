@@ -521,7 +521,9 @@ export function useSelectNavigation<T>({
 
   // Store onFocus in a ref to avoid re-running useEffect when callback changes
   const onFocusRef = useRef(onFocus)
-  onFocusRef.current = onFocus
+  useEffect(() => {
+    onFocusRef.current = onFocus
+  })
 
   const [lastOptions, setLastOptions] = useState(options)
 

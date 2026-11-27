@@ -235,6 +235,7 @@ import {
 } from './utils/envUtils.js'
 import { refreshExampleCommands } from './utils/exampleCommands.js'
 import type { FpsMetrics } from './utils/fpsTracker.js'
+import { getNoFlickerEnvSetting } from './utils/fullscreen.js'
 import { getWorktreePaths } from './utils/getWorktreePaths.js'
 import {
   findGitRoot,
@@ -2779,11 +2780,6 @@ async function run(): Promise<CommanderCommand> {
       )
       profileCheckpoint('action_after_input_prompt')
 
-      // Activate proactive mode BEFORE getTools() so SleepTool.isEnabled()
-      // (which returns isProactiveActive()) passes and Sleep is included.
-      // The later REPL-path maybeActivateProactive() calls are idempotent.
-      maybeActivateProactive(options)
-
       let tools = getTools(toolPermissionContext)
 
       // Apply coordinator mode tool filtering for headless path
@@ -4349,7 +4345,6 @@ async function run(): Promise<CommanderCommand> {
             mainThreadAgentDefinition = loaded.restoredAgentDef
           }
 
-          maybeActivateProactive(options)
           maybeActivateBrief(options)
 
           logEvent('tengu_continue', {
@@ -5162,7 +5157,6 @@ async function run(): Promise<CommanderCommand> {
               }
             : undefined)
         if (resumeData) {
-          maybeActivateProactive(options)
           maybeActivateBrief(options)
 
           await launchRepl(
@@ -5204,7 +5198,6 @@ async function run(): Promise<CommanderCommand> {
           hooksPromise && hookMessages.length === 0 ? hooksPromise : undefined
 
         profileCheckpoint('action_after_hooks')
-        maybeActivateProactive(options)
         maybeActivateBrief(options)
         // Persist the current mode for fresh sessions so future resumes know what mode was used
         if (feature('COORDINATOR_MODE')) {
@@ -6538,6 +6531,7 @@ async function logTenguInit({
   assistantActivationPath: string | undefined
 }): Promise<void> {
   try {
+    const noFlickerEnvVar = getNoFlickerEnvSetting()
     logEvent('tengu_init', {
       entrypoint:
         'claude' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -6581,6 +6575,10 @@ async function logTenguInit({
         appendSystemPromptFlag:
           appendSystemPromptFlag as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       }),
+      ...(noFlickerEnvVar && {
+        noFlickerEnvVar:
+          noFlickerEnvVar as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      }),
       is_simple: isBareMode() || undefined,
       is_coordinator:
         feature('COORDINATOR_MODE') &&
@@ -6609,20 +6607,6 @@ async function logTenguInit({
     })
   } catch (error) {
     logError(error)
-  }
-}
-
-function maybeActivateProactive(options: unknown): void {
-  if (
-    (feature('PROACTIVE') || feature('KAIROS')) &&
-    ((options as { proactive?: boolean }).proactive ||
-      isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE))
-  ) {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const proactiveModule = require('./proactive/index.js')
-    if (!proactiveModule.isProactiveActive()) {
-      proactiveModule.activateProactive('command')
-    }
   }
 }
 

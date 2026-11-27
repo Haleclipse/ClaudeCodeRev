@@ -4,6 +4,7 @@ import { getGlobalConfig } from '../utils/config.js'
 import { isEnvDefinedFalsy, isEnvTruthy } from '../utils/envUtils.js'
 import type { DetectedIDEInfo } from '../utils/ide.js'
 import {
+  abortIdeSearch,
   type IDEExtensionInstallationStatus,
   type IdeType,
   initializeIdeIntegration,
@@ -78,6 +79,7 @@ export function useIDEIntegration({
       () => setShowIdeOnboarding(true),
       status => setIDEInstallationState(status),
     )
+    return abortIdeSearch
   }, [
     autoConnectIdeFlag,
     ideToInstallExtension,

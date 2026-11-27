@@ -109,12 +109,6 @@ export function notifySessionStateChanged(
     metadataListener?.({ pending_action: null })
   }
 
-  // task_summary is written mid-turn by the forked summarizer; clear it at
-  // idle so the next turn doesn't briefly show the previous turn's progress.
-  if (state === 'idle') {
-    metadataListener?.({ task_summary: null })
-  }
-
   // Mirror to the SDK event stream so non-CCR consumers (scmuxd, VS Code)
   // see the same authoritative idle/running signal the CCR bridge does.
   // 'idle' fires after heldBackResult flushes — lets scmuxd flip IDLE and

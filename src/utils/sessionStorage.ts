@@ -1188,8 +1188,6 @@ class Project {
       void this.enqueueWrite(sessionFile, entry)
     } else if (entry.type === 'last-prompt') {
       void this.enqueueWrite(sessionFile, entry)
-    } else if (entry.type === 'task-summary') {
-      void this.enqueueWrite(sessionFile, entry)
     } else if (entry.type === 'tag') {
       // Tags can always be appended
       void this.enqueueWrite(sessionFile, entry)
@@ -2746,21 +2744,6 @@ export function saveAiGeneratedTitle(sessionId: UUID, aiTitle: string): void {
 }
 
 /**
- * Append a periodic task summary for `claude ps`. Unlike ai-title this is
- * not re-appended by reAppendSessionMetadata — it's a rolling snapshot of
- * what the agent is doing *now*, so staleness is fine; ps reads the most
- * recent one from the tail.
- */
-export function saveTaskSummary(sessionId: UUID, summary: string): void {
-  appendEntryToFile(getTranscriptPathForSession(sessionId), {
-    type: 'task-summary',
-    summary,
-    sessionId,
-    timestamp: new Date().toISOString(),
-  })
-}
-
-/**
  * Link a session to a GitHub pull request.
  * This stores the PR number, URL, and repository for tracking and navigation.
  */
@@ -2802,6 +2785,10 @@ export function getCurrentSessionTitle(
 
 export function getCurrentSessionAgentColor(): string | undefined {
   return getProject().currentSessionAgentColor
+}
+
+export function getCurrentSessionAgentName(): string | undefined {
+  return getProject().currentSessionAgentName
 }
 
 /**
@@ -2886,6 +2873,7 @@ export async function saveAgentName(
   if (sessionId === getSessionId()) {
     getProject().currentSessionAgentName = agentName
     void updateSessionName(agentName)
+    sessionAgentNameChanged.emit()
   }
   logEvent('tengu_agent_name_set', {
     source:
@@ -2919,6 +2907,14 @@ export async function saveAgentColor(
 export function saveAgentSetting(agentSetting: string): void {
   getProject().currentSessionAgentSetting = agentSetting
 }
+
+const sessionAgentNameChanged = createSignal()
+
+/**
+ * Subscribe to changes of the current session's agent name (saveAgentName).
+ */
+export const subscribeSessionAgentNameChanged =
+  sessionAgentNameChanged.subscribe
 
 const sessionTitleChanged = createSignal()
 

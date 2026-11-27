@@ -81,13 +81,13 @@ async function handleSwarmWorkerPermission(
       registerPermissionCallback({
         requestId: request.id,
         toolUseId: ctx.toolUseID,
-        async onAllow(
+        onAllow(
           allowedInput: Record<string, unknown> | undefined,
           permissionUpdates: PermissionUpdate[],
           feedback?: string,
           contentBlocks?: ContentBlockParam[],
         ) {
-          if (!claim()) return // atomic check-and-mark before await
+          if (!claim()) return // atomic check-and-mark
           clearPendingRequest()
 
           // Merge the updated input with the original input
@@ -97,7 +97,7 @@ async function handleSwarmWorkerPermission(
               : ctx.input
 
           resolveOnce(
-            await ctx.handleUserAllow(
+            ctx.handleUserAllow(
               finalInput,
               permissionUpdates,
               feedback,

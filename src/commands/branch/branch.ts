@@ -11,7 +11,9 @@ import type {
   SerializedMessage,
   TranscriptMessage,
 } from '../../types/logs.js'
+import { isENOENT } from '../../utils/errors.js'
 import { parseJSONL } from '../../utils/json.js'
+import { logError } from '../../utils/log.js'
 import {
   getProjectDir,
   getTranscriptPath,
@@ -21,7 +23,7 @@ import {
   searchSessionsByCustomTitle,
 } from '../../utils/sessionStorage.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
-import { escapeRegExp } from '../../utils/stringUtils.js'
+import { escapeRegExp, textBefore } from '../../utils/stringUtils.js'
 
 type TranscriptEntry = TranscriptMessage & {
   forkedFrom?: {
@@ -78,8 +80,12 @@ async function createFork(customTitle?: string): Promise<{
   let transcriptContent: Buffer
   try {
     transcriptContent = await readFile(currentTranscriptPath)
-  } catch {
-    throw new Error('No conversation to branch')
+  } catch (error) {
+    if (isENOENT(error)) {
+      throw new Error('No conversation to branch')
+    }
+    logError(error)
+    throw error
   }
 
   if (transcriptContent.length === 0) {
@@ -257,7 +263,7 @@ export async function call(
     })
 
     const forkLog: LogOption = {
-      date: now.toISOString().split('T')[0]!,
+      date: textBefore(now.toISOString(), 'T'),
       messages: serializedMessages,
       fullPath: forkPath,
       value: now.getTime(),
