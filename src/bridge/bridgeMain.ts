@@ -20,7 +20,13 @@ import { errorMessage } from '../utils/errors.js'
 import { truncateToWidth } from '../utils/format.js'
 import { logError } from '../utils/log.js'
 import { sleep } from '../utils/sleep.js'
-import { createAgentWorktree, removeAgentWorktree } from '../utils/worktree.js'
+import { plural } from '../utils/stringUtils.js'
+import { generateShortWordSlug } from '../utils/words.js'
+import {
+  createAgentWorktree,
+  getWorktreeChanges,
+  removeAgentWorktree,
+} from '../utils/worktree.js'
 import {
   BridgeFatalError,
   createBridgeApiClient,
@@ -28,6 +34,7 @@ import {
   isSuppressible403,
   validateBridgeId,
 } from './bridgeApi.js'
+import { getBridgeSessionNamePrefix } from './bridgeConfig.js'
 import { formatDuration } from './bridgeStatusUtil.js'
 import { createBridgeLogger } from './bridgeUI.js'
 import { createCapacityWake } from './capacityWake.js'
@@ -42,7 +49,6 @@ import {
   type BridgeApiClient,
   type BridgeConfig,
   type BridgeLogger,
-  DEFAULT_SESSION_TIMEOUT_MS,
   type SessionDoneStatus,
   type SessionHandle,
   type SessionSpawner,
@@ -80,6 +86,14 @@ const DEFAULT_BACKOFF: BackoffConfig = {
 }
 
 /** Status update interval for the live display (ms). */
+type SessionWorktree = {
+  worktreePath: string
+  worktreeBranch?: string
+  gitRoot?: string
+  hookBased?: boolean
+  headCommit?: string
+}
+
 const STATUS_UPDATE_INTERVAL_MS = 1_000
 const SPAWN_SESSIONS_DEFAULT = 32
 
@@ -172,20 +186,8 @@ export async function runBridgeLoop(
   // Stored separately from handle.accessToken because the token refresh
   // scheduler overwrites that field with the OAuth token (~3h55m in).
   const sessionIngressTokens = new Map<string, string>()
-  const sessionTimers = new Map<string, ReturnType<typeof setTimeout>>()
   const completedWorkIds = new Set<string>()
-  const sessionWorktrees = new Map<
-    string,
-    {
-      worktreePath: string
-      worktreeBranch?: string
-      gitRoot?: string
-      hookBased?: boolean
-    }
-  >()
-  // Track sessions killed by the timeout watchdog so onSessionDone can
-  // distinguish them from server-initiated or shutdown interrupts.
-  const timedOutSessions = new Set<string>()
+  const sessionWorktrees = new Map<string, SessionWorktree>()
   // Sessions that already have a title (server-set or bridge-derived) so
   // onFirstUserMessage doesn't clobber a user-assigned --name / web rename.
   // Keyed by compatSessionId to match logger.setSessionTitle's key.
@@ -445,7 +447,7 @@ export async function runBridgeLoop(
     startTime: number,
     handle: SessionHandle,
   ): (status: SessionDoneStatus) => void {
-    return (rawStatus: SessionDoneStatus): void => {
+    return (status: SessionDoneStatus): void => {
       const workId = sessionWorkIds.get(sessionId)
       activeSessions.delete(sessionId)
       sessionStartTimes.delete(sessionId)
@@ -456,23 +458,11 @@ export async function runBridgeLoop(
       logger.removeSession(compatId)
       titledSessions.delete(compatId)
       v2Sessions.delete(sessionId)
-      // Clear per-session timeout timer
-      const timer = sessionTimers.get(sessionId)
-      if (timer) {
-        clearTimeout(timer)
-        sessionTimers.delete(sessionId)
-      }
       // Clear token refresh timer
       tokenRefresh?.cancel(sessionId)
       // Wake the at-capacity sleep so the bridge can accept new work immediately
       capacityWake.wake()
 
-      // If the session was killed by the timeout watchdog, treat it as a
-      // failed session (not a server/shutdown interrupt) so we still call
-      // stopWork and archiveSession below.
-      const wasTimedOut = timedOutSessions.delete(sessionId)
-      const status: SessionDoneStatus =
-        wasTimedOut && rawStatus === 'interrupted' ? 'failed' : rawStatus
       const durationMs = Date.now() - startTime
 
       logForDebugging(
@@ -504,9 +494,7 @@ export async function runBridgeLoop(
         case 'failed':
           // Skip failure log during shutdown — the child exits non-zero when
           // killed, which is expected and not a real failure.
-          // Also skip for timeout-killed sessions — the timeout watchdog
-          // already logged a clear timeout message.
-          if (!wasTimedOut && !loopSignal.aborted) {
+          if (!loopSignal.aborted) {
             failureMessage = stderrSummary ?? 'Process exited with error'
             logger.logSessionFailed(sessionId, failureMessage)
             logError(new Error(`Bridge session failed: ${failureMessage}`))
@@ -537,18 +525,7 @@ export async function runBridgeLoop(
       const wt = sessionWorktrees.get(sessionId)
       if (wt) {
         sessionWorktrees.delete(sessionId)
-        trackCleanup(
-          removeAgentWorktree(
-            wt.worktreePath,
-            wt.worktreeBranch,
-            wt.gitRoot,
-            wt.hookBased,
-          ).catch((err: unknown) =>
-            logger.logVerbose(
-              `Failed to remove worktree ${wt.worktreePath}: ${errorMessage(err)}`,
-            ),
-          ),
-        )
+        trackCleanup(cleanupSessionWorktree(wt, logger))
       }
 
       // Lifecycle decision: in multi-session mode, keep the bridge running
@@ -990,6 +967,7 @@ export async function runBridgeLoop(
                 worktreeBranch: wt.worktreeBranch,
                 gitRoot: wt.gitRoot,
                 hookBased: wt.hookBased,
+                headCommit: wt.headCommit,
               })
               sessionDir = wt.worktreePath
               logForDebugging(
@@ -1068,18 +1046,7 @@ export async function runBridgeLoop(
             const wt = sessionWorktrees.get(sessionId)
             if (wt) {
               sessionWorktrees.delete(sessionId)
-              trackCleanup(
-                removeAgentWorktree(
-                  wt.worktreePath,
-                  wt.worktreeBranch,
-                  wt.gitRoot,
-                  wt.hookBased,
-                ).catch((err: unknown) =>
-                  logger.logVerbose(
-                    `Failed to remove worktree ${wt.worktreePath}: ${errorMessage(err)}`,
-                  ),
-                ),
-              )
+              trackCleanup(cleanupSessionWorktree(wt, logger))
             }
             completedWorkIds.add(work.id)
             trackCleanup(
@@ -1177,22 +1144,6 @@ export async function runBridgeLoop(
                 { level: 'error' },
               ),
             )
-
-          // Start per-session timeout watchdog
-          const timeoutMs =
-            config.sessionTimeoutMs ?? DEFAULT_SESSION_TIMEOUT_MS
-          if (timeoutMs > 0) {
-            const timer = setTimeout(
-              onSessionTimeout,
-              timeoutMs,
-              sessionId,
-              timeoutMs,
-              logger,
-              timedOutSessions,
-              handle,
-            )
-            sessionTimers.set(sessionId, timer)
-          }
 
           // Schedule proactive token refresh before the JWT expires.
           // onRefresh branches on v2Sessions: v1 delivers OAuth to the
@@ -1464,11 +1415,7 @@ export async function runBridgeLoop(
       handle.forceKill()
     }
 
-    // Clear any remaining session timeout and refresh timers
-    for (const timer of sessionTimers.values()) {
-      clearTimeout(timer)
-    }
-    sessionTimers.clear()
+    // Clear any remaining token refresh timers
     tokenRefresh?.cancelAll()
 
     // Clean up any remaining worktrees from active sessions.
@@ -1482,14 +1429,7 @@ export async function runBridgeLoop(
         `[bridge:shutdown] Cleaning up ${remainingWorktrees.length} worktree(s)`,
       )
       await Promise.allSettled(
-        remainingWorktrees.map(wt =>
-          removeAgentWorktree(
-            wt.worktreePath,
-            wt.worktreeBranch,
-            wt.gitRoot,
-            wt.hookBased,
-          ),
-        ),
+        remainingWorktrees.map(wt => cleanupSessionWorktree(wt, logger)),
       )
     }
 
@@ -1677,34 +1617,55 @@ async function stopWorkWithRetry(
   }
 }
 
-function onSessionTimeout(
-  sessionId: string,
-  timeoutMs: number,
+/**
+ * Remove a session's worktree unless it holds work: uncommitted changes,
+ * commits made since the worktree was created, or a git error while checking.
+ * Kept worktrees are reported on the status line.
+ */
+async function cleanupSessionWorktree(
+  wt: SessionWorktree,
   logger: BridgeLogger,
-  timedOutSessions: Set<string>,
-  handle: SessionHandle,
-): void {
-  logForDebugging(
-    `[bridge:session] sessionId=${sessionId} timed out after ${formatDuration(timeoutMs)}`,
-  )
-  logEvent('tengu_bridge_session_timeout', {
-    timeout_ms: timeoutMs,
-  })
-  logger.logSessionFailed(
-    sessionId,
-    `Session timed out after ${formatDuration(timeoutMs)}`,
-  )
-  timedOutSessions.add(sessionId)
-  handle.kill()
+): Promise<void> {
+  const { dirty, commitsAhead, gitError } = wt.hookBased
+    ? { dirty: false, commitsAhead: 0 }
+    : await getWorktreeChanges(wt.worktreePath, wt.headCommit)
+  if (dirty || commitsAhead > 0) {
+    const commits = `${commitsAhead} ${plural(commitsAhead, 'commit')}`
+    const reason = gitError
+      ? 'git error checking changes'
+      : dirty && commitsAhead > 0
+        ? `uncommitted changes · ${commits}`
+        : dirty
+          ? 'uncommitted changes'
+          : commits
+    logger.logStatus(`kept worktree ${wt.worktreePath} · ${reason}`)
+    logForDebugging(
+      `[bridge:worktree] kept ${wt.worktreePath} dirty=${dirty} commitsAhead=${commitsAhead} gitError=${!!gitError}`,
+    )
+    return
+  }
+  if (
+    await removeAgentWorktree(
+      wt.worktreePath,
+      wt.worktreeBranch,
+      wt.gitRoot,
+      wt.hookBased,
+    )
+  ) {
+    logger.logStatus(`removed worktree ${wt.worktreePath}`)
+  } else {
+    logger.logStatus(`worktree removal failed, kept: ${wt.worktreePath}`)
+  }
 }
 
 export type ParsedArgs = {
   verbose: boolean
   sandbox: boolean
   debugFile?: string
-  sessionTimeoutMs?: number
   permissionMode?: string
   name?: string
+  /** Prefix for auto-generated session names (--remote-control-session-name-prefix). */
+  sessionNamePrefix?: string
   /** Value passed to --spawn (if any); undefined if no --spawn flag was given. */
   spawnMode: SpawnMode | undefined
   /** Value passed to --capacity (if any); undefined if no --capacity flag was given. */
@@ -1740,9 +1701,9 @@ export function parseArgs(args: string[]): ParsedArgs {
   let verbose = false
   let sandbox = false
   let debugFile: string | undefined
-  let sessionTimeoutMs: number | undefined
   let permissionMode: string | undefined
   let name: string | undefined
+  let sessionNamePrefix: string | undefined
   let help = false
   let spawnMode: SpawnMode | undefined
   let capacity: number | undefined
@@ -1764,11 +1725,6 @@ export function parseArgs(args: string[]): ParsedArgs {
       debugFile = resolve(args[++i]!)
     } else if (arg.startsWith('--debug-file=')) {
       debugFile = resolve(arg.slice('--debug-file='.length))
-    } else if (arg === '--session-timeout' && i + 1 < args.length) {
-      sessionTimeoutMs = parseInt(args[++i]!, 10) * 1000
-    } else if (arg.startsWith('--session-timeout=')) {
-      sessionTimeoutMs =
-        parseInt(arg.slice('--session-timeout='.length), 10) * 1000
     } else if (arg === '--permission-mode' && i + 1 < args.length) {
       permissionMode = args[++i]!
     } else if (arg.startsWith('--permission-mode=')) {
@@ -1777,6 +1733,15 @@ export function parseArgs(args: string[]): ParsedArgs {
       name = args[++i]!
     } else if (arg.startsWith('--name=')) {
       name = arg.slice('--name='.length)
+    } else if (
+      arg === '--remote-control-session-name-prefix' &&
+      i + 1 < args.length
+    ) {
+      sessionNamePrefix = args[++i]!
+    } else if (arg.startsWith('--remote-control-session-name-prefix=')) {
+      sessionNamePrefix = arg.slice(
+        '--remote-control-session-name-prefix='.length,
+      )
     } else if (
       feature('KAIROS') &&
       arg === '--session-id' &&
@@ -1858,9 +1823,9 @@ export function parseArgs(args: string[]): ParsedArgs {
     verbose,
     sandbox,
     debugFile,
-    sessionTimeoutMs,
     permissionMode,
     name,
+    sessionNamePrefix,
     spawnMode,
     capacity,
     createSessionInDir,
@@ -1874,9 +1839,9 @@ export function parseArgs(args: string[]): ParsedArgs {
       verbose,
       sandbox,
       debugFile,
-      sessionTimeoutMs,
       permissionMode,
       name,
+      sessionNamePrefix,
       spawnMode,
       capacity,
       createSessionInDir,
@@ -1926,6 +1891,10 @@ USAGE
   claude remote-control [options]
 OPTIONS
   --name <name>                    Name for the session (shown in claude.ai/code)
+  --remote-control-session-name-prefix <prefix>
+                                   Prefix for auto-generated session names
+                                   (default: hostname; env:
+                                   CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX)
 ${
   feature('KAIROS')
     ? `  -c, --continue                   Resume the last session in this directory
@@ -1997,15 +1966,19 @@ export async function bridgeMain(args: string[]): Promise<void> {
     verbose,
     sandbox,
     debugFile,
-    sessionTimeoutMs,
     permissionMode,
     name,
+    sessionNamePrefix,
     spawnMode: parsedSpawnMode,
     capacity: parsedCapacity,
     createSessionInDir: parsedCreateSessionInDir,
     sessionId: parsedSessionId,
     continueSession,
   } = parsed
+  // Picked up by getBridgeSessionNamePrefix() for auto-generated titles
+  if (sessionNamePrefix) {
+    process.env.CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX = sessionNamePrefix
+  }
   // Mutable so --continue can set it from the pointer file. The #20460
   // resume flow below then treats it the same as an explicit --session-id.
   let resumeSessionId = parsedSessionId
@@ -2433,7 +2406,6 @@ export async function bridgeMain(args: string[]): Promise<void> {
     apiBaseUrl: baseUrl,
     sessionIngressUrl,
     debugFile,
-    sessionTimeoutMs,
   }
 
   logForDebugging(
@@ -2678,7 +2650,7 @@ export async function bridgeMain(args: string[]): Promise<void> {
     try {
       initialSessionId = await createBridgeSession({
         environmentId,
-        title: name,
+        title: name ?? `${getBridgeSessionNamePrefix()}-${generateShortWordSlug()}`,
         events: [],
         gitRepoUrl,
         branch,
@@ -2791,7 +2763,6 @@ export type HeadlessBridgeOpts = {
   capacity: number
   permissionMode?: string
   sandbox: boolean
-  sessionTimeoutMs?: number
   createSessionOnStart: boolean
   getAccessToken: () => string | undefined
   onAuth401: (failedToken: string) => Promise<boolean>
@@ -2892,7 +2863,6 @@ export async function runBridgeHeadless(
     environmentId: randomUUID(),
     apiBaseUrl: baseUrl,
     sessionIngressUrl,
-    sessionTimeoutMs: opts.sessionTimeoutMs,
   }
 
   const api = createBridgeApiClient({

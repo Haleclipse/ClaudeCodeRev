@@ -1,6 +1,3 @@
-/** Default per-session timeout (24 hours). */
-export const DEFAULT_SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000
-
 /** Reusable login guidance appended to bridge auth errors. */
 export const BRIDGE_LOGIN_INSTRUCTION =
   'Remote Control is only available with claude.ai subscriptions. Please use `/login` to sign in with your claude.ai account.'
@@ -110,8 +107,6 @@ export type BridgeConfig = {
   sessionIngressUrl: string
   /** Debug file path passed via --debug-file. */
   debugFile?: string
-  /** Per-session timeout in milliseconds. Sessions exceeding this are killed. */
-  sessionTimeoutMs?: number
 }
 
 // --- Dependency interfaces (for testability) ---

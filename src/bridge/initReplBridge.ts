@@ -18,7 +18,6 @@ import { hostname } from 'os'
 import { getOriginalCwd, getSessionId } from '../bootstrap/state.js'
 import type { SDKMessage } from '../entrypoints/agentSdkTypes.js'
 import type { SDKControlResponse } from '../entrypoints/sdk/controlTypes.js'
-import { getFeatureValue_CACHED_WITH_REFRESH } from '../services/analytics/growthbook.js'
 import {
   startClientPresence,
   stopClientPresence,
@@ -61,6 +60,7 @@ import { generateShortWordSlug } from '../utils/words.js'
 import {
   getBridgeAccessToken,
   getBridgeBaseUrl,
+  getBridgeSessionNamePrefix,
   getBridgeTokenOverride,
 } from './bridgeConfig.js'
 import {
@@ -315,10 +315,10 @@ export async function initReplBridge(
   // the count-1 re-derivation but not count-3). The onUserMessage callback
   // (wired to both v1 and v2 below) derives from the 1st prompt and again
   // from the 3rd so mobile/web show a title that reflects more context.
-  // The slug fallback (e.g. "remote-control-graceful-unicorn") makes
-  // auto-started sessions distinguishable in the claude.ai list before the
-  // first prompt.
-  let title = `remote-control-${generateShortWordSlug()}`
+  // The slug fallback (e.g. "<prefix>-graceful-unicorn", prefix defaulting to
+  // the hostname) makes auto-started sessions distinguishable in the
+  // claude.ai list before the first prompt.
+  let title = `${getBridgeSessionNamePrefix()}-${generateShortWordSlug()}`
   let hasTitle = false
   let hasExplicitTitle = false
   if (initialName) {
@@ -440,11 +440,7 @@ export async function initReplBridge(
     return userMessageCount >= 3
   }
 
-  const initialHistoryCap = getFeatureValue_CACHED_WITH_REFRESH(
-    'tengu_bridge_initial_history_cap',
-    200,
-    5 * 60 * 1000,
-  )
+  const initialHistoryCap = 200
 
   // Fetch orgUUID before the v1/v2 branch — both paths need it. v1 for
   // environment registration; v2 for archive (which lives at the compat

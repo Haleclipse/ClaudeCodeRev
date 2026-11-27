@@ -2047,6 +2047,13 @@ async function run(): Promise<CommanderCommand> {
         remoteControlOption.length > 0
           ? remoteControlOption
           : undefined
+      const remoteControlSessionNamePrefix = (
+        options as { remoteControlSessionNamePrefix?: string }
+      ).remoteControlSessionNamePrefix
+      if (remoteControlSessionNamePrefix) {
+        process.env.CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX =
+          remoteControlSessionNamePrefix
+      }
 
       // Validate session ID if provided
       if (sessionId) {
@@ -5481,6 +5488,10 @@ async function run(): Promise<CommanderCommand> {
       new Option('--rc [name]', 'Alias for --remote-control')
         .argParser(value => value || true)
         .hideHelp(),
+    )
+    program.option(
+      '--remote-control-session-name-prefix <prefix>',
+      'Prefix for auto-generated Remote Control session names (default: hostname)',
     )
   }
 

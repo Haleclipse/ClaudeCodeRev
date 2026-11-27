@@ -9,9 +9,10 @@ import {
   stat,
   symlink,
   utimes,
+  writeFile,
 } from 'fs/promises'
 import ignore from 'ignore'
-import { basename, dirname, join } from 'path'
+import { basename, dirname, join, resolve } from 'path'
 import { saveCurrentProjectConfig } from './config.js'
 import { getCwd } from './cwd.js'
 import { logForDebugging } from './debug.js'
@@ -20,6 +21,7 @@ import { execFileNoThrow, execFileNoThrowWithCwd } from './execFileNoThrow.js'
 import { parseGitConfigValue } from './git/gitConfigParser.js'
 import {
   getCommonDir,
+  isValidGitSha,
   readWorktreeHeadSha,
   resolveGitDir,
   resolveRef,
@@ -182,6 +184,8 @@ type WorktreeCreateOptions = {
   prNumber?: number
   /** Branch from the repo's current HEAD instead of the default branch */
   fromHead?: boolean
+  /** Directory used to locate the git repository (defaults to the cwd) */
+  fromCwd?: string
 }
 
 type WorktreeCreateResult =
@@ -233,6 +237,60 @@ function worktreePathFor(repoRoot: string, slug: string): string {
   return join(worktreesDir(repoRoot), flattenSlug(slug))
 }
 
+// Baseline commit file, written into the worktree's gitdir when the worktree
+// is created.
+const WORKTREE_BASELINE_FILE = 'CLAUDE_BASE'
+
+/**
+ * Resolve the gitdir of a linked worktree from its `.git` pointer file.
+ */
+async function readWorktreeGitDir(worktreePath: string): Promise<string | null> {
+  try {
+    const content = (await readFile(join(worktreePath, '.git'), 'utf-8')).trim()
+    if (!content.startsWith('gitdir:')) {
+      return null
+    }
+    return resolve(worktreePath, content.slice(7).trim())
+  } catch {
+    return null
+  }
+}
+
+async function writeWorktreeBaseline(
+  worktreePath: string,
+  headCommit: string,
+): Promise<void> {
+  const gitDir = await readWorktreeGitDir(worktreePath)
+  if (!gitDir) {
+    logForDebugging(
+      `[worktree] cannot write baseline: gitdir unresolvable for ${worktreePath}`,
+    )
+    return
+  }
+  try {
+    await writeFile(join(gitDir, WORKTREE_BASELINE_FILE), headCommit, 'utf-8')
+  } catch (e) {
+    logForDebugging(`[worktree] failed to write baseline to ${gitDir}: ${e}`)
+  }
+}
+
+async function readWorktreeBaseline(
+  worktreePath: string,
+): Promise<string | null> {
+  const gitDir = await readWorktreeGitDir(worktreePath)
+  if (!gitDir) {
+    return null
+  }
+  try {
+    const sha = (
+      await readFile(join(gitDir, WORKTREE_BASELINE_FILE), 'utf-8')
+    ).trim()
+    return isValidGitSha(sha) ? sha : null
+  } catch {
+    return null
+  }
+}
+
 /**
  * Creates a new git worktree for the given slug, or resumes it if it already exists.
  * Named worktrees reuse the same path across invocations, so the existence check
@@ -253,10 +311,11 @@ async function getOrCreateWorktree(
   // task, and the await yield lets background spawnSyncs pile on (seen at 55ms).
   const existingHead = await readWorktreeHeadSha(worktreePath)
   if (existingHead) {
+    const baseline = await readWorktreeBaseline(worktreePath)
     return {
       worktreePath,
       worktreeBranch,
-      headCommit: existingHead,
+      headCommit: baseline ?? existingHead,
       existed: true,
     }
   }
@@ -376,6 +435,7 @@ async function getOrCreateWorktree(
     }
   }
 
+  await writeWorktreeBaseline(worktreePath, baseSha)
   return {
     worktreePath,
     worktreeBranch,
@@ -499,7 +559,7 @@ export async function copyWorktreeIncludeFiles(
       copied.push(relativePath)
     } catch (e: unknown) {
       logForDebugging(
-        `Failed to copy ${relativePath} to worktree: ${(e as Error).message}`,
+        `Failed to copy ${relativePath} to worktree: ${errorMessage(e)}`,
         { level: 'warn' },
       )
     }
@@ -538,7 +598,7 @@ async function performPostCreationSetup(
     const code = getErrnoCode(e)
     if (code !== 'ENOENT') {
       logForDebugging(
-        `Failed to copy settings.local.json: ${(e as Error).message}`,
+        `Failed to copy settings.local.json: ${errorMessage(e)}`,
         { level: 'warn' },
       )
     }
@@ -840,7 +900,7 @@ export async function cleanupWorktree(): Promise<void> {
         logForDebugging(`Removed hook-based worktree at: ${worktreePath}`)
       } else {
         logForDebugging(
-          `No WorktreeRemove hook configured, hook-based worktree left at: ${worktreePath}`,
+          `WorktreeRemove hook did not remove worktree, left at: ${worktreePath}`,
           { level: 'warn' },
         )
       }
@@ -937,7 +997,7 @@ export async function createAgentWorktree(
   // the main repo's .claude/worktrees/ even when spawned from inside a session
   // worktree — otherwise they nest at <worktree>/.claude/worktrees/ and the
   // periodic cleanup (which scans the canonical root) never finds them.
-  const gitRoot = findCanonicalGitRoot(getCwd())
+  const gitRoot = findCanonicalGitRoot(options?.fromCwd ?? getCwd())
   if (!gitRoot) {
     throw new Error(
       'Cannot create agent worktree: not in a git repository and no WorktreeCreate hooks are configured. ' +
@@ -966,6 +1026,42 @@ export async function createAgentWorktree(
 }
 
 /**
+ * Report uncommitted changes and commits made since `headCommit` in a worktree.
+ * Without a baseline commit only the working tree is checked. A failing git
+ * command is reported as dirty with gitError set.
+ */
+export async function getWorktreeChanges(
+  worktreePath: string,
+  headCommit: string | undefined,
+): Promise<{ dirty: boolean; commitsAhead: number; gitError?: boolean }> {
+  const status = await execFileNoThrowWithCwd(
+    gitExe(),
+    ['status', '--porcelain'],
+    { cwd: worktreePath },
+  )
+  if (status.code !== 0) {
+    return { dirty: true, commitsAhead: 0, gitError: true }
+  }
+  const dirty = status.stdout.trim().length > 0
+  if (!headCommit) {
+    return { dirty, commitsAhead: 0 }
+  }
+
+  const revList = await execFileNoThrowWithCwd(
+    gitExe(),
+    ['rev-list', '--count', `${headCommit}..HEAD`],
+    { cwd: worktreePath },
+  )
+  if (revList.code !== 0) {
+    return { dirty: true, commitsAhead: 0, gitError: true }
+  }
+  return {
+    dirty,
+    commitsAhead: parseInt(revList.stdout.trim(), 10) || 0,
+  }
+}
+
+/**
  * Remove a worktree created by createAgentWorktree.
  * For git-based worktrees, removes the worktree directory and deletes the temporary branch.
  * For hook-based worktrees, delegates to the WorktreeRemove hook.
@@ -984,7 +1080,7 @@ export async function removeAgentWorktree(
       logForDebugging(`Removed hook-based agent worktree at: ${worktreePath}`)
     } else {
       logForDebugging(
-        `No WorktreeRemove hook configured, hook-based agent worktree left at: ${worktreePath}`,
+        `WorktreeRemove hook did not remove agent worktree, left at: ${worktreePath}`,
         { level: 'warn' },
       )
     }
@@ -1161,31 +1257,11 @@ export async function hasWorktreeChanges(
   worktreePath: string,
   headCommit: string,
 ): Promise<boolean> {
-  const { code: statusCode, stdout: statusOutput } =
-    await execFileNoThrowWithCwd(gitExe(), ['status', '--porcelain'], {
-      cwd: worktreePath,
-    })
-  if (statusCode !== 0) {
-    return true
-  }
-  if (statusOutput.trim().length > 0) {
-    return true
-  }
-
-  const { code: revListCode, stdout: revListOutput } =
-    await execFileNoThrowWithCwd(
-      gitExe(),
-      ['rev-list', '--count', `${headCommit}..HEAD`],
-      { cwd: worktreePath },
-    )
-  if (revListCode !== 0) {
-    return true
-  }
-  if (parseInt(revListOutput.trim(), 10) > 0) {
-    return true
-  }
-
-  return false
+  const { dirty, commitsAhead } = await getWorktreeChanges(
+    worktreePath,
+    headCommit,
+  )
+  return dirty || commitsAhead > 0
 }
 
 /**
@@ -1264,7 +1340,7 @@ export async function execIntoTmuxWorktree(args: string[]): Promise<{
   } catch (e) {
     return {
       handled: false,
-      error: `Error: ${(e as Error).message}`,
+      error: `Error: ${errorMessage(e)}`,
     }
   }
 

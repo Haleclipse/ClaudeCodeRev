@@ -11,6 +11,7 @@
  * using IPC auth) use the Override getters directly.
  */
 
+import { hostname } from 'os'
 import { getOauthConfig } from '../constants/oauth.js'
 import { getClaudeAIOAuthTokens } from '../utils/auth.js'
 
@@ -45,4 +46,23 @@ export function getBridgeAccessToken(): string | undefined {
  */
 export function getBridgeBaseUrl(): string {
   return getBridgeBaseUrlOverride() ?? getOauthConfig().BASE_API_URL
+}
+
+/**
+ * Prefix for auto-generated Remote Control session names:
+ * CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX, else the machine hostname.
+ * Falls back to "remote-control" when sanitizing leaves nothing.
+ */
+export function getBridgeSessionNamePrefix(): string {
+  const raw =
+    process.env.CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX || hostname()
+  return sanitizeSessionNamePrefix(raw) || 'remote-control'
+}
+
+/** Lowercase, collapse non-alphanumeric runs to '-', trim leading/trailing '-'. */
+export function sanitizeSessionNamePrefix(raw: string): string {
+  return raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
 }
