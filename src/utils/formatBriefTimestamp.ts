@@ -1,3 +1,25 @@
+import { getDateTimeFormat } from './intl.js'
+import { textBefore } from './stringUtils.js'
+
+const SAME_DAY_FORMAT: Intl.DateTimeFormatOptions = {
+  hour: 'numeric',
+  minute: '2-digit',
+}
+const WITHIN_WEEK_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: 'long',
+  hour: 'numeric',
+  minute: '2-digit',
+}
+const OLDER_FORMAT: Intl.DateTimeFormatOptions = {
+  weekday: 'long',
+  month: 'short',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+}
+// Resolved locale per raw env value
+const resolvedLocaleCache = new Map<string, string | undefined>()
+
 /**
  * Format an ISO timestamp for the brief/chat message label line.
  *
@@ -22,47 +44,43 @@ export function formatBriefTimestamp(
     return ''
   }
 
-  const locale = getLocale()
+  const locale = getResolvedLocale()
   const dayDiff = startOfDay(now) - startOfDay(d)
   const daysAgo = Math.round(dayDiff / 86_400_000)
 
   if (daysAgo === 0) {
-    return d.toLocaleTimeString(locale, {
-      hour: 'numeric',
-      minute: '2-digit',
-    })
+    return getDateTimeFormat(locale, SAME_DAY_FORMAT).format(d)
   }
 
   if (daysAgo > 0 && daysAgo < 7) {
-    return d.toLocaleString(locale, {
-      weekday: 'long',
-      hour: 'numeric',
-      minute: '2-digit',
-    })
+    return getDateTimeFormat(locale, WITHIN_WEEK_FORMAT).format(d)
   }
 
-  return d.toLocaleString(locale, {
-    weekday: 'long',
-    month: 'short',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  })
+  return getDateTimeFormat(locale, OLDER_FORMAT).format(d)
+}
+
+function getResolvedLocale(): string | undefined {
+  const raw =
+    process.env.LC_ALL || process.env.LC_TIME || process.env.LANG || ''
+  if (resolvedLocaleCache.has(raw)) {
+    return resolvedLocaleCache.get(raw)
+  }
+  const locale = getLocale(raw)
+  resolvedLocaleCache.set(raw, locale)
+  return locale
 }
 
 /**
- * Derive a BCP 47 locale tag from POSIX env vars.
- * LC_ALL > LC_TIME > LANG, falls back to undefined (system default).
+ * Derive a BCP 47 locale tag from a POSIX locale value (LC_ALL > LC_TIME >
+ * LANG, resolved by the caller); undefined means the system default.
  * Converts POSIX format (en_GB.UTF-8) to BCP 47 (en-GB).
  */
-function getLocale(): string | undefined {
-  const raw =
-    process.env.LC_ALL || process.env.LC_TIME || process.env.LANG || ''
+function getLocale(raw: string): string | undefined {
   if (!raw || raw === 'C' || raw === 'POSIX') {
     return undefined
   }
   // Strip codeset (.UTF-8) and modifier (@euro), replace _ with -
-  const base = raw.split('.')[0]!.split('@')[0]!
+  const base = textBefore(textBefore(raw, '.'), '@')
   if (!base) {
     return undefined
   }

@@ -19,11 +19,3 @@ export function hasEmbeddedSearchTools(): boolean {
     e !== 'sdk-ts' && e !== 'sdk-py' && e !== 'sdk-cli' && e !== 'local-agent'
   )
 }
-
-/**
- * Path to the bun binary that contains the embedded search tools.
- * Only meaningful when hasEmbeddedSearchTools() is true.
- */
-export function embeddedSearchToolsBinaryPath(): string {
-  return process.execPath
-}

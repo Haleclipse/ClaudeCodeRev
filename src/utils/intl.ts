@@ -92,3 +92,33 @@ export function getSystemLocaleLanguage(): string | undefined {
   }
   return cachedSystemLocaleLanguage
 }
+
+// DateTimeFormat cache (keyed by locale + serialized options)
+const formatOptionsKeyCache = new WeakMap<Intl.DateTimeFormatOptions, string>()
+const dateTimeFormatCache = new Map<string, Intl.DateTimeFormat>()
+
+function getFormatOptionsKey(options?: Intl.DateTimeFormatOptions): string {
+  if (!options) return ''
+  const cached = formatOptionsKeyCache.get(options)
+  if (cached !== undefined) return cached
+  const entries = Object.entries(options).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  )
+  let key = ''
+  for (const [name, value] of entries) key += `${name}=${String(value)};`
+  formatOptionsKeyCache.set(options, key)
+  return key
+}
+
+export function getDateTimeFormat(
+  locale: string | undefined,
+  options?: Intl.DateTimeFormatOptions,
+): Intl.DateTimeFormat {
+  const key = `${locale ?? ''}|${getFormatOptionsKey(options)}`
+  let dtf = dateTimeFormatCache.get(key)
+  if (!dtf) {
+    dtf = new Intl.DateTimeFormat(locale, options)
+    dateTimeFormatCache.set(key, dtf)
+  }
+  return dtf
+}

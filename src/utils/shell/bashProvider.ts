@@ -3,7 +3,10 @@ import { access } from 'fs/promises'
 import { join as nativeJoin } from 'path'
 import { join as posixJoin } from 'path/posix'
 import { quoteWithEvalStdinRedirect } from '../bash/bashPipeCommand.js'
-import { createAndSaveSnapshot } from '../bash/ShellSnapshot.js'
+import {
+  CLAUDE_CODE_EXECPATH_ENV,
+  createAndSaveSnapshot,
+} from '../bash/ShellSnapshot.js'
 import { formatShellPrefixCommand } from '../bash/shellPrefix.js'
 import { quote } from '../bash/shellQuote.js'
 import {
@@ -226,6 +229,9 @@ export async function createBashShellProvider(
       }
       const claudeTmuxEnv = getClaudeTmuxEnv()
       const env: Record<string, string> = {}
+      // The snapshot's embedded-tool functions (rg/find/grep) resolve the
+      // claude binary from this variable.
+      env[CLAUDE_CODE_EXECPATH_ENV] = process.execPath
       // CRITICAL: Override TMUX to isolate ALL tmux commands to Claude's socket.
       // This is NOT the user's TMUX value - it points to Claude's isolated socket.
       // When null (before socket initializes), user's TMUX is preserved.

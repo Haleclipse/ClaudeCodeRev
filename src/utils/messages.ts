@@ -5232,6 +5232,9 @@ export function stripSignatureBlocks(
   messages: Message[],
   shouldStrip: (msg: AssistantMessage) => boolean = () => true,
 ): Message[] {
+  if (!messages.some(msg => msg.type === 'assistant' && shouldStrip(msg))) {
+    return messages
+  }
   let changed = false
   const result = messages.map(msg => {
     if (msg.type !== 'assistant') return msg
@@ -5625,7 +5628,7 @@ export function ensureToolResultPairing(
     )
   }
 
-  return result
+  return repaired ? result : messages
 }
 
 /**
@@ -5635,6 +5638,15 @@ export function ensureToolResultPairing(
 export function stripAdvisorBlocks(
   messages: (UserMessage | AssistantMessage)[],
 ): (UserMessage | AssistantMessage)[] {
+  if (
+    !messages.some(
+      msg =>
+        msg.type === 'assistant' &&
+        msg.message.content.some(block => isAdvisorBlock(block)),
+    )
+  ) {
+    return messages
+  }
   let changed = false
   const result = messages.map(msg => {
     if (msg.type !== 'assistant') return msg
