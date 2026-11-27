@@ -88,7 +88,6 @@ import {
 } from './tools/SyntheticOutputTool/SyntheticOutputTool.js'
 import { getTools } from './tools.js'
 import {
-  canUserConfigureAdvisor,
   getInitialAdvisorSetting,
   isAdvisorEnabled,
   isValidAdvisorModel,
@@ -3118,9 +3117,7 @@ async function run(): Promise<CommanderCommand> {
 
       let advisorModel: string | undefined
       if (isAdvisorEnabled()) {
-        const advisorOption = canUserConfigureAdvisor()
-          ? (options as { advisor?: string }).advisor
-          : undefined
+        const advisorOption = (options as { advisor?: string }).advisor
         if (advisorOption) {
           logForDebugging(`[AdvisorTool] --advisor ${advisorOption}`)
           if (!modelSupportsAdvisor(resolvedInitialModel)) {
@@ -3143,9 +3140,7 @@ async function run(): Promise<CommanderCommand> {
             process.exit(1)
           }
         }
-        advisorModel = canUserConfigureAdvisor()
-          ? (advisorOption ?? getInitialAdvisorSetting())
-          : advisorOption
+        advisorModel = advisorOption ?? getInitialAdvisorSetting()
         if (advisorModel) {
           logForDebugging(`[AdvisorTool] Advisor model: ${advisorModel}`)
         }
@@ -5292,7 +5287,7 @@ async function run(): Promise<CommanderCommand> {
     'Create a tmux session for the worktree (requires --worktree). Uses iTerm2 native panes when available; use --tmux=classic for traditional tmux.',
   )
 
-  if (canUserConfigureAdvisor()) {
+  if (isAdvisorEnabled()) {
     program.addOption(
       new Option(
         '--advisor <model>',

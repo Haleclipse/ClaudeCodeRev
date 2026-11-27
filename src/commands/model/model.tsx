@@ -10,6 +10,7 @@ import {
 import { useAppState, useSetAppState } from '../../state/AppState.js'
 import type { LocalJSXCommandCall } from '../../types/command.js'
 import type { EffortLevel } from '../../utils/effort.js'
+import { errorMessage } from '../../utils/errors.js'
 import { isBilledAsExtraUsage } from '../../utils/extraUsage.js'
 import {
   clearFastModeCooldown,
@@ -200,7 +201,7 @@ function SetModelAndClose({
           })
         }
       } catch (error) {
-        onDone(`Failed to validate model: ${(error as Error).message}`, {
+        onDone(`Failed to validate model: ${errorMessage(error)}`, {
           display: 'system',
         })
       }
@@ -329,7 +330,7 @@ export const call: LocalJSXCommandCall = async (onDone, _context, args) => {
   return <ModelPickerWrapper onDone={onDone} />
 }
 
-function renderModelLabel(model: string | null): string {
+export function renderModelLabel(model: string | null): string {
   const rendered = renderDefaultModelSetting(
     model ?? getDefaultMainLoopModelSetting(),
   )

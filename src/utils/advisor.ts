@@ -1,7 +1,13 @@
 import type { BetaUsage } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { shouldIncludeFirstPartyOnlyBetas } from './betas.js'
+import { logForDebugging } from './debug.js'
 import { isEnvTruthy } from './envUtils.js'
+import {
+  normalizeModelStringForAPI,
+  parseUserSpecifiedModel,
+} from './model/model.js'
+import { getAPIProvider } from './model/providers.js'
 import { getInitialSettings } from './settings/settings.js'
 
 // The SDK does not yet have types for advisor blocks.
@@ -45,16 +51,6 @@ export function isAdvisorBlock(param: {
 
 type AdvisorConfig = {
   enabled?: boolean
-  canUserConfigure?: boolean
-  baseModel?: string
-  advisorModel?: string
-}
-
-function getAdvisorConfig(): AdvisorConfig {
-  return getFeatureValue_CACHED_MAY_BE_STALE<AdvisorConfig>(
-    'tengu_sage_compass',
-    {},
-  )
 }
 
 export function isAdvisorEnabled(): boolean {
@@ -62,26 +58,13 @@ export function isAdvisorEnabled(): boolean {
     return false
   }
   // The advisor beta header is first-party only (Bedrock/Vertex 400 on it).
-  if (!shouldIncludeFirstPartyOnlyBetas()) {
+  if (getAPIProvider() !== 'firstParty' || !shouldIncludeFirstPartyOnlyBetas()) {
     return false
   }
-  return getAdvisorConfig().enabled ?? false
-}
-
-export function canUserConfigureAdvisor(): boolean {
-  return isAdvisorEnabled() && (getAdvisorConfig().canUserConfigure ?? false)
-}
-
-export function getExperimentAdvisorModels():
-  | { baseModel: string; advisorModel: string }
-  | undefined {
-  const config = getAdvisorConfig()
-  return isAdvisorEnabled() &&
-    !canUserConfigureAdvisor() &&
-    config.baseModel &&
-    config.advisorModel
-    ? { baseModel: config.baseModel, advisorModel: config.advisorModel }
-    : undefined
+  return (
+    getFeatureValue_CACHED_MAY_BE_STALE<AdvisorConfig>('tengu_sage_compass', {})
+      .enabled ?? false
+  )
 }
 
 // @[MODEL LAUNCH]: Add the new model if it supports the advisor tool.
@@ -105,6 +88,37 @@ export function isValidAdvisorModel(model: string): boolean {
   )
 }
 
+/**
+ * Resolve the advisor model for a query: the configured advisor model,
+ * normalized, when the advisor tool is enabled, the main model supports it
+ * and the advisor model is valid. Undefined otherwise.
+ */
+export function resolveAdvisorModel(
+  advisorOption: string | undefined,
+  mainModel: string,
+): string | undefined {
+  if (!isAdvisorEnabled() || !advisorOption) return
+  const normalizedAdvisorModel = normalizeModelStringForAPI(
+    parseUserSpecifiedModel(advisorOption),
+  )
+  if (!modelSupportsAdvisor(mainModel)) {
+    logForDebugging(
+      `[AdvisorTool] Skipping advisor - base model ${mainModel} does not support advisor`,
+    )
+    return
+  }
+  if (!isValidAdvisorModel(normalizedAdvisorModel)) {
+    logForDebugging(
+      `[AdvisorTool] Skipping advisor - ${normalizedAdvisorModel} is not a valid advisor model`,
+    )
+    return
+  }
+  logForDebugging(
+    `[AdvisorTool] Server-side tool enabled with ${normalizedAdvisorModel} as the advisor model`,
+  )
+  return normalizedAdvisorModel
+}
+
 export function getInitialAdvisorSetting(): string | undefined {
   if (!isAdvisorEnabled()) {
     return undefined
@@ -126,6 +140,9 @@ export function getAdvisorUsage(
     it => it.type === 'advisor_message',
   ) as unknown as Array<BetaUsage & { model: string }>
 }
+
+// Model tiers selectable as the advisor in /advisor
+export const ADVISOR_TIERS = ['opus', 'sonnet'] as const
 
 export const ADVISOR_TOOL_INSTRUCTIONS = `# Advisor Tool
 
