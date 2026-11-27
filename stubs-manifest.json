@@ -2,7 +2,7 @@
   "generatedBy": "scripts/gen-stubs.ts",
   "version": "2.1.92",
   "summary": {
-    "sourceFiles": 1940,
+    "sourceFiles": 1941,
     "stubFiles": 167,
     "gatedTargets": 123,
     "gatedTargetsSource": 42,
@@ -3801,7 +3801,7 @@
         "src/components/ultraplan/UltraplanChoiceDialog.tsx:17",
         "src/hooks/toolPermission/PermissionContext.ts:16",
         "src/hooks/useAssistantHistory.ts:19",
-        "src/hooks/useAwaySummary.ts:9",
+        "src/hooks/useAwaySummary.ts:11",
         "src/hooks/useCanUseTool.tsx:22",
         "src/hooks/useDeferredHookMessages.ts:2",
         "src/hooks/useDirectConnect.ts:18",
