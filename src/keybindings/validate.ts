@@ -41,8 +41,9 @@ export type KeybindingWarning = {
 
 /**
  * Loose shape of a keybinding block: a string context and a bindings object.
- * Context names and actions are checked separately so that one bad entry
- * produces a warning instead of rejecting the whole file.
+ * Context names and actions are validated per entry in validateBlock, which
+ * reports warnings; a block that fails this shape makes the whole file fall
+ * back to the default bindings.
  */
 const KeybindingBlockShapeSchema = lazySchema(() =>
   z.object({

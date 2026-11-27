@@ -6,8 +6,7 @@ import { useEffect, useRef } from 'react'
 // cancel when the user types more characters.
 const DEFAULT_DEBOUNCE_MS = 400
 
-// Keystrokes arriving this soon after the input is enabled are ignored, so
-// key auto-repeat doesn't submit a response.
+// Keystrokes arriving this soon after the input is enabled are ignored.
 const DEFAULT_MOUNT_DELAY_MS = 600
 
 /**
