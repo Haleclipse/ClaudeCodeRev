@@ -1,5 +1,6 @@
 import { feature } from 'bun:bundle'
 import { prependBullets } from '../../constants/prompts.js'
+import { uniq } from '../../utils/array.js'
 import { getAttributionTexts } from '../../utils/attribution.js'
 import { hasEmbeddedSearchTools } from '../../utils/embeddedTools.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
@@ -167,7 +168,7 @@ Important:
 // not sandbox enforcement. Saves ~150-200 tokens/request when sandbox is enabled.
 function dedup<T>(arr: T[] | undefined): T[] | undefined {
   if (!arr || arr.length === 0) return arr
-  return [...new Set(arr)]
+  return uniq(arr)
 }
 
 function getSimpleSandboxSection(): string {
@@ -188,7 +189,7 @@ function getSimpleSandboxSection(): string {
   // cross-user global prompt cache. The sandbox already sets $TMPDIR at runtime.
   const claudeTempDir = getClaudeTempDir()
   const normalizeAllowOnly = (paths: string[]): string[] =>
-    [...new Set(paths)].map(p => (p === claudeTempDir ? '$TMPDIR' : p))
+    uniq(paths).map(p => (p === claudeTempDir ? '$TMPDIR' : p))
 
   const filesystemConfig = {
     read: {

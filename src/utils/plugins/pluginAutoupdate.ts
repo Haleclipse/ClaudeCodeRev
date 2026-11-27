@@ -224,8 +224,8 @@ async function updatePlugins(
  * This function runs silently without blocking user interaction.
  * Called from main.tsx during startup as a background job.
  */
-export function autoUpdateMarketplacesAndPluginsInBackground(): void {
-  void (async () => {
+export function autoUpdateMarketplacesAndPluginsInBackground(): Promise<void> {
+  return (async () => {
     if (shouldSkipPluginAutoupdate()) {
       logForDebugging('Plugin autoupdate: skipped (auto-updater disabled)')
       return

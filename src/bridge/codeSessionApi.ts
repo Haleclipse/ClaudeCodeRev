@@ -38,7 +38,7 @@ export async function createCodeSession(
       // bridge: {} is the positive signal for the oneof runner — omitting it
       // (or sending environment_id: "") now 400s. BridgeRunner is an empty
       // message today; it's a placeholder for future bridge-specific options.
-      { title, bridge: {}, ...(tags?.length ? { tags } : {}) },
+      { title, bridge: {}, ...(tags?.length && { tags }) },
       {
         headers: oauthHeaders(accessToken),
         timeout: timeoutMs,
