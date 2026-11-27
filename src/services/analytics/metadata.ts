@@ -19,7 +19,7 @@ import {
   getClientType,
   getParentSessionId as getParentSessionIdFromState,
 } from '../../bootstrap/state.js'
-import { getCooEnvironment, isEnvTruthy } from '../../utils/envUtils.js'
+import { isEnvTruthy } from '../../utils/envUtils.js'
 import { isOfficialMcpUrl } from '../mcp/officialRegistry.js'
 import { COMPUTER_USE_MCP_SERVER_NAME } from '../../utils/computerUse/common.js'
 import { isClaudeAISubscriber, getSubscriptionType } from '../../utils/auth.js'
@@ -156,27 +156,6 @@ export function mcpToolDetailsForAnalytics(
   return {
     mcpServerName: details.serverName,
     mcpToolName: details.mcpToolName,
-  }
-}
-
-/**
- * Spreadable helper for logEvent payloads — {cooNamespace, cooCluster} when
- * known (see getCooEnvironment), empty object otherwise.
- */
-export function getCooAnalyticsFields(): {
-  cooNamespace?: AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
-  cooCluster?: AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS
-} {
-  const { namespace, cluster } = getCooEnvironment()
-  return {
-    ...(namespace && {
-      cooNamespace:
-        namespace as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-    }),
-    ...(cluster && {
-      cooCluster:
-        cluster as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-    }),
   }
 }
 

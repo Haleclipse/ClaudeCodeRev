@@ -67,7 +67,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../services/analytics/index.js'
-import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadataCoo.js'
 import type { ReplBridgeHandle, BridgeState } from './replBridge.js'
 import type { Message } from '../types/message.js'
 import type { SDKMessage } from '../entrypoints/agentSdkTypes.js'

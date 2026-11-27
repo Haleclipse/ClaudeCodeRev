@@ -162,7 +162,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from 'src/services/analytics/index.js'
-import { getCooAnalyticsFields } from 'src/services/analytics/metadata.js'
+import { getCooAnalyticsFields } from 'src/services/analytics/metadataCoo.js'
 import { initializeAnalyticsGates } from 'src/services/analytics/sink.js'
 import {
   getOriginalCwd,

@@ -13,7 +13,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../services/analytics/index.js'
-import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadataCoo.js'
 import { registerCleanup } from '../utils/cleanupRegistry.js'
 import {
   handleIngressMessage,

@@ -11,7 +11,7 @@ import {
   logEvent,
   logEventAsync,
 } from '../services/analytics/index.js'
-import { getCooAnalyticsFields } from '../services/analytics/metadata.js'
+import { getCooAnalyticsFields } from '../services/analytics/metadataCoo.js'
 import { isInBundledMode } from '../utils/bundledMode.js'
 import { logForDebugging } from '../utils/debug.js'
 import { logForDiagnosticsNoPII } from '../utils/diagLogs.js'
