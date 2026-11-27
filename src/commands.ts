@@ -654,16 +654,13 @@ export const REMOTE_SAFE_COMMANDS: Set<Command> = new Set([
  * When adding a new 'local' command that should work from mobile, add it
  * here. Default is blocked.
  */
-export const BRIDGE_SAFE_COMMANDS: Set<Command> = new Set(
-  [
-    compact, // Shrink context — useful mid-session from a phone
-    clear, // Wipe transcript
-    cost, // Show session cost
-    summary, // Summarize conversation
-    releaseNotes, // Show changelog
-    files, // List tracked files
-  ].filter((c): c is Command => c !== null),
-)
+export const BRIDGE_SAFE_COMMANDS: Set<Command> = new Set([
+  compact, // Shrink context — useful mid-session from a phone
+  clear, // Wipe transcript
+  cost, // Show session cost
+  summary, // Summarize conversation
+  files, // List tracked files
+])
 
 /**
  * Whether a slash command is safe to execute when its input arrived over the
