@@ -2760,17 +2760,6 @@ export function saveTaskSummary(sessionId: UUID, summary: string): void {
   })
 }
 
-export async function saveTag(sessionId: UUID, tag: string, fullPath?: string) {
-  // Fall back to computed path if fullPath is not provided
-  const resolvedPath = fullPath ?? getTranscriptPathForSession(sessionId)
-  appendEntryToFile(resolvedPath, { type: 'tag', tag, sessionId })
-  // Cache for current session only (for immediate visibility)
-  if (sessionId === getSessionId()) {
-    getProject().currentSessionTag = tag
-  }
-  logEvent('tengu_session_tagged', {})
-}
-
 /**
  * Link a session to a GitHub pull request.
  * This stores the PR number, URL, and repository for tracking and navigation.
@@ -2799,14 +2788,6 @@ export async function linkSessionToPR(
     project.currentSessionPrRepository = prRepository
   }
   logEvent('tengu_session_linked_to_pr', { prNumber })
-}
-
-export function getCurrentSessionTag(sessionId: UUID): string | undefined {
-  // Only returns tag for current session (the only one we cache)
-  if (sessionId === getSessionId()) {
-    return getProject().currentSessionTag
-  }
-  return undefined
 }
 
 export function getCurrentSessionTitle(

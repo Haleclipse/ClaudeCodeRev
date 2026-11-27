@@ -33,7 +33,6 @@ import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js'
 import { SearchBox } from './SearchBox.js'
 import { SessionPreview } from './SessionPreview.js'
 import { Spinner } from './Spinner.js'
-import { TagTabs } from './TagTabs.js'
 import TextInput from './TextInput.js'
 import { type TreeNode, TreeSelect } from './ui/TreeSelect.js'
 
@@ -220,7 +219,6 @@ export function LogSelector({
   >('list')
   const [previewLog, setPreviewLog] = React.useState<LogOption | null>(null)
   const prevFocusedIdRef = React.useRef<string | null>(null)
-  const [selectedTagIndex, setSelectedTagIndex] = React.useState(0)
 
   // Agentic search state
   const [agenticSearchState, setAgenticSearchState] =
@@ -308,26 +306,7 @@ export function LogSelector({
     })
   }, [logs, searchableTextByLog, isDeepSearchEnabled])
 
-  // Compute unique tags from logs (before any filtering)
-  const uniqueTags = React.useMemo(() => getUniqueTags(logs), [logs])
-  const hasTags = uniqueTags.length > 0
-  const tagTabs = React.useMemo(
-    () => (hasTags ? ['All', ...uniqueTags] : []),
-    [hasTags, uniqueTags],
-  )
-
-  // Clamp out-of-bounds index (e.g., after logs change) without an extra render
-  const effectiveTagIndex =
-    tagTabs.length > 0 && selectedTagIndex < tagTabs.length
-      ? selectedTagIndex
-      : 0
-  const selectedTab = tagTabs[effectiveTagIndex]
-  const tagFilter = selectedTab === 'All' ? undefined : selectedTab
-
-  // Tag tabs are now a single line with horizontal scrolling
-  const tagTabsLines = hasTags ? 1 : 0
-
-  // Base filtering (instant) - applies tag, branch, and resume filters
+  // Base filtering (instant) - applies branch and resume filters
   const baseFilteredLogs = React.useMemo(() => {
     let filtered = logs
     if (isResumeWithRenameEnabled) {
@@ -360,11 +339,6 @@ export function LogSelector({
       })
     }
 
-    // Apply tag filter if specified
-    if (tagFilter !== undefined) {
-      filtered = filtered.filter(log => log.tag === tagFilter)
-    }
-
     if (branchFilterEnabled && currentBranch) {
       filtered = filtered.filter(log => log.gitBranch === currentBranch)
     }
@@ -377,7 +351,6 @@ export function LogSelector({
   }, [
     logs,
     isResumeWithRenameEnabled,
-    tagFilter,
     branchFilterEnabled,
     currentBranch,
     hasMultipleWorktrees,
@@ -927,24 +900,6 @@ export function LogSelector({
         }
       }
 
-      // Handle tab cycling for tag tabs
-      if (hasTags && e.key === 'tab') {
-        e.preventDefault()
-        const offset = e.shift ? -1 : 1
-        setSelectedTagIndex(prev => {
-          const current = prev < tagTabs.length ? prev : 0
-          const newIndex =
-            (current + tagTabs.length + offset) % tagTabs.length
-          const newTab = tagTabs[newIndex]
-          logEvent('tengu_session_tag_filter_changed', {
-            is_all: newTab === 'All',
-            tag_count: uniqueTags.length,
-          })
-          return newIndex
-        })
-        return
-      }
-
       const keyIsNotCtrlOrMeta = !e.ctrl && !e.meta
       const lowerInput = e.key.toLowerCase()
       // Ctrl+letter shortcuts for actions (freeing up plain letters for type-to-search)
@@ -1015,7 +970,7 @@ export function LogSelector({
   // Search box takes 3 lines (border top, content, border bottom)
   const searchBoxLines = 3
   const headerLines =
-    5 + searchBoxLines + (showAdditionalFilterLine ? 1 : 0) + tagTabsLines
+    5 + searchBoxLines + (showAdditionalFilterLine ? 1 : 0)
   const footerLines = 2
   const visibleCount = Math.max(
     1,
@@ -1063,26 +1018,17 @@ export function LogSelector({
         <Text> </Text>
       </Box>
 
-      {hasTags ? (
-        <TagTabs
-          tabs={tagTabs}
-          selectedIndex={effectiveTagIndex}
-          availableWidth={columns}
-          showAllProjects={showAllProjects}
-        />
-      ) : (
-        <Box flexShrink={0}>
-          <Text bold color="suggestion">
-            Resume Session
-            {viewMode === 'list' && displayedLogs.length > visibleCount && (
-              <Text dimColor>
-                {' '}
-                ({focusedIndex} of {displayedLogs.length})
-              </Text>
-            )}
-          </Text>
-        </Box>
-      )}
+      <Box flexShrink={0}>
+        <Text bold color="suggestion">
+          Resume Session
+          {viewMode === 'list' && displayedLogs.length > visibleCount && (
+            <Text dimColor>
+              {' '}
+              ({focusedIndex} of {displayedLogs.length})
+            </Text>
+          )}
+        </Text>
+      </Box>
       <SearchBox
         query={searchQuery}
         isFocused={viewMode === 'search'}
@@ -1458,17 +1404,4 @@ function groupLogsBySessionId(
   )
 
   return groups
-}
-
-/**
- * Get unique tags from a list of logs, sorted alphabetically
- */
-function getUniqueTags(logs: LogOption[]): string[] {
-  const tags = new Set<string>()
-  for (const log of logs) {
-    if (log.tag) {
-      tags.add(log.tag)
-    }
-  }
-  return Array.from(tags).sort((a, b) => a.localeCompare(b))
 }

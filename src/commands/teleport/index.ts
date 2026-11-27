@@ -1,3 +1,20 @@
-// @generated-stub — missing from sourcemap, see scripts/gen-stubs.ts
+import type { Command } from '../../commands.js'
+import { isPolicyAllowed } from '../../services/policyLimits/index.js'
+import { isClaudeAISubscriber } from '../../utils/auth.js'
 
-export default {} as any
+const teleport = {
+  type: 'local-jsx',
+  name: 'teleport',
+  description: 'Resume a Claude Code session from claude.ai',
+  aliases: ['tp'],
+  isEnabled: () =>
+    isClaudeAISubscriber() && isPolicyAllowed('allow_remote_sessions'),
+  get isHidden() {
+    return (
+      !isClaudeAISubscriber() || !isPolicyAllowed('allow_remote_sessions')
+    )
+  },
+  load: () => import('./teleport.js'),
+} satisfies Command
+
+export default teleport
