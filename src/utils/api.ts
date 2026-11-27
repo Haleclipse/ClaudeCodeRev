@@ -91,8 +91,9 @@ const SWARM_FIELDS_BY_TOOL: Record<string, string[]> = {
 }
 
 /**
- * Remove the given properties from a tool input schema. Returns a copy;
- * the original schema is not mutated.
+ * Remove the given properties from a tool input schema. The original schema
+ * is not mutated: a copy is returned when there is something to remove,
+ * otherwise the schema itself.
  */
 function omitSchemaProperties(
   schema: Anthropic.Tool.InputSchema,

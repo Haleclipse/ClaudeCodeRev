@@ -2,8 +2,8 @@
   "generatedBy": "scripts/gen-stubs.ts",
   "version": "2.1.91",
   "summary": {
-    "sourceFiles": 1916,
-    "stubFiles": 168,
+    "sourceFiles": 1917,
+    "stubFiles": 167,
     "gatedTargets": 123,
     "gatedTargetsSource": 42,
     "gatedTargetsStub": 81,
@@ -2965,21 +2965,6 @@
       ],
       "referencedFrom": [
         "src/screens/REPL.tsx:423 (require)"
-      ]
-    },
-    {
-      "path": "src/query/transitions.ts",
-      "kind": "known-types",
-      "exports": [
-        "Continue",
-        "TERMINAL_REASONS",
-        "Terminal",
-        "TerminalReason"
-      ],
-      "referencedFrom": [
-        "src/QueryEngine.ts:38",
-        "src/entrypoints/sdk/coreSchemas.ts:11",
-        "src/query.ts:106"
       ]
     },
     {

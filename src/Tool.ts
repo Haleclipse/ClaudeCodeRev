@@ -288,8 +288,8 @@ export type ToolUseContext = {
   /** When true, preserve toolUseResult on messages even for subagents.
    * Used by in-process teammates whose transcripts are viewable by the user. */
   preserveToolUseResults?: boolean
-  /** Set by the REPL screen and forwarded to subagents through runAgent's
-   * override. Nothing reads it in external builds. */
+  /** Set by the REPL screen; runAgent copies `override.replHydration` into
+   * the subagent context when given. Nothing reads it in external builds. */
   replHydration?: { kind: 'resume' }
   /** Local denial tracking state for async subagents whose setAppState is a
    *  no-op. Without this, the denial counter never accumulates and the

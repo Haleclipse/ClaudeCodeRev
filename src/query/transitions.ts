@@ -1,5 +1,5 @@
-// @generated-stub — missing from sourcemap, see scripts/gen-stubs.ts
-// Type definitions inferred from codebase usage patterns
+// Type definitions inferred from codebase usage patterns; TERMINAL_REASONS
+// follows the official 2.1.91 bundle
 
 export type Continue = { type: 'continue' }
 

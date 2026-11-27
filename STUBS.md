@@ -6,7 +6,7 @@ Machine-readable copy: `stubs-manifest.json`.
 - **source**: real module recovered from the official sourcemap
 - **stub**: absent from the published build (DCE'd by a build-time gate or ant-only); placeholder generated here
 
-Source files: 1916 · stub files: 168 · build-gated require() targets: 123 (source 42, stub 81)
+Source files: 1917 · stub files: 167 · build-gated require() targets: 123 (source 42, stub 81)
 
 ## Build-gated require() targets
 
@@ -239,7 +239,6 @@ Imported by gated code but absent from the published module (stripped internal-o
 | `src/memdir/memoryShapeTelemetry.ts` | inferred | — | src/memdir/findRelevantMemories.ts:99 (dynamic)<br>src/memdir/findRelevantMemories.ts:99 (require)<br>src/utils/sessionFileAccessHooks.ts:39 (dynamic)<br>src/utils/sessionFileAccessHooks.ts:39 (require) |
 | `src/proactive/index.ts` | inferred | — | src/cli/print.ts:367 (dynamic)<br>src/cli/print.ts:367 (require)<br>src/commands/clear/conversation.ts:120 (require)<br>src/components/Messages.tsx:102 (require)<br>src/components/PromptInput/PromptInputFooterLeftSide.tsx:61 (require)<br>src/components/PromptInput/usePromptInputPlaceholder.ts:13 (require)<br>src/constants/prompts.ts:72 (require)<br>src/main.tsx:6592 (require)<br>src/screens/REPL.tsx:416 (require)<br>src/services/compact/prompt.ts:8 (dynamic)<br>src/services/compact/prompt.ts:8 (require)<br>src/tools/AgentTool/AgentTool.tsx:137 (dynamic)<br>src/tools/AgentTool/AgentTool.tsx:137 (require)<br>src/utils/systemPrompt.ts:20 (dynamic)<br>src/utils/systemPrompt.ts:20 (require) |
 | `src/proactive/useProactive.ts` | gated-inert | useProactive | src/screens/REPL.tsx:423 (require) |
-| `src/query/transitions.ts` | known-types | Continue, TERMINAL_REASONS, Terminal, TerminalReason | src/QueryEngine.ts:38<br>src/entrypoints/sdk/coreSchemas.ts:11<br>src/query.ts:106 |
 | `src/self-hosted-runner/main.ts` | inferred | — | src/entrypoints/cli.tsx:253 (dynamic) |
 | `src/server/backends/dangerousBackend.ts` | inferred | — | src/main.tsx:5636 (dynamic) |
 | `src/server/connectHeadless.ts` | inferred | — | src/main.tsx:5793 (dynamic) |

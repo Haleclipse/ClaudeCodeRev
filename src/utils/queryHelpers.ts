@@ -515,9 +515,11 @@ export function extractReadFilesFromMessages(
               cache.set(readFilePath, {
                 content: fileContent,
                 timestamp,
-                // Not undefined: a defined offset marks the entry as not a
-                // plain full read, so it is skipped by the changed-file
-                // attachment scan and the Edit/Write same-content fallback.
+                // Not undefined: a defined offset makes this a Read entry. It
+                // is skipped by the changed-file attachment scan and the
+                // Edit/Write same-content fallback, takes part in the
+                // FileReadTool dedup (1 is Read's default offset) and counts
+                // as priorOp 'read' in tengu_file_read_reread.
                 offset: 1,
                 limit: undefined,
               })

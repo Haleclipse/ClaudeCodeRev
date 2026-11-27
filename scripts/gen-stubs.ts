@@ -674,7 +674,7 @@ export type LspServerState = 'idle' | 'initializing' | 'running' | 'error' | 'st
 
 // --- entrypoints/sdk/runtimeTypes.ts ---
 known('entrypoints/sdk/runtimeTypes.ts', `
-export type EffortLevel = 'low' | 'medium' | 'high'
+export type EffortLevel = 'low' | 'medium' | 'high' | 'max'
 export type AnyZodRawShape = Record<string, unknown>
 export type InferShape<T> = T
 export type NonNullableUsage = { input_tokens: number; output_tokens: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number }
@@ -827,12 +827,6 @@ export type DiscoverySignal = { type: string; query?: string; context?: string }
 known('components/FeedbackSurvey/utils.ts', `
 export type FeedbackSurveyType = 'general' | 'post_compact' | 'memory' | 'skill_improvement'
 export type FeedbackSurveyResponse = { type: FeedbackSurveyType; rating?: number; comment?: string; sessionId?: string }
-`)
-
-// --- query/transitions.ts ---
-known('query/transitions.ts', `
-export type Terminal = { type: 'terminal'; reason: string }
-export type Continue = { type: 'continue' }
 `)
 
 // --- ink/global.d.ts ---

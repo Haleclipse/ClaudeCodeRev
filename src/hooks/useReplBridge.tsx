@@ -246,8 +246,8 @@ export function useReplBridge(
               logForDebugging(
                 `[bridge:repl] Injecting inbound user message: ${preview}${uuid ? ` uuid=${uuid}` : ''}`,
               )
-              // Sender session for messages relayed from a peer Claude
-              // session (UDS inbox); unset in external builds.
+              // Sender session for messages relayed from another Claude
+              // session (peer origin); unset in external builds.
               let peerFrom: string | undefined = undefined
               enqueue({
                 value: content,
