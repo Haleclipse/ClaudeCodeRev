@@ -197,6 +197,7 @@ export async function addCronTask(
   recurring: boolean,
   durable: boolean,
   agentId?: string,
+  createdAt?: number,
 ): Promise<string> {
   // Short ID — 8 hex chars is plenty for MAX_JOBS=50, avoids slice/prefix
   // juggling between the tool layer (shows short IDs) and disk.
@@ -205,7 +206,7 @@ export async function addCronTask(
     id,
     cron,
     prompt,
-    createdAt: Date.now(),
+    createdAt: createdAt ?? Date.now(),
     ...(recurring && { recurring: true }),
   }
   if (!durable) {

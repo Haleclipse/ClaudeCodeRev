@@ -1,5 +1,7 @@
+import { feature } from 'bun:bundle'
 import { z } from 'zod/v4'
 import { setScheduledTasksEnabled } from '../../bootstrap/state.js'
+import { TICK_TAG } from '../../constants/xml.js'
 import type { ValidationResult } from '../../Tool.js'
 import { buildTool, type ToolDef } from '../../Tool.js'
 import { cronToHuman, parseCronExpression } from '../../utils/cron.js'
@@ -11,6 +13,8 @@ import {
 } from '../../utils/cronTasks.js'
 import { lazySchema } from '../../utils/lazySchema.js'
 import { semanticBoolean } from '../../utils/semanticBoolean.js'
+import { getInitialSettings } from '../../utils/settings/settings.js'
+import { plural } from '../../utils/stringUtils.js'
 import { getTeammateContext } from '../../utils/teammateContext.js'
 import {
   buildCronCreateDescription,
@@ -21,6 +25,15 @@ import {
   isKairosCronEnabled,
 } from './prompt.js'
 import { renderCreateResultMessage, renderCreateToolUseMessage } from './UI.js'
+
+const DEFAULT_MIN_TICK_INTERVAL_MINUTES = 2
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const proactiveModule =
+  feature('PROACTIVE') || feature('KAIROS')
+    ? require('../../proactive/index.js')
+    : null
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 const MAX_JOBS = 50
 
@@ -112,18 +125,77 @@ export const CronCreateTool = buildTool({
         errorCode: 4,
       }
     }
+    // Proactive ticks: reject cron periods shorter than the minimum tick
+    // interval (measured over the next few fires).
+    if (
+      proactiveModule?.isProactiveActive() &&
+      input.prompt.startsWith(`<${TICK_TAG}>`)
+    ) {
+      const now = Date.now()
+      const firstRun = nextCronRunMs(input.cron, now)
+      if (firstRun !== null) {
+        const configured = (
+          getInitialSettings() as { minTickIntervalMinutes?: unknown }
+        ).minTickIntervalMinutes
+        const minMinutes =
+          typeof configured === 'number'
+            ? configured
+            : DEFAULT_MIN_TICK_INTERVAL_MINUTES
+        const minMs = minMinutes * 60_000
+        let from = firstRun
+        let shortestGap = Infinity
+        for (let i = 0; i < 5; i++) {
+          const next = nextCronRunMs(input.cron, from)
+          if (next === null) break
+          const gap = next - from
+          if (gap < shortestGap) shortestGap = gap
+          from = next
+        }
+        if (shortestGap < minMs) {
+          return {
+            result: false,
+            message: `Cron period too short: fires every ${Math.round(shortestGap / 1000)}s, but the minimum tick interval is ${minMinutes} ${plural(minMinutes, 'minute')}. Use a cron expression with at least ${minMinutes} ${plural(minMinutes, 'minute')} between fires.`,
+            errorCode: 5,
+          }
+        }
+      }
+    }
     return { result: true }
   },
   async call({ cron, prompt, recurring = true, durable = false }) {
     // Kill switch forces session-only; schema stays stable so the model sees
     // no validation errors when the gate flips mid-session.
     const effectiveDurable = durable && isDurableCronEnabled()
+    // Proactive ticks: shift createdAt so the first fire lands no earlier
+    // than the minimum tick interval.
+    let createdAt: number | undefined
+    if (proactiveModule?.isProactiveActive() && prompt.startsWith(`<${TICK_TAG}>`)) {
+      const now = Date.now()
+      const firstRun = nextCronRunMs(cron, now)
+      if (firstRun !== null) {
+        const configured = (
+          getInitialSettings() as { minTickIntervalMinutes?: unknown }
+        ).minTickIntervalMinutes
+        const minMs =
+          (typeof configured === 'number'
+            ? configured
+            : DEFAULT_MIN_TICK_INTERVAL_MINUTES) * 60_000
+        if (firstRun - now < minMs) {
+          const shifted = now + minMs - 1
+          const shiftedRun = nextCronRunMs(cron, shifted)
+          if (shiftedRun !== null && shiftedRun - firstRun < minMs + 60_000) {
+            createdAt = shifted
+          }
+        }
+      }
+    }
     const id = await addCronTask(
       cron,
       prompt,
       recurring,
       effectiveDurable,
       getTeammateContext()?.agentId,
+      createdAt,
     )
     // Enable the scheduler so the task fires in this session. The
     // useScheduledTasks hook polls this flag and will start watching

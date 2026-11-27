@@ -4,6 +4,8 @@ import {
   getBridgeBaseUrlOverride,
   getBridgeTokenOverride,
 } from '../../bridge/bridgeConfig.js'
+// Side-effect import; no visible usage in this build.
+import '../../services/sessionState/schema.js'
 import type { ToolUseContext } from '../../Tool.js'
 import type {
   LocalJSXCommandContext,

@@ -53,8 +53,6 @@ import {
   systemPromptSection,
   resolveSystemPromptSections,
 } from './systemPromptSections.js'
-import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js'
-import { TICK_TAG } from './xml.js'
 import { logForDebugging } from '../utils/debug.js'
 import { loadMemoryPrompt } from '../memdir/memdir.js'
 import { isUndercover } from '../utils/undercover.js'
@@ -828,6 +826,11 @@ function getBriefSection(): string | null {
 function getProactiveSection(): string | null {
   if (!(feature('PROACTIVE') || feature('KAIROS'))) return null
   if (!proactiveModule?.isProactiveActive()) return null
+  /* eslint-disable @typescript-eslint/no-require-imports */
+  const { SLEEP_TOOL_NAME } =
+    require('../tools/SleepTool/prompt.js') as typeof import('../tools/SleepTool/prompt.js')
+  const { TICK_TAG } = require('./xml.js') as typeof import('./xml.js')
+  /* eslint-enable @typescript-eslint/no-require-imports */
 
   return `# Autonomous work
 

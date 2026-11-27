@@ -241,7 +241,6 @@ import {
   isScratchpadEnabled,
 } from '../utils/permissions/filesystem.js'
 import { WEB_FETCH_TOOL_NAME } from '../tools/WebFetchTool/prompt.js'
-import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js'
 import { clearSpeculativeChecks } from '../tools/BashTool/bashPermissions.js'
 import { createRerunAliasTable } from '../tools/BashTool/rerunAliases.js'
 import type { AutoUpdaterResult } from '../utils/autoUpdater.js'
@@ -2260,21 +2259,6 @@ export function REPL({
     ])
   }, [setMessages])
 
-  // Hide spinner when the only in-progress tool is Sleep
-  const onlySleepToolActive = useMemo(() => {
-    const lastAssistant = messages.findLast(m => m.type === 'assistant')
-    if (lastAssistant?.type !== 'assistant') return false
-    const inProgressToolUses = lastAssistant.message.content.filter(
-      b => b.type === 'tool_use' && inProgressToolUseIDs.has(b.id),
-    )
-    return (
-      inProgressToolUses.length > 0 &&
-      inProgressToolUses.every(
-        b => b.type === 'tool_use' && b.name === SLEEP_TOOL_NAME,
-      )
-    )
-  }, [messages, inProgressToolUseIDs])
-
   const {
     onBeforeQuery: mrOnBeforeQuery,
     onTurnComplete: mrOnTurnComplete,
@@ -2303,7 +2287,6 @@ export function REPL({
       getCommandQueueLength() > 0) &&
     // Hide spinner when waiting for leader to approve permission request
     !pendingWorkerRequest &&
-    !onlySleepToolActive &&
     // Hide spinner when streaming text is visible (the text IS the feedback),
     // but keep it when isBriefOnly suppresses the streaming text display
     (!visibleStreamingText || isBriefOnly)

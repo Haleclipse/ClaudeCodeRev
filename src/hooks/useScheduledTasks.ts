@@ -1,4 +1,7 @@
+import { feature } from 'bun:bundle'
 import { useEffect, useRef } from 'react'
+import { getSessionCronTasks } from '../bootstrap/state.js'
+import { TICK_TAG } from '../constants/xml.js'
 import { useAppStateStore, useSetAppState } from '../state/AppState.js'
 import { isTerminalTaskStatus } from '../Task.js'
 import {
@@ -9,7 +12,7 @@ import { isKairosCronEnabled } from '../tools/ScheduleCronTool/prompt.js'
 import type { Message } from '../types/message.js'
 import { getCronJitterConfig } from '../utils/cronJitterConfig.js'
 import { createCronScheduler } from '../utils/cronScheduler.js'
-import { removeCronTasks } from '../utils/cronTasks.js'
+import { nextCronRunMs, removeCronTasks } from '../utils/cronTasks.js'
 import { logForDebugging } from '../utils/debug.js'
 import { enqueuePendingNotification } from '../utils/messageQueueManager.js'
 import { createScheduledTaskFireMessage } from '../utils/messages.js'
@@ -28,6 +31,13 @@ type Props = {
   assistantMode?: boolean
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>
 }
+
+/* eslint-disable @typescript-eslint/no-require-imports */
+const proactiveModule =
+  feature('PROACTIVE') || feature('KAIROS')
+    ? require('../proactive/index.js')
+    : null
+/* eslint-enable @typescript-eslint/no-require-imports */
 
 /**
  * REPL wrapper for the cron scheduler. Mounts the scheduler once and tears
@@ -119,7 +129,39 @@ export function useScheduledTasks({
       isKilled: () => !isKairosCronEnabled(),
     })
     scheduler.start()
-    return () => scheduler.stop()
+    // Proactive mode: surface the next tick fire time from session cron tasks.
+    const tickPrefix = `<${TICK_TAG}>`
+    const tickTimer = proactiveModule
+      ? setInterval(
+          (prefix: string) => {
+            if (
+              !proactiveModule.isProactiveActive() ||
+              proactiveModule.isProactivePaused()
+            ) {
+              proactiveModule.setNextTickAt(null)
+              return
+            }
+            let nextTickAt: number | null = null
+            for (const task of getSessionCronTasks()) {
+              if (!task.prompt.startsWith(prefix)) continue
+              const next = nextCronRunMs(task.cron, task.createdAt)
+              if (next !== null && (nextTickAt === null || next < nextTickAt)) {
+                nextTickAt = next
+              }
+            }
+            proactiveModule.setNextTickAt(nextTickAt)
+          },
+          1000,
+          tickPrefix,
+        )
+      : null
+    return () => {
+      scheduler.stop()
+      if (tickTimer !== null) {
+        clearInterval(tickTimer)
+        proactiveModule?.setNextTickAt(null)
+      }
+    }
     // assistantMode is stable for the session lifetime; store/setAppState are
     // stable refs from useSyncExternalStore; setMessages is a stable useCallback.
     // eslint-disable-next-line react-hooks/exhaustive-deps
