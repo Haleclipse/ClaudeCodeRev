@@ -9,7 +9,10 @@ import {
   isValidResponseInput,
 } from './FeedbackSurveyView.js'
 import type { TranscriptShareResponse } from './TranscriptSharePrompt.js'
-import { TranscriptSharePrompt } from './TranscriptSharePrompt.js'
+import {
+  isValidResponseInput as isValidTranscriptShareInput,
+  TranscriptSharePrompt,
+} from './TranscriptSharePrompt.js'
 import { useDebouncedDigitInput } from './useDebouncedDigitInput.js'
 import type { FeedbackSurveyResponse } from './utils.js'
 
@@ -78,7 +81,7 @@ export function FeedbackSurvey({
       return null
     }
     // Hide prompt if user is typing non-response characters
-    if (inputValue && !['1', '2', '3'].includes(inputValue)) {
+    if (inputValue && !isValidTranscriptShareInput(inputValue.toLowerCase())) {
       return null
     }
     return (
@@ -132,6 +135,7 @@ function FeedbackSurveyThanks({
     isValidDigit: isFollowUpDigit,
     enabled: Boolean(showFollowUp),
     once: true,
+    mountDelayMs: 0,
     onDigit: () => {
       logEvent('tengu_feedback_survey_event', {
         event_type:

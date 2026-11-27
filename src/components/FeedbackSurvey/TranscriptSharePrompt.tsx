@@ -11,16 +11,18 @@ type Props = {
   setInputValue: (value: string) => void
 }
 
-const RESPONSE_INPUTS = ['1', '2', '3'] as const
+// Letters rather than digits, so digits typed in quick succession don't
+// select an option
+const RESPONSE_INPUTS = ['y', 'n', 'd'] as const
 type ResponseInput = (typeof RESPONSE_INPUTS)[number]
 
 const inputToResponse: Record<ResponseInput, TranscriptShareResponse> = {
-  '1': 'yes',
-  '2': 'no',
-  '3': 'dont_ask_again',
+  y: 'yes',
+  n: 'no',
+  d: 'dont_ask_again',
 } as const
 
-const isValidResponseInput = (input: string): input is ResponseInput =>
+export const isValidResponseInput = (input: string): input is ResponseInput =>
   (RESPONSE_INPUTS as readonly string[]).includes(input)
 
 export function TranscriptSharePrompt({
@@ -31,8 +33,12 @@ export function TranscriptSharePrompt({
   useDebouncedDigitInput({
     inputValue,
     setInputValue,
-    isValidDigit: isValidResponseInput,
-    onDigit: digit => onSelect(inputToResponse[digit]),
+    isValidDigit: (char: string): char is ResponseInput =>
+      isValidResponseInput(char.toLowerCase()),
+    onDigit: digit => {
+      const key = digit.toLowerCase()
+      if (isValidResponseInput(key)) onSelect(inputToResponse[key])
+    },
   })
 
   return (
@@ -55,17 +61,17 @@ export function TranscriptSharePrompt({
       <Box marginLeft={2}>
         <Box width={10}>
           <Text>
-            <Text color="ansi:cyan">1</Text>: Yes
+            <Text color="ansi:cyan">y</Text>: Yes
           </Text>
         </Box>
         <Box width={10}>
           <Text>
-            <Text color="ansi:cyan">2</Text>: No
+            <Text color="ansi:cyan">n</Text>: No
           </Text>
         </Box>
         <Box>
           <Text>
-            <Text color="ansi:cyan">3</Text>: Don&apos;t ask again
+            <Text color="ansi:cyan">d</Text>: Don't ask again
           </Text>
         </Box>
       </Box>
