@@ -623,14 +623,14 @@ export function BackgroundTasksDialog({
   )
 
   const actions = [
-    <KeyboardShortcutHint key="upDown" shortcut="↑/↓" action="select" />,
-    <KeyboardShortcutHint key="enter" shortcut="Enter" action="view" />,
+    <KeyboardShortcutHint key="upDown" chord={['up', 'down']} action="select" />,
+    <KeyboardShortcutHint key="enter" chord="enter" action="view" />,
     ...(currentSelection?.type === 'in_process_teammate' &&
     currentSelection.status === 'running'
       ? [
           <KeyboardShortcutHint
             key="foreground"
-            shortcut="f"
+            chord="f"
             action="foreground"
           />,
         ]
@@ -643,18 +643,19 @@ export function BackgroundTasksDialog({
       currentSelection?.type === 'dream' ||
       currentSelection?.type === 'remote_agent') &&
     currentSelection.status === 'running'
-      ? [<KeyboardShortcutHint key="kill" shortcut="x" action="stop" />]
+      ? [<KeyboardShortcutHint key="kill" chord="x" action="stop" />]
       : []),
     ...(agentTasks.some(t => t.status === 'running')
       ? [
           <KeyboardShortcutHint
             key="kill-all"
-            shortcut={killAgentsShortcut}
+            chord={killAgentsShortcut}
             action="stop all agents"
+            format={{ keyCase: 'lower' }}
           />,
         ]
       : []),
-    <KeyboardShortcutHint key="esc" shortcut="←/Esc" action="close" />,
+    <KeyboardShortcutHint key="esc" chord={['left', 'escape']} action="close" />,
   ]
 
   const handleCancel = () =>

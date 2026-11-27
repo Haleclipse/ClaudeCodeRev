@@ -251,9 +251,17 @@ function CopyPicker({
         />
         <Text dimColor>
           <Byline>
-            <KeyboardShortcutHint shortcut="enter" action="copy" />
-            <KeyboardShortcutHint shortcut="w" action="write to file" />
-            <KeyboardShortcutHint shortcut="esc" action="cancel" />
+            <KeyboardShortcutHint
+              chord="enter"
+              action="copy"
+              format={{ keyCase: 'lower' }}
+            />
+            <KeyboardShortcutHint chord="w" action="write to file" />
+            <KeyboardShortcutHint
+              chord="escape"
+              action="cancel"
+              format={{ keyCase: 'lower' }}
+            />
           </Byline>
         </Text>
       </Box>

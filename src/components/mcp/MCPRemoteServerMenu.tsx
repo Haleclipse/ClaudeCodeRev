@@ -507,7 +507,7 @@ export function MCPRemoteServerMenu({
                 <Text color="success">(Copied!)</Text>
               ) : (
                 <Text dimColor>
-                  <KeyboardShortcutHint shortcut="c" action="copy" parens />
+                  <KeyboardShortcutHint chord="c" action="copy" parens />
                 </Text>
               )}
             </Box>
@@ -572,7 +572,7 @@ export function MCPRemoteServerMenu({
                 <Text color="success">(Copied!)</Text>
               ) : (
                 <Text dimColor>
-                  <KeyboardShortcutHint shortcut="c" action="copy" parens />
+                  <KeyboardShortcutHint chord="c" action="copy" parens />
                 </Text>
               )}
             </Box>
@@ -624,7 +624,7 @@ export function MCPRemoteServerMenu({
                     <Text color="success">(Copied!)</Text>
                   ) : (
                     <Text dimColor>
-                      <KeyboardShortcutHint shortcut="c" action="copy" parens />
+                      <KeyboardShortcutHint chord="c" action="copy" parens />
                     </Text>
                   )}
                 </Box>
@@ -902,8 +902,12 @@ export function MCPRemoteServerMenu({
             <>Press {exitState.keyName} again to exit</>
           ) : (
             <Byline>
-              <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-              <KeyboardShortcutHint shortcut="Enter" action="select" />
+              <KeyboardShortcutHint
+                chord={['up', 'down']}
+                format={{ arrowSep: '' }}
+                action="navigate"
+              />
+              <KeyboardShortcutHint chord="enter" action="select" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"

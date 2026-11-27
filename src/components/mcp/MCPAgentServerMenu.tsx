@@ -161,8 +161,12 @@ export function MCPAgentServerMenu({
           <Text>Press {exitState.keyName} again to exit</Text>
         ) : (
           <Byline>
-            <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+            <KeyboardShortcutHint
+              chord={['up', 'down']}
+              format={{ arrowSep: '' }}
+              action="navigate"
+            />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

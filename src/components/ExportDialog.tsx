@@ -104,7 +104,7 @@ export function ExportDialog({
     if (showFilenameInput) {
       return (
         <Byline>
-          <KeyboardShortcutHint shortcut="Enter" action="save" />
+          <KeyboardShortcutHint chord="enter" action="save" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

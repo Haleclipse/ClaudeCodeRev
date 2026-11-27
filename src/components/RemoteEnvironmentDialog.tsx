@@ -223,7 +223,7 @@ function MultipleEnvironmentsContent({
       )}
       <Text dimColor>
         <Byline>
-          <KeyboardShortcutHint shortcut="Enter" action="select" />
+          <KeyboardShortcutHint chord="enter" action="select" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

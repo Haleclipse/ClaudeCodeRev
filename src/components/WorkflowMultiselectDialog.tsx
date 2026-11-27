@@ -35,9 +35,13 @@ function renderInputGuide(exitState: ExitState): React.ReactNode {
   }
   return (
     <Byline>
-      <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-      <KeyboardShortcutHint shortcut="Space" action="toggle" />
-      <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+      <KeyboardShortcutHint
+        chord={['up', 'down']}
+        format={{ arrowSep: '' }}
+        action="navigate"
+      />
+      <KeyboardShortcutHint chord="space" action="toggle" />
+      <KeyboardShortcutHint chord="enter" action="confirm" />
       <ConfigurableShortcutHint
         action="confirm:no"
         context="Confirmation"

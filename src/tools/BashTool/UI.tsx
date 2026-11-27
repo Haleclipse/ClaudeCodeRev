@@ -64,9 +64,10 @@ export function BackgroundHint({
     <Box paddingLeft={5}>
       <Text dimColor>
         <KeyboardShortcutHint
-          shortcut={shortcut}
+          chord={shortcut}
           action="run in background"
           parens
+          format={{ keyCase: 'lower' }}
         />
       </Text>
     </Box>

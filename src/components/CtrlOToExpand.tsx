@@ -2,7 +2,7 @@ import chalk from 'chalk'
 import React, { useContext } from 'react'
 import { Text } from '../ink.js'
 import { getShortcutDisplay } from '../keybindings/shortcutFormat.js'
-import { useShortcutDisplay } from '../keybindings/useShortcutDisplay.js'
+import { useShortcutChord } from '../keybindings/useShortcutChord.js'
 import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js'
 import { InVirtualListContext } from './messageActions.js'
 
@@ -24,7 +24,7 @@ export function SubAgentProvider({
 export function CtrlOToExpand(): React.ReactNode {
   const isInSubAgent = useContext(SubAgentContext)
   const inVirtualList = useContext(InVirtualListContext)
-  const expandShortcut = useShortcutDisplay(
+  const expandShortcut = useShortcutChord(
     'app:toggleTranscript',
     'Global',
     'ctrl+o',
@@ -34,7 +34,12 @@ export function CtrlOToExpand(): React.ReactNode {
   }
   return (
     <Text dimColor>
-      <KeyboardShortcutHint shortcut={expandShortcut} action="expand" parens />
+      <KeyboardShortcutHint
+        chord={expandShortcut}
+        action="expand"
+        parens
+        format={{ keyCase: 'lower' }}
+      />
     </Text>
   )
 }

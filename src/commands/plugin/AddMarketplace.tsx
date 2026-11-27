@@ -185,7 +185,7 @@ export function AddMarketplace({
       <Box marginLeft={3}>
         <Text dimColor italic>
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="add" />
+            <KeyboardShortcutHint chord="enter" action="add" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Settings"

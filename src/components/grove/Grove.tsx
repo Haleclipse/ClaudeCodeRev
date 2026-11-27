@@ -263,8 +263,8 @@ export function GroveDialog({
           <Text>Press {exitState.keyName} again to exit</Text>
         ) : (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
-            <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
+            <KeyboardShortcutHint chord="escape" action="cancel" />
           </Byline>
         )
       }
@@ -350,11 +350,11 @@ export function PrivacySettingsDialog({
         exitState.pending ? (
           <Text>Press {exitState.keyName} again to exit</Text>
         ) : domainExcluded ? (
-          <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+          <KeyboardShortcutHint chord="escape" action="cancel" />
         ) : (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter/Tab/Space" action="toggle" />
-            <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+            <KeyboardShortcutHint chord={['enter', 'tab', 'space']} action="toggle" />
+            <KeyboardShortcutHint chord="escape" action="cancel" />
           </Byline>
         )
       }

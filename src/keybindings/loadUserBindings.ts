@@ -23,9 +23,10 @@ import { createSignal } from '../utils/signal.js'
 import { jsonParse } from '../utils/slowOperations.js'
 import { DEFAULT_BINDINGS } from './defaultBindings.js'
 import { parseBindings } from './parser.js'
-import type { KeybindingBlock, ParsedBinding } from './types.js'
+import type { ParsedBinding } from './types.js'
 import {
   checkDuplicateKeysInJson,
+  isKeybindingBlockArray,
   type KeybindingWarning,
   validateBindings,
 } from './validate.js'
@@ -87,26 +88,6 @@ function logCustomBindingsLoadedOncePerDay(userBindingCount: number): void {
   logEvent('tengu_custom_keybindings_loaded', {
     user_binding_count: userBindingCount,
   })
-}
-
-/**
- * Type guard to check if an object is a valid KeybindingBlock.
- */
-function isKeybindingBlock(obj: unknown): obj is KeybindingBlock {
-  if (typeof obj !== 'object' || obj === null) return false
-  const b = obj as Record<string, unknown>
-  return (
-    typeof b.context === 'string' &&
-    typeof b.bindings === 'object' &&
-    b.bindings !== null
-  )
-}
-
-/**
- * Type guard to check if an array contains only valid KeybindingBlocks.
- */
-function isKeybindingBlockArray(arr: unknown): arr is KeybindingBlock[] {
-  return Array.isArray(arr) && arr.every(isKeybindingBlock)
 }
 
 /**

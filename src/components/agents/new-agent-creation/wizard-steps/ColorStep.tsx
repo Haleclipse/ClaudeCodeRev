@@ -26,10 +26,8 @@ export function ColorStep(): ReactNode {
         whenToUse: wizardData.whenToUse!,
         getSystemPrompt: () => wizardData.systemPrompt!,
         tools: wizardData.selectedTools,
-        ...(wizardData.selectedModel
-          ? { model: wizardData.selectedModel }
-          : {}),
-        ...(color ? { color: color as AgentColorName } : {}),
+        ...(wizardData.selectedModel && { model: wizardData.selectedModel }),
+        ...(color && { color: color as AgentColorName }),
         source: wizardData.location!,
       },
     })
@@ -41,8 +39,12 @@ export function ColorStep(): ReactNode {
       subtitle="Choose background color"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-          <KeyboardShortcutHint shortcut="Enter" action="select" />
+          <KeyboardShortcutHint
+            chord={['up', 'down']}
+            format={{ arrowSep: '' }}
+            action="navigate"
+          />
+          <KeyboardShortcutHint chord="enter" action="select" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

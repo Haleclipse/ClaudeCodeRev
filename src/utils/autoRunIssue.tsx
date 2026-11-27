@@ -39,7 +39,7 @@ export function AutoRunIssueNotification({
       </Box>
       <Box>
         <Text dimColor>
-          Press <KeyboardShortcutHint shortcut="Esc" action="cancel" /> anytime
+          Press <KeyboardShortcutHint chord="escape" action="cancel" /> anytime
         </Text>
       </Box>
       <Box>

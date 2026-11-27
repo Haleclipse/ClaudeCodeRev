@@ -110,7 +110,7 @@ export function ThinkingToggle({
           <>Press {exitState.keyName} again to exit</>
         ) : confirmationPending !== null ? (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"
@@ -120,7 +120,7 @@ export function ThinkingToggle({
           </Byline>
         ) : (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

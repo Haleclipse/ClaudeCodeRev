@@ -362,7 +362,7 @@ export function Feedback({
           <Text>Press {exitState.keyName} again to exit</Text>
         ) : step === 'userInput' ? (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="continue" />
+            <KeyboardShortcutHint chord="enter" action="continue" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"
@@ -372,7 +372,7 @@ export function Feedback({
           </Byline>
         ) : step === 'consent' ? (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="submit" />
+            <KeyboardShortcutHint chord="enter" action="submit" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

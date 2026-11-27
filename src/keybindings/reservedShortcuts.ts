@@ -89,7 +89,21 @@ export function getReservedShortcuts(): ReservedShortcut[] {
  * overwritten by the next step, collapsing the chord into its last key.
  */
 export function normalizeKeyForComparison(key: string): string {
+  // A lone space is the space key, not a chord separator
+  if (key === ' ') return 'space'
   return key.trim().split(/\s+/).map(normalizeStep).join(' ')
+}
+
+// Key-name aliases folded to the parser's canonical names, so "esc" and
+// "escape" (or "↑" and "up") compare equal.
+const KEY_ALIASES: Record<string, string> = {
+  esc: 'escape',
+  return: 'enter',
+  del: 'delete',
+  '↑': 'up',
+  '↓': 'down',
+  '←': 'left',
+  '→': 'right',
 }
 
 function normalizeStep(step: string): string {
@@ -109,16 +123,25 @@ function normalizeStep(step: string): string {
         'meta',
         'cmd',
         'command',
+        'super',
+        'win',
         'shift',
       ].includes(lower)
     ) {
       // Normalize modifier names
       if (lower === 'control') modifiers.push('ctrl')
-      else if (lower === 'option' || lower === 'opt') modifiers.push('alt')
-      else if (lower === 'command' || lower === 'cmd') modifiers.push('cmd')
+      else if (lower === 'option' || lower === 'opt' || lower === 'meta')
+        modifiers.push('alt')
+      else if (
+        lower === 'command' ||
+        lower === 'cmd' ||
+        lower === 'super' ||
+        lower === 'win'
+      )
+        modifiers.push('cmd')
       else modifiers.push(lower)
     } else {
-      mainKey = lower
+      mainKey = KEY_ALIASES[lower] ?? lower
     }
   }
 

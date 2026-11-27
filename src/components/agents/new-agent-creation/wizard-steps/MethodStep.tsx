@@ -28,8 +28,12 @@ export function MethodStep(): ReactNode {
       subtitle="Creation method"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-          <KeyboardShortcutHint shortcut="Enter" action="select" />
+          <KeyboardShortcutHint
+            chord={['up', 'down']}
+            format={{ arrowSep: '' }}
+            action="navigate"
+          />
+          <KeyboardShortcutHint chord="enter" action="select" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

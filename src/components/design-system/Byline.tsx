@@ -19,8 +19,8 @@ type Props = {
  * // Basic usage: "Enter to confirm · Esc to cancel"
  * <Text dimColor>
  *   <Byline>
- *     <KeyboardShortcutHint shortcut="Enter" action="confirm" />
- *     <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+ *     <KeyboardShortcutHint chord="enter" action="confirm" />
+ *     <KeyboardShortcutHint chord="escape" action="cancel" />
  *   </Byline>
  * </Text>
  *
@@ -28,8 +28,8 @@ type Props = {
  * // With conditional children: "Esc to cancel" (only one item shown)
  * <Text dimColor>
  *   <Byline>
- *     {showEnter && <KeyboardShortcutHint shortcut="Enter" action="confirm" />}
- *     <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+ *     {showEnter && <KeyboardShortcutHint chord="enter" action="confirm" />}
+ *     <KeyboardShortcutHint chord="escape" action="cancel" />
  *   </Byline>
  * </Text>
  *

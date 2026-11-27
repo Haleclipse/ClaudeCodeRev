@@ -652,7 +652,7 @@ export type StdinMessage = { type: 'stdin'; content: string } | { type: 'control
 
 // --- keybindings/types.ts ---
 known('keybindings/types.ts', `
-export type ParsedKeystroke = { key: string; ctrl: boolean; alt: boolean; shift: boolean; meta: boolean }
+export type ParsedKeystroke = { key: string; ctrl: boolean; alt: boolean; shift: boolean; meta: boolean; super: boolean }
 export type Chord = ParsedKeystroke[]
 export type KeybindingAction = string
 export type ParsedBinding = { chord: Chord; action: KeybindingAction; context?: KeybindingContextName }

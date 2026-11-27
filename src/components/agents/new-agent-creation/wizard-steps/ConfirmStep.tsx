@@ -79,8 +79,8 @@ export function ConfirmStep({
       subtitle="Confirm and save"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="s/Enter" action="save" />
-          <KeyboardShortcutHint shortcut="e" action="edit in your editor" />
+          <KeyboardShortcutHint chord={['s', 'enter']} action="save" />
+          <KeyboardShortcutHint chord="e" action="edit in your editor" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

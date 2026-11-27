@@ -118,8 +118,8 @@ export function MCPServerDesktopImportDialog({
       <Box paddingX={1}>
         <Text dimColor italic>
           <Byline>
-            <KeyboardShortcutHint shortcut="Space" action="select" />
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+            <KeyboardShortcutHint chord="space" action="select" />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

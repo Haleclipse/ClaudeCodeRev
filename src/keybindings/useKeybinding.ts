@@ -1,6 +1,7 @@
 import { useCallback, useEffect } from 'react'
 import type { InputEvent } from '../ink/events/input-event.js'
 import { type Key, useInput } from '../ink.js'
+import { uniq } from '../utils/array.js'
 import { useOptionalKeybindingContext } from './KeybindingContext.js'
 import type { KeybindingContextName } from './types.js'
 
@@ -57,7 +58,7 @@ export function useKeybinding(
         'Global',
       ]
       // Deduplicate while preserving order (first occurrence wins for priority)
-      const uniqueContexts = [...new Set(contextsToCheck)]
+      const uniqueContexts = uniq(contextsToCheck)
 
       const result = keybindingContext.resolve(input, key, uniqueContexts)
 
@@ -81,9 +82,9 @@ export function useKeybinding(
           keybindingContext.setPendingChord(null)
           break
         case 'unbound':
-          // Explicitly unbound - clear any pending chord
+          // Explicitly unbound - clear any pending chord and let other
+          // handlers see the key
           keybindingContext.setPendingChord(null)
-          event.stopImmediatePropagation()
           break
         case 'none':
           // No match - let other handlers try
@@ -155,7 +156,7 @@ export function useKeybindings(
         'Global',
       ]
       // Deduplicate while preserving order (first occurrence wins for priority)
-      const uniqueContexts = [...new Set(contextsToCheck)]
+      const uniqueContexts = uniq(contextsToCheck)
 
       const result = keybindingContext.resolve(input, key, uniqueContexts)
 
@@ -180,9 +181,9 @@ export function useKeybindings(
           keybindingContext.setPendingChord(null)
           break
         case 'unbound':
-          // Explicitly unbound - clear any pending chord
+          // Explicitly unbound - clear any pending chord and let other
+          // handlers see the key
           keybindingContext.setPendingChord(null)
-          event.stopImmediatePropagation()
           break
         case 'none':
           // No match - let other handlers try

@@ -384,9 +384,10 @@ function ModeIndicator({
           <Text dimColor>
             {' '}
             <KeyboardShortcutHint
-              shortcut={modeCycleShortcut}
+              chord={modeCycleShortcut}
               action="cycle"
               parens
+              format={{ keyCase: 'lower' }}
             />
           </Text>
         )}
@@ -452,6 +453,7 @@ function ModeIndicator({
         hasAnyInProcessTeammates,
         hasRunningAgentTasks,
         isKillAgentsConfirmShowing,
+        hasSelection,
       )
     : []
 
@@ -459,8 +461,9 @@ function ModeIndicator({
     parts.push(
       <Text dimColor key="esc-return">
         <KeyboardShortcutHint
-          shortcut={escShortcut}
+          chord={escShortcut}
           action="return to team lead"
+          format={{ keyCase: 'lower' }}
         />
       </Text>,
     )
@@ -556,16 +559,15 @@ function ModeIndicator({
       <Text dimColor key="selection-copy">
         <Byline>
           {!copyOnSelect && (
-            <KeyboardShortcutHint shortcut="ctrl+c" action="copy" />
+            <KeyboardShortcutHint chord="ctrl+c" action="copy" />
           )}
           {isXtermJs() &&
             (altClickFailed ? (
               <Text>set macOptionClickForcesSelection in VS Code settings</Text>
             ) : (
-              <KeyboardShortcutHint
-                shortcut={isMac ? 'option+click' : 'shift+click'}
-                action="native select"
-              />
+              <Text>
+                {isMac ? 'option+click' : 'shift+click'} to native select
+              </Text>
             ))}
         </Byline>
       </Text>,
@@ -590,9 +592,9 @@ function ModeIndicator({
     parts.push(
       <Text dimColor key="manage-tasks">
         {tasksSelected ? (
-          <KeyboardShortcutHint shortcut="Enter" action="view tasks" />
+          <KeyboardShortcutHint chord="enter" action="view tasks" />
         ) : (
-          <KeyboardShortcutHint shortcut="↓" action="manage" />
+          <KeyboardShortcutHint chord="down" action="manage" />
         )}
       </Text>,
     )
@@ -645,6 +647,7 @@ function getSpinnerHintParts(
   hasTeammates: boolean,
   hasRunningAgentTasks: boolean,
   isKillAgentsConfirmShowing: boolean,
+  hasSelection: boolean,
 ): React.ReactElement[] {
   let toggleAction: string
   if (hasTeammates) {
@@ -669,10 +672,14 @@ function getSpinnerHintParts(
   const showToggleHint = hasTaskItems || hasTeammates
 
   return [
-    ...(isLoading
+    ...(isLoading && !hasSelection
       ? [
           <Text dimColor key="esc">
-            <KeyboardShortcutHint shortcut={escShortcut} action="interrupt" />
+            <KeyboardShortcutHint
+              chord={escShortcut}
+              action="interrupt"
+              format={{ keyCase: 'lower' }}
+            />
           </Text>,
         ]
       : []),
@@ -680,8 +687,9 @@ function getSpinnerHintParts(
       ? [
           <Text dimColor key="kill-agents">
             <KeyboardShortcutHint
-              shortcut={killAgentsShortcut}
+              chord={killAgentsShortcut}
               action="stop agents"
+              format={{ keyCase: 'lower' }}
             />
           </Text>,
         ]
@@ -690,8 +698,9 @@ function getSpinnerHintParts(
       ? [
           <Text dimColor key="toggle-tasks">
             <KeyboardShortcutHint
-              shortcut={todosShortcut}
+              chord={todosShortcut}
               action={toggleAction}
+              format={{ keyCase: 'lower' }}
             />
           </Text>,
         ]

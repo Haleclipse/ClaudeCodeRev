@@ -1,9 +1,15 @@
+import { z } from 'zod/v4'
+import { lazySchema } from '../utils/lazySchema.js'
 import { plural } from '../utils/stringUtils.js'
 import { chordToString, parseChord, parseKeystroke } from './parser.js'
 import {
   getReservedShortcuts,
   normalizeKeyForComparison,
 } from './reservedShortcuts.js'
+import {
+  KEYBINDING_CONTEXTS,
+  MESSAGE_ACTION_BINDING_PATTERN,
+} from './schema.js'
 import type {
   KeybindingBlock,
   KeybindingContextName,
@@ -34,49 +40,37 @@ export type KeybindingWarning = {
 }
 
 /**
+ * Loose shape of a keybinding block: a string context and a bindings object.
+ * Context names and actions are checked separately so that one bad entry
+ * produces a warning instead of rejecting the whole file.
+ */
+const KeybindingBlockShapeSchema = lazySchema(() =>
+  z.object({
+    context: z.string(),
+    bindings: z.record(z.string(), z.unknown()),
+  }),
+)
+
+/**
  * Type guard to check if an object is a valid KeybindingBlock.
  */
 function isKeybindingBlock(obj: unknown): obj is KeybindingBlock {
-  if (typeof obj !== 'object' || obj === null) return false
-  const b = obj as Record<string, unknown>
-  return (
-    typeof b.context === 'string' &&
-    typeof b.bindings === 'object' &&
-    b.bindings !== null
-  )
+  return KeybindingBlockShapeSchema().safeParse(obj).success
 }
 
 /**
  * Type guard to check if an array contains only valid KeybindingBlocks.
  */
-function isKeybindingBlockArray(arr: unknown): arr is KeybindingBlock[] {
+export function isKeybindingBlockArray(
+  arr: unknown,
+): arr is KeybindingBlock[] {
   return Array.isArray(arr) && arr.every(isKeybindingBlock)
 }
 
 /**
- * Valid context names for keybindings.
- * Must match KeybindingContextName in types.ts
+ * Valid context names for keybindings (the schema's list).
  */
-const VALID_CONTEXTS: KeybindingContextName[] = [
-  'Global',
-  'Chat',
-  'Autocomplete',
-  'Confirmation',
-  'Help',
-  'Transcript',
-  'HistorySearch',
-  'Task',
-  'ThemePicker',
-  'Settings',
-  'Tabs',
-  'Attachments',
-  'Footer',
-  'MessageSelector',
-  'DiffDialog',
-  'ModelPicker',
-  'Select',
-  'Plugin',
-]
+const VALID_CONTEXTS: readonly KeybindingContextName[] = KEYBINDING_CONTEXTS
 
 /**
  * Type guard to check if a string is a valid context name.
@@ -215,6 +209,34 @@ function validateBlock(
           context: contextName,
           action,
           suggestion: 'Move this binding to a block with "context": "Chat"',
+        })
+      }
+    } else if (
+      typeof action === 'string' &&
+      action.startsWith('messageActions:')
+    ) {
+      // Validate message action binding format
+      if (!MESSAGE_ACTION_BINDING_PATTERN.test(action)) {
+        warnings.push({
+          type: 'invalid_action',
+          severity: 'warning',
+          message: `Invalid messageActions binding "${action}" for "${key}": action name may only contain alphanumeric characters, colons, hyphens, and underscores`,
+          key,
+          context: contextName,
+          action,
+        })
+      }
+      // Message action bindings must be in MessageActions context
+      if (contextName && contextName !== 'MessageActions') {
+        warnings.push({
+          type: 'invalid_action',
+          severity: 'warning',
+          message: `messageActions binding "${action}" must be in "MessageActions" context, not "${contextName}"`,
+          key,
+          context: contextName,
+          action,
+          suggestion:
+            'Move this binding to a block with "context": "MessageActions"',
         })
       }
     } else if (action === 'voice:pushToTalk') {

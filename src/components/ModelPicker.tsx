@@ -300,7 +300,7 @@ export function ModelPicker({
             <>Press {exitState.keyName} again to exit</>
           ) : (
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="select:cancel"
                 context="Select"

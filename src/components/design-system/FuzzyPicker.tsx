@@ -259,23 +259,23 @@ export function FuzzyPicker<T>({
         <Text dimColor>
           <Byline>
             <KeyboardShortcutHint
-              shortcut="↑/↓"
+              chord={['up', 'down']}
               action={compact ? 'nav' : 'navigate'}
             />
             <KeyboardShortcutHint
-              shortcut="Enter"
+              chord="enter"
               action={compact ? firstWord(selectAction) : selectAction}
             />
             {onTab && (
-              <KeyboardShortcutHint shortcut="Tab" action={onTab.action} />
+              <KeyboardShortcutHint chord="tab" action={onTab.action} />
             )}
             {onShiftTab && !compact && (
               <KeyboardShortcutHint
-                shortcut="shift+tab"
+                chord="shift+tab"
                 action={onShiftTab.action}
               />
             )}
-            <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+            <KeyboardShortcutHint chord="escape" action="cancel" />
             {extraHints}
           </Byline>
         </Text>

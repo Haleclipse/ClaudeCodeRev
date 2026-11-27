@@ -146,7 +146,7 @@ export function renderToolResultMessage(
             {backgroundTaskId ? (
               <>
                 Running in the background{' '}
-                <KeyboardShortcutHint shortcut="↓" action="manage" parens />
+                <KeyboardShortcutHint chord="down" action="manage" parens />
               </>
             ) : interrupted ? (
               'Interrupted'

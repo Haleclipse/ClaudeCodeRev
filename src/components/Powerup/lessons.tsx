@@ -28,9 +28,13 @@ export function LessonListFooter(): React.ReactNode {
   return (
     <Text dimColor italic>
       <Byline>
-        <KeyboardShortcutHint shortcut="↑↓" action="select" />
-        <KeyboardShortcutHint shortcut="Enter" action="open" />
-        <KeyboardShortcutHint shortcut="Esc" action="close" />
+        <KeyboardShortcutHint
+          chord={['up', 'down']}
+          format={{ arrowSep: '' }}
+          action="select"
+        />
+        <KeyboardShortcutHint chord="enter" action="open" />
+        <KeyboardShortcutHint chord="escape" action="close" />
       </Byline>
     </Text>
   )
@@ -40,8 +44,8 @@ export function LessonFooter(): React.ReactNode {
   return (
     <Text dimColor italic>
       <Byline>
-        <KeyboardShortcutHint shortcut="Enter" action="mark done" />
-        <KeyboardShortcutHint shortcut="Esc" action="back" />
+        <KeyboardShortcutHint chord="enter" action="mark done" />
+        <KeyboardShortcutHint chord="escape" action="back" />
       </Byline>
     </Text>
   )

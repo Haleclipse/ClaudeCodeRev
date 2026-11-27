@@ -50,6 +50,9 @@ export function parseKeystroke(input: string): ParsedKeystroke {
       case 'return':
         keystroke.key = 'enter'
         break
+      case 'del':
+        keystroke.key = 'delete'
+        break
       case 'space':
         keystroke.key = ' '
         break

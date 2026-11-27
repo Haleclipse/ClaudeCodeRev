@@ -1276,26 +1276,30 @@ function ElicitationFormDialog({
               fallback="Esc"
               description="cancel"
             />
-            <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
+            <KeyboardShortcutHint
+              chord={['up', 'down']}
+              format={{ arrowSep: '' }}
+              action="navigate"
+            />
             {currentField && (
-              <KeyboardShortcutHint shortcut="Backspace" action="unset" />
+              <KeyboardShortcutHint chord="backspace" action="unset" />
             )}
             {currentField && currentField.schema.type === 'boolean' && (
-              <KeyboardShortcutHint shortcut="Space" action="toggle" />
+              <KeyboardShortcutHint chord="space" action="toggle" />
             )}
             {currentField &&
               isEnumSchema(currentField.schema) &&
               (expandedAccordion ? (
-                <KeyboardShortcutHint shortcut="Space" action="select" />
+                <KeyboardShortcutHint chord="space" action="select" />
               ) : (
-                <KeyboardShortcutHint shortcut="→" action="expand" />
+                <KeyboardShortcutHint chord="right" action="expand" />
               ))}
             {currentField &&
               isMultiSelectEnumSchema(currentField.schema) &&
               (expandedAccordion ? (
-                <KeyboardShortcutHint shortcut="Space" action="toggle" />
+                <KeyboardShortcutHint chord="space" action="toggle" />
               ) : (
-                <KeyboardShortcutHint shortcut="→" action="expand" />
+                <KeyboardShortcutHint chord="right" action="expand" />
               ))}
           </Byline>
         )
@@ -1483,7 +1487,7 @@ function ElicitationURLDialog({
                 fallback="Esc"
                 description="cancel"
               />
-              <KeyboardShortcutHint shortcut="\u2190\u2192" action="switch" />
+              <KeyboardShortcutHint chord={['left', 'right']} action="switch" />
             </Byline>
           )
         }
@@ -1566,7 +1570,7 @@ function ElicitationURLDialog({
               fallback="Esc"
               description="cancel"
             />
-            <KeyboardShortcutHint shortcut="\u2190\u2192" action="switch" />
+            <KeyboardShortcutHint chord={['left', 'right']} action="switch" />
           </Byline>
         )
       }

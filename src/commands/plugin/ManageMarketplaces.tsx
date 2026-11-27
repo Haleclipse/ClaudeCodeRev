@@ -974,10 +974,10 @@ function ManageMarketplacesKeyHints({
             />
           )}
           {!hasPendingActions && (
-            <KeyboardShortcutHint shortcut="u" action="update" />
+            <KeyboardShortcutHint chord="u" action="update" />
           )}
           {!hasPendingActions && (
-            <KeyboardShortcutHint shortcut="r" action="remove" />
+            <KeyboardShortcutHint chord="r" action="remove" />
           )}
           <ConfigurableShortcutHint
             action="confirm:no"

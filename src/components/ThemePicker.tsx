@@ -213,8 +213,8 @@ export function ThemePicker({
                   <>Press {exitState.keyName} again to exit</>
                 ) : (
                   <Byline>
-                    <KeyboardShortcutHint shortcut="Enter" action="select" />
-                    <KeyboardShortcutHint shortcut="Esc" action="cancel" />
+                    <KeyboardShortcutHint chord="enter" action="select" />
+                    <KeyboardShortcutHint chord="escape" action="cancel" />
                   </Byline>
                 )}
               </Text>

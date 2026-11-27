@@ -94,7 +94,11 @@ export function SessionBackgroundHint({
   return (
     <Box paddingLeft={2}>
       <Text dimColor>
-        <KeyboardShortcutHint shortcut={shortcut} action="background" />
+        <KeyboardShortcutHint
+          chord={shortcut}
+          action="background"
+          format={{ keyCase: 'lower' }}
+        />
       </Text>
     </Box>
   )

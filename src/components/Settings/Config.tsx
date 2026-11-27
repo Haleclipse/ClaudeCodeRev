@@ -1812,7 +1812,7 @@ export function Config({
           <Box>
             <Text dimColor italic>
               <Byline>
-                <KeyboardShortcutHint shortcut="Enter" action="select" />
+                <KeyboardShortcutHint chord="enter" action="select" />
                 <ConfigurableShortcutHint
                   action="confirm:no"
                   context="Confirmation"
@@ -1847,7 +1847,7 @@ export function Config({
           />
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1901,7 +1901,7 @@ export function Config({
           />
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1922,7 +1922,7 @@ export function Config({
           />
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1963,7 +1963,7 @@ export function Config({
           />
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -2002,7 +2002,7 @@ export function Config({
           />
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+              <KeyboardShortcutHint chord="enter" action="confirm" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Settings"
@@ -2239,8 +2239,12 @@ export function Config({
           {headerFocused ? (
             <Text dimColor>
               <Byline>
-                <KeyboardShortcutHint shortcut="←/→ tab" action="switch" />
-                <KeyboardShortcutHint shortcut="↓" action="return" />
+                <KeyboardShortcutHint
+                  chord={['left', 'right', 'tab']}
+                  action="switch"
+                  format={{ keyCase: 'lower' }}
+                />
+                <KeyboardShortcutHint chord="down" action="return" />
                 <ConfigurableShortcutHint
                   action="confirm:no"
                   context="Settings"
@@ -2253,8 +2257,8 @@ export function Config({
             <Text dimColor>
               <Byline>
                 <Text>Type to filter</Text>
-                <KeyboardShortcutHint shortcut="Enter/↓" action="select" />
-                <KeyboardShortcutHint shortcut="↑" action="tabs" />
+                <KeyboardShortcutHint chord={['enter', 'down']} action="select" />
+                <KeyboardShortcutHint chord="up" action="tabs" />
                 <ConfigurableShortcutHint
                   action="confirm:no"
                   context="Settings"

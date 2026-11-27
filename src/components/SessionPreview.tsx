@@ -109,7 +109,7 @@ export function SessionPreview({
         </Text>
         <Text dimColor>
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="resume" />
+            <KeyboardShortcutHint chord="enter" action="resume" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

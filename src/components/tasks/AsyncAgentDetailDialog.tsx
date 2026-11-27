@@ -134,10 +134,10 @@ export function AsyncAgentDetailDialog({
             <Text>Press {exitState.keyName} again to exit</Text>
           ) : (
             <Byline>
-              {onBack && <KeyboardShortcutHint shortcut="←" action="go back" />}
-              <KeyboardShortcutHint shortcut="Esc/Enter/Space" action="close" />
+              {onBack && <KeyboardShortcutHint chord="left" action="go back" />}
+              <KeyboardShortcutHint chord={['escape', 'enter', 'space']} action="close" />
               {agent.status === 'running' && onKillAgent && (
-                <KeyboardShortcutHint shortcut="x" action="stop" />
+                <KeyboardShortcutHint chord="x" action="stop" />
               )}
             </Byline>
           )

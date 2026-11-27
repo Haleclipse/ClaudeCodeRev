@@ -29,7 +29,15 @@ export const KEYBINDING_CONTEXTS = [
   'ModelPicker',
   'Select',
   'Plugin',
+  'Scroll',
+  'MessageActions',
 ] as const
+
+/**
+ * Message action bindings: "messageActions:<name>" triggers a registered
+ * message action.
+ */
+export const MESSAGE_ACTION_BINDING_PATTERN = /^messageActions:[a-zA-Z0-9:\-_]+$/
 
 /**
  * Human-readable descriptions for each keybinding context.
@@ -56,6 +64,9 @@ export const KEYBINDING_CONTEXT_DESCRIPTIONS: Record<
   ModelPicker: 'When the model picker is open',
   Select: 'When a select/list component is focused',
   Plugin: 'When the plugin dialog is open',
+  Scroll: 'When a scrollable view is focused (fullscreen layout)',
+  MessageActions:
+    'When the message actions menu is open (fullscreen layout)',
 }
 
 /**
@@ -169,6 +180,20 @@ export const KEYBINDING_ACTIONS = [
   'settings:close',
   // Voice actions
   'voice:pushToTalk',
+  // Scroll actions (fullscreen layout)
+  'scroll:pageUp',
+  'scroll:pageDown',
+  'scroll:lineUp',
+  'scroll:lineDown',
+  'scroll:top',
+  'scroll:bottom',
+  'scroll:halfPageUp',
+  'scroll:halfPageDown',
+  'scroll:fullPageUp',
+  'scroll:fullPageDown',
+  // Selection actions (fullscreen layout)
+  'selection:copy',
+  'selection:clear',
 ] as const
 
 /**
@@ -195,6 +220,12 @@ export const KeybindingBlockSchema = lazySchema(() =>
                 .regex(/^command:[a-zA-Z0-9:\-_]+$/)
                 .describe(
                   'Command binding (e.g., "command:help", "command:compact"). Executes the slash command as if typed.',
+                ),
+              z
+                .string()
+                .regex(MESSAGE_ACTION_BINDING_PATTERN)
+                .describe(
+                  'Message action binding (e.g., "messageActions:copy"). Triggers a registered message action.',
                 ),
               z.null().describe('Set to null to unbind a default shortcut'),
             ])

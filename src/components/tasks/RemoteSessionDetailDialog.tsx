@@ -452,8 +452,8 @@ function ReviewSessionDetail({
           <Text>Press {exitState.keyName} again to exit</Text>
         ) : (
           <Byline>
-            <KeyboardShortcutHint shortcut="Enter" action="select" />
-            <KeyboardShortcutHint shortcut="Esc" action="go back" />
+            <KeyboardShortcutHint chord="enter" action="select" />
+            <KeyboardShortcutHint chord="escape" action="go back" />
           </Byline>
         )
       }
@@ -582,10 +582,10 @@ export function RemoteSessionDetailDialog({
             <Text>Press {exitState.keyName} again to exit</Text>
           ) : (
             <Byline>
-              {onBack && <KeyboardShortcutHint shortcut="←" action="go back" />}
-              <KeyboardShortcutHint shortcut="Esc/Enter/Space" action="close" />
+              {onBack && <KeyboardShortcutHint chord="left" action="go back" />}
+              <KeyboardShortcutHint chord={['escape', 'enter', 'space']} action="close" />
               {!isTeleporting && (
-                <KeyboardShortcutHint shortcut="t" action="teleport" />
+                <KeyboardShortcutHint chord="t" action="teleport" />
               )}
             </Byline>
           )

@@ -61,7 +61,7 @@ export function Dialog({
     <Text>Press {exitState.keyName} again to exit</Text>
   ) : (
     <Byline>
-      <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+      <KeyboardShortcutHint chord="enter" action="confirm" />
       <ConfigurableShortcutHint
         action="confirm:no"
         context="Confirmation"

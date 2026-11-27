@@ -365,7 +365,7 @@ export function renderToolResultMessage(
               <Text dimColor>
                 {' ('}
                 <Byline>
-                  <KeyboardShortcutHint shortcut="↓" action="manage" />
+                  <KeyboardShortcutHint chord="down" action="manage" />
                   {prompt && (
                     <ConfigurableShortcutHint
                       action="app:toggleTranscript"
@@ -944,7 +944,7 @@ export function renderGroupedAgentToolUse(
               <>
                 <Text bold>{toolUses.length}</Text> background agents launched{' '}
                 <Text dimColor>
-                  <KeyboardShortcutHint shortcut="↓" action="manage" parens />
+                  <KeyboardShortcutHint chord="down" action="manage" parens />
                 </Text>
               </>
             ) : (

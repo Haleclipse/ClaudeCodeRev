@@ -49,8 +49,8 @@ export function DescriptionStep(): ReactNode {
       subtitle="Description (tell Claude when to use this agent)"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="Type" action="enter text" />
-          <KeyboardShortcutHint shortcut="Enter" action="continue" />
+          <Text>Type to enter text</Text>
+          <KeyboardShortcutHint chord="enter" action="continue" />
           <ConfigurableShortcutHint
             action="chat:externalEditor"
             context="Chat"

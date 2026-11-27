@@ -30,8 +30,12 @@ export function ToolsStep({ tools }: Props): ReactNode {
       subtitle="Select tools"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="Enter" action="toggle selection" />
-          <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
+          <KeyboardShortcutHint chord="enter" action="toggle selection" />
+          <KeyboardShortcutHint
+            chord={['up', 'down']}
+            format={{ arrowSep: '' }}
+            action="navigate"
+          />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

@@ -29,7 +29,11 @@ export function TeammateViewHeader(): React.ReactNode {
           </Text>
           <Text dimColor>
             {' · '}
-            <KeyboardShortcutHint shortcut="esc" action="return" />
+            <KeyboardShortcutHint
+              chord="escape"
+              action="return"
+              format={{ keyCase: 'lower' }}
+            />
           </Text>
         </Box>
         <Text dimColor>{viewedTeammate.prompt}</Text>

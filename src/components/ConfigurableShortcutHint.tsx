@@ -3,7 +3,7 @@ import type {
   KeybindingAction,
   KeybindingContextName,
 } from '../keybindings/types.js'
-import { useShortcutDisplay } from '../keybindings/useShortcutDisplay.js'
+import { useShortcutChord } from '../keybindings/useShortcutChord.js'
 import { KeyboardShortcutHint } from './design-system/KeyboardShortcutHint.js'
 
 type Props = {
@@ -41,10 +41,10 @@ export function ConfigurableShortcutHint({
   parens,
   bold,
 }: Props): React.ReactNode {
-  const shortcut = useShortcutDisplay(action, context, fallback)
+  const chord = useShortcutChord(action, context, fallback)
   return (
     <KeyboardShortcutHint
-      shortcut={shortcut}
+      chord={chord}
       action={description}
       parens={parens}
       bold={bold}

@@ -1260,7 +1260,7 @@ export function LogSelector({
         ) : viewMode === 'rename' ? (
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="save" />
+              <KeyboardShortcutHint chord="enter" action="save" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1284,8 +1284,8 @@ export function LogSelector({
         ) : isAgenticSearchOptionFocused ? (
           <Text dimColor>
             <Byline>
-              <KeyboardShortcutHint shortcut="Enter" action="search" />
-              <KeyboardShortcutHint shortcut="↓" action="skip" />
+              <KeyboardShortcutHint chord="enter" action="search" />
+              <KeyboardShortcutHint chord="down" action="skip" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1302,7 +1302,7 @@ export function LogSelector({
                   ? 'Searching…'
                   : 'Type to Search'}
               </Text>
-              <KeyboardShortcutHint shortcut="Enter" action="select" />
+              <KeyboardShortcutHint chord="enter" action="select" />
               <ConfigurableShortcutHint
                 action="confirm:no"
                 context="Confirmation"
@@ -1316,24 +1316,35 @@ export function LogSelector({
             <Byline>
               {onToggleAllProjects && (
                 <KeyboardShortcutHint
-                  shortcut="Ctrl+A"
+                  chord="ctrl+a"
                   action={`show ${showAllProjects ? 'current dir' : 'all projects'}`}
+                  format={{ modCase: 'title', charCase: 'upper' }}
                 />
               )}
               {currentBranch && (
                 <KeyboardShortcutHint
-                  shortcut="Ctrl+B"
+                  chord="ctrl+b"
                   action="toggle branch"
+                  format={{ modCase: 'title', charCase: 'upper' }}
                 />
               )}
               {hasMultipleWorktrees && (
                 <KeyboardShortcutHint
-                  shortcut="Ctrl+W"
+                  chord="ctrl+w"
                   action={`show ${showAllWorktrees ? 'current worktree' : 'all worktrees'}`}
+                  format={{ modCase: 'title', charCase: 'upper' }}
                 />
               )}
-              <KeyboardShortcutHint shortcut="Ctrl+V" action="preview" />
-              <KeyboardShortcutHint shortcut="Ctrl+R" action="rename" />
+              <KeyboardShortcutHint
+                chord="ctrl+v"
+                action="preview"
+                format={{ modCase: 'title', charCase: 'upper' }}
+              />
+              <KeyboardShortcutHint
+                chord="ctrl+r"
+                action="rename"
+                format={{ modCase: 'title', charCase: 'upper' }}
+              />
               <Text>Type to search</Text>
               <ConfigurableShortcutHint
                 action="confirm:no"

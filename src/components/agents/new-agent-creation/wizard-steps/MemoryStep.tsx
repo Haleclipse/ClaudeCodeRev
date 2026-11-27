@@ -78,8 +78,12 @@ export function MemoryStep(): ReactNode {
       subtitle="Configure agent memory"
       footerText={
         <Byline>
-          <KeyboardShortcutHint shortcut="↑↓" action="navigate" />
-          <KeyboardShortcutHint shortcut="Enter" action="select" />
+          <KeyboardShortcutHint
+            chord={['up', 'down']}
+            format={{ arrowSep: '' }}
+            action="navigate"
+          />
+          <KeyboardShortcutHint chord="enter" action="select" />
           <ConfigurableShortcutHint
             action="confirm:no"
             context="Confirmation"

@@ -84,10 +84,10 @@ export function DreamDetailDialog({
             <Text>Press {exitState.keyName} again to exit</Text>
           ) : (
             <Byline>
-              {onBack && <KeyboardShortcutHint shortcut="←" action="go back" />}
-              <KeyboardShortcutHint shortcut="Esc/Enter/Space" action="close" />
+              {onBack && <KeyboardShortcutHint chord="left" action="go back" />}
+              <KeyboardShortcutHint chord={['escape', 'enter', 'space']} action="close" />
               {task.status === 'running' && onKill && (
-                <KeyboardShortcutHint shortcut="x" action="stop" />
+                <KeyboardShortcutHint chord="x" action="stop" />
               )}
             </Byline>
           )

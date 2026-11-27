@@ -279,8 +279,8 @@ export function ResumeTask({
       <Box flexDirection="row">
         <Text dimColor>
           <Byline>
-            <KeyboardShortcutHint shortcut="↑/↓" action="select" />
-            <KeyboardShortcutHint shortcut="Enter" action="confirm" />
+            <KeyboardShortcutHint chord={['up', 'down']} action="select" />
+            <KeyboardShortcutHint chord="enter" action="confirm" />
             <ConfigurableShortcutHint
               action="confirm:no"
               context="Confirmation"

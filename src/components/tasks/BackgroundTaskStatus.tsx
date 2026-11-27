@@ -180,7 +180,7 @@ export function BackgroundTaskStatus({
         {showRightArrow && <Text dimColor> {figures.arrowRight}</Text>}
         <Text dimColor>
           {' · '}
-          <KeyboardShortcutHint shortcut="shift + ↓" action="expand" />
+          <KeyboardShortcutHint chord="shift+down" action="expand" />
         </Text>
       </>
     )

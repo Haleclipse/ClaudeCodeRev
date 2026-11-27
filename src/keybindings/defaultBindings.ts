@@ -140,7 +140,7 @@ export const DEFAULT_BINDINGS: KeybindingBlock[] = [
       tab: 'confirm:nextField',
       space: 'confirm:toggle',
       // Cycle modes (used in file permission dialogs and teams dialog)
-      'shift+tab': 'confirm:cycleMode',
+      [MODE_CYCLE_KEY]: 'confirm:cycleMode',
       // Toggle permission explanation in permission dialogs
       'ctrl+e': 'confirm:toggleExplanation',
       // Toggle permission debug info
