@@ -4,9 +4,9 @@
   "summary": {
     "sourceFiles": 1940,
     "stubFiles": 167,
-    "gatedTargets": 124,
+    "gatedTargets": 123,
     "gatedTargetsSource": 42,
-    "gatedTargetsStub": 82,
+    "gatedTargetsStub": 81,
     "gatedTargetsMissing": 0,
     "runtimeLazyTargets": 1,
     "missingExports": 1
@@ -613,7 +613,7 @@
         "src/screens/REPL.tsx:2580",
         "src/screens/ResumeConversation.tsx:245",
         "src/screens/ResumeConversation.tsx:292",
-        "src/tools.ts:121",
+        "src/tools.ts:117",
         "src/utils/systemPrompt.ts:70",
         "src/utils/toolPool.ts:23"
       ]
@@ -1334,7 +1334,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:111"
+        "src/tools.ts:107"
       ]
     },
     {
@@ -1362,7 +1362,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:127"
+        "src/tools.ts:123"
       ]
     },
     {
@@ -1378,7 +1378,7 @@
       "env": [],
       "sites": [
         "src/components/permissions/PermissionRequest.tsx:63",
-        "src/tools.ts:40"
+        "src/tools.ts:36"
       ]
     },
     {
@@ -1393,7 +1393,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:108",
+        "src/tools.ts:104",
         "src/utils/permissions/classifierDecision.ts:33"
       ]
     },
@@ -1425,7 +1425,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:47"
+        "src/tools.ts:43"
       ]
     },
     {
@@ -1440,7 +1440,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:37"
+        "src/tools.ts:33"
       ]
     },
     {
@@ -1485,7 +1485,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:31"
+        "src/tools.ts:27"
       ]
     },
     {
@@ -1500,7 +1500,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:32"
+        "src/tools.ts:28"
       ]
     },
     {
@@ -1515,7 +1515,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:33"
+        "src/tools.ts:29"
       ]
     },
     {
@@ -1562,23 +1562,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:43"
-      ]
-    },
-    {
-      "target": "src/tools/SleepTool/SleepTool.ts",
-      "status": "stub",
-      "gateKind": "build",
-      "gates": [
-        "feature('PROACTIVE') || feature('KAIROS')"
-      ],
-      "flags": [
-        "KAIROS",
-        "PROACTIVE"
-      ],
-      "env": [],
-      "sites": [
-        "src/tools.ts:27"
+        "src/tools.ts:39"
       ]
     },
     {
@@ -1608,7 +1592,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:124"
+        "src/tools.ts:120"
       ]
     },
     {
@@ -1623,7 +1607,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:51"
+        "src/tools.ts:47"
       ]
     },
     {
@@ -1668,7 +1652,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:114"
+        "src/tools.ts:110"
       ]
     },
     {
@@ -1698,7 +1682,7 @@
         "CLAUDE_CODE_VERIFY_PLAN"
       ],
       "sites": [
-        "src/tools.ts:93"
+        "src/tools.ts:89"
       ]
     },
     {
@@ -1728,7 +1712,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:118"
+        "src/tools.ts:114"
       ]
     },
     {
@@ -1743,7 +1727,7 @@
       ],
       "env": [],
       "sites": [
-        "src/tools.ts:131"
+        "src/tools.ts:127"
       ]
     },
     {
@@ -1804,7 +1788,7 @@
       "env": [],
       "sites": [
         "src/components/permissions/PermissionRequest.tsx:51",
-        "src/tools.ts:132"
+        "src/tools.ts:128"
       ]
     },
     {
@@ -3420,7 +3404,7 @@
         "CtxInspectTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:111 (require)"
+        "src/tools.ts:107 (require)"
       ]
     },
     {
@@ -3439,7 +3423,7 @@
         "ListPeersTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:127 (require)"
+        "src/tools.ts:123 (require)"
       ]
     },
     {
@@ -3449,7 +3433,7 @@
       "referencedFrom": [
         "src/components/permissions/PermissionRequest.tsx:63 (dynamic)",
         "src/components/permissions/PermissionRequest.tsx:63 (require)",
-        "src/tools.ts:40 (require)"
+        "src/tools.ts:36 (require)"
       ]
     },
     {
@@ -3457,7 +3441,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/tools.ts:108 (require)",
+        "src/tools.ts:104 (require)",
         "src/utils/permissions/classifierDecision.ts:33 (dynamic)",
         "src/utils/permissions/classifierDecision.ts:33 (require)"
       ]
@@ -3469,7 +3453,7 @@
         "PushNotificationTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:47 (require)"
+        "src/tools.ts:43 (require)"
       ]
     },
     {
@@ -3498,7 +3482,7 @@
         "SendUserFileTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:43 (require)"
+        "src/tools.ts:39 (require)"
       ]
     },
     {
@@ -3520,9 +3504,7 @@
       "exports": [
         "SleepTool"
       ],
-      "referencedFrom": [
-        "src/tools.ts:27 (require)"
-      ]
+      "referencedFrom": []
     },
     {
       "path": "src/tools/SnipTool/SnipTool.ts",
@@ -3531,7 +3513,7 @@
         "SnipTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:124 (require)"
+        "src/tools.ts:120 (require)"
       ]
     },
     {
@@ -3550,7 +3532,7 @@
         "SubscribePRTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:51 (require)"
+        "src/tools.ts:47 (require)"
       ]
     },
     {
@@ -3570,7 +3552,7 @@
         "TerminalCaptureTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:114 (require)"
+        "src/tools.ts:110 (require)"
       ]
     },
     {
@@ -3601,7 +3583,7 @@
       "referencedFrom": [
         "src/commands/clear/caches.ts:95 (dynamic)",
         "src/components/agents/ToolSelector.tsx:21",
-        "src/tools.ts:60"
+        "src/tools.ts:56"
       ]
     },
     {
@@ -3611,7 +3593,7 @@
         "VerifyPlanExecutionTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:93 (require)"
+        "src/tools.ts:89 (require)"
       ]
     },
     {
@@ -3639,7 +3621,7 @@
         "WebBrowserTool"
       ],
       "referencedFrom": [
-        "src/tools.ts:118 (require)"
+        "src/tools.ts:114 (require)"
       ]
     },
     {
@@ -3658,7 +3640,7 @@
       "referencedFrom": [
         "src/components/permissions/PermissionRequest.tsx:51 (dynamic)",
         "src/components/permissions/PermissionRequest.tsx:51 (require)",
-        "src/tools.ts:132 (require)"
+        "src/tools.ts:128 (require)"
       ]
     },
     {
@@ -3668,7 +3650,7 @@
         "initBundledWorkflows"
       ],
       "referencedFrom": [
-        "src/tools.ts:131 (require)"
+        "src/tools.ts:127 (require)"
       ]
     },
     {

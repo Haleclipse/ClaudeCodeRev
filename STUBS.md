@@ -6,7 +6,7 @@ Machine-readable copy: `stubs-manifest.json`.
 - **source**: real module recovered from the official sourcemap
 - **stub**: absent from the published build (DCE'd by a build-time gate or ant-only); placeholder generated here
 
-Source files: 1940 · stub files: 167 · build-gated require() targets: 124 (source 42, stub 82)
+Source files: 1940 · stub files: 167 · build-gated require() targets: 123 (source 42, stub 81)
 
 ## Build-gated require() targets
 
@@ -52,7 +52,7 @@ Reached only when a build-time gate is on: `feature(…)` flags, or `process.env
 | `src/components/tasks/WorkflowDetailDialog.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/tasks/BackgroundTasksDialog.tsx:137 |
 | `src/components/UndercoverAutoCallout.ts` | stub | `"external" === 'ant'` | src/screens/REPL.tsx:487 |
 | `src/context/voice.tsx` | source | `> React.ReactNode = feature('VOICE_MODE')` | src/state/AppState.tsx:24 |
-| `src/coordinator/coordinatorMode.ts` | source | `> { [k: string]: string } = feature('COORDINATOR_MODE')`<br>`feature('COORDINATOR_MODE')`<br>`feature('COORDINATOR_MODE') && isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE) && !mainThreadAgentDefinition` | src/QueryEngine.ts:131<br>src/cli/print.ts:363<br>src/commands/clear/conversation.ts:249<br>src/components/PromptInput/PromptInputFooterLeftSide.tsx:6<br>src/main.tsx:146<br>src/screens/REPL.tsx:227<br>src/screens/REPL.tsx:2416<br>src/screens/REPL.tsx:2580<br>src/screens/ResumeConversation.tsx:245<br>src/screens/ResumeConversation.tsx:292<br>src/tools.ts:121<br>src/utils/systemPrompt.ts:70<br>src/utils/toolPool.ts:23 |
+| `src/coordinator/coordinatorMode.ts` | source | `> { [k: string]: string } = feature('COORDINATOR_MODE')`<br>`feature('COORDINATOR_MODE')`<br>`feature('COORDINATOR_MODE') && isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE) && !mainThreadAgentDefinition` | src/QueryEngine.ts:131<br>src/cli/print.ts:363<br>src/commands/clear/conversation.ts:249<br>src/components/PromptInput/PromptInputFooterLeftSide.tsx:6<br>src/main.tsx:146<br>src/screens/REPL.tsx:227<br>src/screens/REPL.tsx:2416<br>src/screens/REPL.tsx:2580<br>src/screens/ResumeConversation.tsx:245<br>src/screens/ResumeConversation.tsx:292<br>src/tools.ts:117<br>src/utils/systemPrompt.ts:70<br>src/utils/toolPool.ts:23 |
 | `src/coordinator/workerAgent.ts` | stub | `(feature('COORDINATOR_MODE')) && (isEnvTruthy(process.env.CLAUDE_CODE_COORDINATOR_MODE))` | src/tools/AgentTool/builtInAgents.ts:39 |
 | `src/hooks/notifs/useAntOrgWarningNotification.ts` | stub | `"external" === 'ant'` | src/screens/REPL.tsx:219 |
 | `src/hooks/useScheduledTasks.ts` | source | `feature('AGENT_TRIGGERS')` | src/screens/REPL.tsx:428 |
@@ -94,37 +94,36 @@ Reached only when a build-time gate is on: `feature(…)` flags, or `process.env
 | `src/tools/AgentTool/loadAgentsDir.ts` | source | `(feature('COORDINATOR_MODE')) && (warning)`<br>`(options.continue) && (result) && (feature('COORDINATOR_MODE') && coordinatorModeModule) && (warning)`<br>`(options.resume) && (feature('COORDINATOR_MODE') && coordinatorModeModule) && (warning)` | src/cli/print.ts:4998<br>src/cli/print.ts:5207<br>src/screens/REPL.tsx:2427<br>src/screens/ResumeConversation.tsx:251 |
 | `src/tools/BriefTool/BriefTool.ts` | source | `((feature('PROACTIVE') \|\| feature('KAIROS')) && ((options as { proactive?: boolean }).proactive \|\| isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE)) && !coordinatorModeModule?.isCoordinatorMode()) && (feature('KAIROS') \|\| feature('KAIROS_BRIEF'))`<br>`(feature('KAIROS') \|\| feature('KAIROS_BRIEF')) && !getIsNonInteractiveSession() && !getUserMsgOptIn() && getInitialSettings().defaultView === 'chat'`<br>`(feature('KAIROS') \|\| feature('KAIROS_BRIEF')) && baseTools.length > 0`<br>`feature('KAIROS') \|\| feature('KAIROS_BRIEF')` | src/components/Settings/Config.tsx:226<br>src/constants/prompts.ts:80<br>src/hooks/useGlobalKeybindings.tsx:107<br>src/hooks/useGlobalKeybindings.tsx:180<br>src/main.tsx:2614<br>src/main.tsx:3221<br>src/main.tsx:3240 |
 | `src/tools/BriefTool/prompt.ts` | source | `(feature('KAIROS') \|\| feature('KAIROS_BRIEF')) && baseTools.length > 0`<br>`feature('KAIROS') \|\| feature('KAIROS_BRIEF')` | src/components/Messages.tsx:107<br>src/constants/prompts.ts:75<br>src/main.tsx:2612<br>src/tools/ToolSearchTool/prompt.ts:12<br>src/utils/attachments.ts:206<br>src/utils/conversationRecovery.ts:62<br>src/utils/conversationRecovery.ts:68<br>src/utils/permissions/permissionRuleParser.ts:13 |
-| `src/tools/CtxInspectTool/CtxInspectTool.ts` | stub | `feature('CONTEXT_COLLAPSE')` | src/tools.ts:111 |
+| `src/tools/CtxInspectTool/CtxInspectTool.ts` | stub | `feature('CONTEXT_COLLAPSE')` | src/tools.ts:107 |
 | `src/tools/DiscoverSkillsTool/prompt.ts` | stub | `feature( 'EXPERIMENTAL_SKILL_SEARCH', )` | src/constants/prompts.ts:86 |
-| `src/tools/ListPeersTool/ListPeersTool.ts` | stub | `feature('UDS_INBOX')` | src/tools.ts:127 |
-| `src/tools/MonitorTool/MonitorTool.ts` | stub | `feature('MONITOR_TOOL')` | src/components/permissions/PermissionRequest.tsx:63<br>src/tools.ts:40 |
-| `src/tools/OverflowTestTool/OverflowTestTool.ts` | stub | `feature('OVERFLOW_TEST_TOOL')` | src/tools.ts:108<br>src/utils/permissions/classifierDecision.ts:33 |
-| `src/tools/PushNotificationTool/PushNotificationTool.ts` | stub | `feature('KAIROS') \|\| feature('KAIROS_PUSH_NOTIFICATION')` | src/tools.ts:47 |
-| `src/tools/RemoteTriggerTool/RemoteTriggerTool.ts` | source | `feature('AGENT_TRIGGERS_REMOTE')` | src/tools.ts:37 |
+| `src/tools/ListPeersTool/ListPeersTool.ts` | stub | `feature('UDS_INBOX')` | src/tools.ts:123 |
+| `src/tools/MonitorTool/MonitorTool.ts` | stub | `feature('MONITOR_TOOL')` | src/components/permissions/PermissionRequest.tsx:63<br>src/tools.ts:36 |
+| `src/tools/OverflowTestTool/OverflowTestTool.ts` | stub | `feature('OVERFLOW_TEST_TOOL')` | src/tools.ts:104<br>src/utils/permissions/classifierDecision.ts:33 |
+| `src/tools/PushNotificationTool/PushNotificationTool.ts` | stub | `feature('KAIROS') \|\| feature('KAIROS_PUSH_NOTIFICATION')` | src/tools.ts:43 |
+| `src/tools/RemoteTriggerTool/RemoteTriggerTool.ts` | source | `feature('AGENT_TRIGGERS_REMOTE')` | src/tools.ts:33 |
 | `src/tools/REPLTool/REPLTool.ts` | stub | `process.env.USER_TYPE === 'ant'` | src/tools.ts:18 |
 | `src/tools/ReviewArtifactTool/ReviewArtifactTool.ts` | stub | `feature('REVIEW_ARTIFACT')` | src/components/permissions/PermissionRequest.tsx:39 |
-| `src/tools/ScheduleCronTool/CronCreateTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:31 |
-| `src/tools/ScheduleCronTool/CronDeleteTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:32 |
-| `src/tools/ScheduleCronTool/CronListTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:33 |
+| `src/tools/ScheduleCronTool/CronCreateTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:27 |
+| `src/tools/ScheduleCronTool/CronDeleteTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:28 |
+| `src/tools/ScheduleCronTool/CronListTool.ts` | source | `feature('AGENT_TRIGGERS')` | src/tools.ts:29 |
 | `src/tools/ScheduleCronTool/prompt.ts` | source | `feature('AGENT_TRIGGERS')` | src/cli/print.ts:376 |
 | `src/tools/SendUserFileTool/prompt.ts` | stub | `feature('KAIROS')` | src/components/Messages.tsx:112<br>src/tools/ToolSearchTool/prompt.ts:17<br>src/utils/conversationRecovery.ts:73 |
-| `src/tools/SendUserFileTool/SendUserFileTool.ts` | stub | `feature('KAIROS')` | src/tools.ts:43 |
-| `src/tools/SleepTool/SleepTool.ts` | stub | `feature('PROACTIVE') \|\| feature('KAIROS')` | src/tools.ts:27 |
+| `src/tools/SendUserFileTool/SendUserFileTool.ts` | stub | `feature('KAIROS')` | src/tools.ts:39 |
 | `src/tools/SnipTool/prompt.ts` | stub | `feature('HISTORY_SNIP')` | src/utils/collapseReadSearch.ts:39 |
-| `src/tools/SnipTool/SnipTool.ts` | stub | `feature('HISTORY_SNIP')` | src/tools.ts:124 |
-| `src/tools/SubscribePRTool/SubscribePRTool.ts` | stub | `feature('KAIROS_GITHUB_WEBHOOKS')` | src/tools.ts:51 |
+| `src/tools/SnipTool/SnipTool.ts` | stub | `feature('HISTORY_SNIP')` | src/tools.ts:120 |
+| `src/tools/SubscribePRTool/SubscribePRTool.ts` | stub | `feature('KAIROS_GITHUB_WEBHOOKS')` | src/tools.ts:47 |
 | `src/tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.ts` | stub | `process.env.USER_TYPE === 'ant'` | src/tools.ts:22 |
 | `src/tools/TerminalCaptureTool/prompt.ts` | stub | `feature('TERMINAL_PANEL')` | src/utils/permissions/classifierDecision.ts:28 |
-| `src/tools/TerminalCaptureTool/TerminalCaptureTool.ts` | stub | `feature('TERMINAL_PANEL')` | src/tools.ts:114 |
+| `src/tools/TerminalCaptureTool/TerminalCaptureTool.ts` | stub | `feature('TERMINAL_PANEL')` | src/tools.ts:110 |
 | `src/tools/VerifyPlanExecutionTool/constants.ts` | stub | `process.env.USER_TYPE === 'ant'` | src/utils/permissions/classifierDecision.ts:39 |
-| `src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts` | stub | `process.env.CLAUDE_CODE_VERIFY_PLAN === 'true'` | src/tools.ts:93 |
+| `src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts` | stub | `process.env.CLAUDE_CODE_VERIFY_PLAN === 'true'` | src/tools.ts:89 |
 | `src/tools/WebBrowserTool/WebBrowserPanel.ts` | stub | `feature('WEB_BROWSER_TOOL')` | src/screens/REPL.tsx:555 |
-| `src/tools/WebBrowserTool/WebBrowserTool.ts` | stub | `feature('WEB_BROWSER_TOOL')` | src/tools.ts:118 |
-| `src/tools/WorkflowTool/bundled/index.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/tools.ts:131 |
+| `src/tools/WebBrowserTool/WebBrowserTool.ts` | stub | `feature('WEB_BROWSER_TOOL')` | src/tools.ts:114 |
+| `src/tools/WorkflowTool/bundled/index.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/tools.ts:127 |
 | `src/tools/WorkflowTool/constants.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/utils/permissions/classifierDecision.ts:44 |
 | `src/tools/WorkflowTool/createWorkflowCommand.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/commands.ts:407 |
 | `src/tools/WorkflowTool/WorkflowPermissionRequest.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/permissions/PermissionRequest.tsx:57 |
-| `src/tools/WorkflowTool/WorkflowTool.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/permissions/PermissionRequest.tsx:51<br>src/tools.ts:132 |
+| `src/tools/WorkflowTool/WorkflowTool.ts` | stub | `feature('WORKFLOW_SCRIPTS')` | src/components/permissions/PermissionRequest.tsx:51<br>src/tools.ts:128 |
 | `src/utils/computerUse/wrapper.tsx` | source | `feature('CHICAGO_MCP')` | src/services/mcp/client.ts:242 |
 | `src/utils/cronJitterConfig.ts` | source | `feature('AGENT_TRIGGERS')` | src/cli/print.ts:373 |
 | `src/utils/cronScheduler.ts` | source | `feature('AGENT_TRIGGERS')` | src/cli/print.ts:370 |
@@ -276,32 +275,32 @@ Imported by gated code but absent from the published module (stripped internal-o
 | `src/ssh/createSSHSession.ts` | known-types | SSHSession | src/hooks/useSSHSession.ts:23<br>src/main.tsx:4441 (dynamic)<br>src/screens/REPL.tsx:149 |
 | `src/tasks/LocalWorkflowTask/LocalWorkflowTask.ts` | known-types | LocalWorkflowTaskState | src/components/tasks/BackgroundTasksDialog.tsx:141 (dynamic)<br>src/components/tasks/BackgroundTasksDialog.tsx:141 (require)<br>src/components/tasks/BackgroundTasksDialog.tsx:30<br>src/tasks.ts:10 (require)<br>src/tasks/types.ts:8 |
 | `src/tasks/MonitorMcpTask/MonitorMcpTask.ts` | known-types | MonitorMcpTaskState | src/components/tasks/BackgroundTasksDialog.tsx:150 (dynamic)<br>src/components/tasks/BackgroundTasksDialog.tsx:150 (require)<br>src/components/tasks/BackgroundTasksDialog.tsx:31<br>src/tasks.ts:13 (require)<br>src/tasks/types.ts:9<br>src/tools/AgentTool/runAgent.ts:868 (dynamic)<br>src/tools/AgentTool/runAgent.ts:868 (require) |
-| `src/tools/CtxInspectTool/CtxInspectTool.ts` | gated-inert | CtxInspectTool | src/tools.ts:111 (require) |
+| `src/tools/CtxInspectTool/CtxInspectTool.ts` | gated-inert | CtxInspectTool | src/tools.ts:107 (require) |
 | `src/tools/DiscoverSkillsTool/prompt.ts` | inferred | — | src/constants/prompts.ts:86 (dynamic)<br>src/constants/prompts.ts:86 (require) |
-| `src/tools/ListPeersTool/ListPeersTool.ts` | gated-inert | ListPeersTool | src/tools.ts:127 (require) |
-| `src/tools/MonitorTool/MonitorTool.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:63 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:63 (require)<br>src/tools.ts:40 (require) |
-| `src/tools/OverflowTestTool/OverflowTestTool.ts` | inferred | — | src/tools.ts:108 (require)<br>src/utils/permissions/classifierDecision.ts:33 (dynamic)<br>src/utils/permissions/classifierDecision.ts:33 (require) |
-| `src/tools/PushNotificationTool/PushNotificationTool.ts` | gated-inert | PushNotificationTool | src/tools.ts:47 (require) |
+| `src/tools/ListPeersTool/ListPeersTool.ts` | gated-inert | ListPeersTool | src/tools.ts:123 (require) |
+| `src/tools/MonitorTool/MonitorTool.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:63 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:63 (require)<br>src/tools.ts:36 (require) |
+| `src/tools/OverflowTestTool/OverflowTestTool.ts` | inferred | — | src/tools.ts:104 (require)<br>src/utils/permissions/classifierDecision.ts:33 (dynamic)<br>src/utils/permissions/classifierDecision.ts:33 (require) |
+| `src/tools/PushNotificationTool/PushNotificationTool.ts` | gated-inert | PushNotificationTool | src/tools.ts:43 (require) |
 | `src/tools/REPLTool/REPLTool.ts` | gated-inert | REPLTool | src/tools.ts:18 (require) |
 | `src/tools/ReviewArtifactTool/ReviewArtifactTool.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:39 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:39 (require) |
-| `src/tools/SendUserFileTool/SendUserFileTool.ts` | gated-inert | SendUserFileTool | src/tools.ts:43 (require) |
+| `src/tools/SendUserFileTool/SendUserFileTool.ts` | gated-inert | SendUserFileTool | src/tools.ts:39 (require) |
 | `src/tools/SendUserFileTool/prompt.ts` | inferred | — | src/components/Messages.tsx:112 (dynamic)<br>src/components/Messages.tsx:112 (require)<br>src/tools/ToolSearchTool/prompt.ts:17 (dynamic)<br>src/tools/ToolSearchTool/prompt.ts:17 (require)<br>src/utils/conversationRecovery.ts:73 (dynamic)<br>src/utils/conversationRecovery.ts:73 (require) |
-| `src/tools/SleepTool/SleepTool.ts` | gated-inert | SleepTool | src/tools.ts:27 (require) |
-| `src/tools/SnipTool/SnipTool.ts` | gated-inert | SnipTool | src/tools.ts:124 (require) |
+| `src/tools/SleepTool/SleepTool.ts` | gated-inert | SleepTool | — |
+| `src/tools/SnipTool/SnipTool.ts` | gated-inert | SnipTool | src/tools.ts:120 (require) |
 | `src/tools/SnipTool/prompt.ts` | inferred | — | src/utils/collapseReadSearch.ts:39 (dynamic)<br>src/utils/collapseReadSearch.ts:39 (require) |
-| `src/tools/SubscribePRTool/SubscribePRTool.ts` | gated-inert | SubscribePRTool | src/tools.ts:51 (require) |
+| `src/tools/SubscribePRTool/SubscribePRTool.ts` | gated-inert | SubscribePRTool | src/tools.ts:47 (require) |
 | `src/tools/SuggestBackgroundPRTool/SuggestBackgroundPRTool.ts` | gated-inert | SuggestBackgroundPRTool | src/tools.ts:22 (require) |
-| `src/tools/TerminalCaptureTool/TerminalCaptureTool.ts` | gated-inert | TerminalCaptureTool | src/tools.ts:114 (require) |
+| `src/tools/TerminalCaptureTool/TerminalCaptureTool.ts` | gated-inert | TerminalCaptureTool | src/tools.ts:110 (require) |
 | `src/tools/TerminalCaptureTool/prompt.ts` | inferred | — | src/utils/permissions/classifierDecision.ts:28 (dynamic)<br>src/utils/permissions/classifierDecision.ts:28 (require) |
 | `src/tools/TungstenTool/TungstenLiveMonitor.ts` | inferred | TungstenLiveMonitor | src/screens/REPL.tsx:552 |
-| `src/tools/TungstenTool/TungstenTool.ts` | inferred | TungstenTool | src/commands/clear/caches.ts:95 (dynamic)<br>src/components/agents/ToolSelector.tsx:21<br>src/tools.ts:60 |
-| `src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts` | gated-inert | VerifyPlanExecutionTool | src/tools.ts:93 (require) |
+| `src/tools/TungstenTool/TungstenTool.ts` | inferred | TungstenTool | src/commands/clear/caches.ts:95 (dynamic)<br>src/components/agents/ToolSelector.tsx:21<br>src/tools.ts:56 |
+| `src/tools/VerifyPlanExecutionTool/VerifyPlanExecutionTool.ts` | gated-inert | VerifyPlanExecutionTool | src/tools.ts:89 (require) |
 | `src/tools/VerifyPlanExecutionTool/constants.ts` | inferred | — | src/utils/permissions/classifierDecision.ts:39 (dynamic)<br>src/utils/permissions/classifierDecision.ts:39 (require) |
 | `src/tools/WebBrowserTool/WebBrowserPanel.ts` | inferred | — | src/screens/REPL.tsx:555 (dynamic)<br>src/screens/REPL.tsx:555 (require) |
-| `src/tools/WebBrowserTool/WebBrowserTool.ts` | gated-inert | WebBrowserTool | src/tools.ts:118 (require) |
+| `src/tools/WebBrowserTool/WebBrowserTool.ts` | gated-inert | WebBrowserTool | src/tools.ts:114 (require) |
 | `src/tools/WorkflowTool/WorkflowPermissionRequest.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:57 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:57 (require) |
-| `src/tools/WorkflowTool/WorkflowTool.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:51 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:51 (require)<br>src/tools.ts:132 (require) |
-| `src/tools/WorkflowTool/bundled/index.ts` | gated-inert | initBundledWorkflows | src/tools.ts:131 (require) |
+| `src/tools/WorkflowTool/WorkflowTool.ts` | inferred | — | src/components/permissions/PermissionRequest.tsx:51 (dynamic)<br>src/components/permissions/PermissionRequest.tsx:51 (require)<br>src/tools.ts:128 (require) |
+| `src/tools/WorkflowTool/bundled/index.ts` | gated-inert | initBundledWorkflows | src/tools.ts:127 (require) |
 | `src/tools/WorkflowTool/constants.ts` | inferred | WORKFLOW_TOOL_NAME | src/constants/tools.ts:29<br>src/utils/permissions/classifierDecision.ts:44 (dynamic)<br>src/utils/permissions/classifierDecision.ts:44 (require) |
 | `src/tools/WorkflowTool/createWorkflowCommand.ts` | inferred | — | src/commands.ts:407 (dynamic)<br>src/commands.ts:407 (require) |
 | `src/types/connectorText.ts` | known-types | ConnectorTextBlock, ConnectorTextDelta, isConnectorTextBlock | src/components/Message.tsx:15<br>src/services/api/claude.ts:40<br>src/services/api/logging.ts:17<br>src/utils/messages.ts:40 |
