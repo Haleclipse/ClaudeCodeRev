@@ -133,6 +133,7 @@ import fast from './commands/fast/index.js'
 import passes from './commands/passes/index.js'
 import privacySettings from './commands/privacy-settings/index.js'
 import hooks from './commands/hooks/index.js'
+import stopHook from './commands/stop-hook/index.js'
 import files from './commands/files/index.js'
 import branch from './commands/branch/index.js'
 import agents from './commands/agents/index.js'
@@ -338,6 +339,7 @@ const COMMANDS = memoize((): Command[] => [
   powerup,
   privacySettings,
   hooks,
+  stopHook,
   exportCommand,
   sandboxToggle,
   ...(!isUsing3PServices() ? [logout, login()] : []),
