@@ -11,6 +11,7 @@ import {
 import { isAutoUpdaterDisabled } from '../utils/config.js'
 import { logForDebugging } from '../utils/debug.js'
 import {
+  getHomebrewCaskName,
   getPackageManager,
   type PackageManager,
 } from '../utils/nativeInstaller/packageManagers.js'
@@ -30,6 +31,7 @@ export function PackageManagerAutoUpdater({ verbose }: Props): React.ReactNode {
   const [updateAvailable, setUpdateAvailable] = useState(false)
   const [packageManager, setPackageManager] =
     useState<PackageManager>('unknown')
+  const [homebrewCask, setHomebrewCask] = useState<string | null>(null)
 
   const checkForUpdates = React.useCallback(async () => {
     if (
@@ -43,11 +45,20 @@ export function PackageManagerAutoUpdater({ verbose }: Props): React.ReactNode {
       return
     }
 
-    const [channel, pm] = await Promise.all([
+    const [configuredChannel, pm] = await Promise.all([
       Promise.resolve(getInitialSettings()?.autoUpdatesChannel ?? 'latest'),
       getPackageManager(),
     ])
     setPackageManager(pm)
+
+    // Homebrew installs follow the cask's channel: claude-code@latest →
+    // latest, any other cask → stable
+    let channel = configuredChannel
+    if (pm === 'homebrew') {
+      const cask = getHomebrewCaskName()
+      setHomebrewCask(cask)
+      channel = cask === 'claude-code@latest' ? 'latest' : 'stable'
+    }
 
     let latest = await getLatestVersionFromGcs(channel)
 
@@ -97,7 +108,7 @@ export function PackageManagerAutoUpdater({ verbose }: Props): React.ReactNode {
   // rpm: dnf/yum/zypper)
   const updateCommand =
     packageManager === 'homebrew'
-      ? 'brew upgrade claude-code'
+      ? `brew upgrade ${homebrewCask ?? 'claude-code'}`
       : packageManager === 'winget'
         ? 'winget upgrade Anthropic.ClaudeCode'
         : packageManager === 'apk'

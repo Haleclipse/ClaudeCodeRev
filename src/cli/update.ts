@@ -22,7 +22,11 @@ import {
   installLatest as installLatestNative,
   removeInstalledSymlink,
 } from 'src/utils/nativeInstaller/index.js'
-import { getPackageManager } from 'src/utils/nativeInstaller/packageManagers.js'
+import {
+  detectHomebrew,
+  getHomebrewCaskName,
+  getPackageManager,
+} from 'src/utils/nativeInstaller/packageManagers.js'
 import { writeToStdout } from 'src/utils/process.js'
 import { gte } from 'src/utils/semver.js'
 import { getInitialSettings } from 'src/utils/settings/settings.js'
@@ -31,7 +35,18 @@ export async function update() {
   logEvent('tengu_update_check', {})
   writeToStdout(`Current version: ${MACRO.VERSION}\n`)
 
-  const channel = getInitialSettings()?.autoUpdatesChannel ?? 'latest'
+  const configuredChannel =
+    getInitialSettings()?.autoUpdatesChannel ?? 'latest'
+  // Homebrew installs follow the cask's channel: claude-code@latest → latest,
+  // any other cask → stable
+  const homebrewCask = getHomebrewCaskName()
+  const channel = homebrewCask
+    ? homebrewCask === 'claude-code@latest'
+      ? 'latest'
+      : 'stable'
+    : detectHomebrew()
+      ? 'stable'
+      : configuredChannel
   writeToStdout(`Checking for updates to ${channel} version...\n`)
 
   logForDebugging('update: Starting update check')
@@ -121,12 +136,13 @@ export async function update() {
 
     if (packageManager === 'homebrew') {
       writeToStdout('Claude is managed by Homebrew.\n')
+      const upgradeCommand = `brew upgrade ${homebrewCask ?? 'claude-code'}`
       const latest = await getLatestVersion(channel)
       if (latest && !gte(MACRO.VERSION, latest)) {
         writeToStdout(`Update available: ${MACRO.VERSION} → ${latest}\n`)
         writeToStdout('\n')
         writeToStdout('To update, run:\n')
-        writeToStdout(chalk.bold('  brew upgrade claude-code') + '\n')
+        writeToStdout(chalk.bold(`  ${upgradeCommand}`) + '\n')
       } else {
         writeToStdout('Claude is up to date!\n')
       }
