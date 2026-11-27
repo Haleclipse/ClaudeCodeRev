@@ -25,7 +25,6 @@
  * - Non-existent files are silently ignored
  */
 
-import { feature } from 'bun:bundle'
 import ignore from 'ignore'
 import memoize from 'lodash-es/memoize.js'
 import { Lexer } from 'marked'
@@ -78,11 +77,6 @@ import { pathInWorkingPath } from './permissions/filesystem.js'
 import { isSettingSourceEnabled } from './settings/constants.js'
 import { getInitialSettings } from './settings/settings.js'
 
-/* eslint-disable @typescript-eslint/no-require-imports */
-const teamMemPaths = feature('TEAMMEM')
-  ? (require('../memdir/teamMemPaths.js') as typeof import('../memdir/teamMemPaths.js'))
-  : null
-/* eslint-enable @typescript-eslint/no-require-imports */
 
 let hasLoggedInitialLoad = false
 
@@ -380,7 +374,7 @@ function parseMemoryFileContent(
 
   // Truncate MEMORY.md entrypoints to the line AND byte caps
   let finalContent = strippedContent
-  if (type === 'AutoMem' || type === 'TeamMem') {
+  if (type === 'AutoMem') {
     finalContent = truncateEntrypointContent(strippedContent).content
   }
 
@@ -539,7 +533,7 @@ const MAX_INCLUDE_DEPTH = 5
 /**
  * Checks whether a CLAUDE.md file path is excluded by the claudeMdExcludes setting.
  * Only applies to User, Project, and Local memory types.
- * Managed, AutoMem, and TeamMem types are never excluded.
+ * Managed and AutoMem types are never excluded.
  *
  * Matches both the original path and the realpath-resolved path to handle symlinks
  * (e.g., /tmp -> /private/tmp on macOS).
@@ -991,21 +985,6 @@ export const getMemoryFiles = memoize(
       }
     }
 
-    // Team memory entrypoint - only if feature is on and file exists
-    if (feature('TEAMMEM') && teamMemPaths!.isTeamMemoryEnabled()) {
-      const { info: teamMemEntry } = await safelyReadMemoryFileAsync(
-        teamMemPaths!.getTeamMemEntrypoint(),
-        'TeamMem',
-      )
-      if (teamMemEntry) {
-        const normalizedPath = normalizePathForComparison(teamMemEntry.path)
-        if (!processedPaths.has(normalizedPath)) {
-          processedPaths.add(normalizedPath)
-          result.push(teamMemEntry)
-        }
-      }
-    }
-
     const totalContentLength = result.reduce(
       (sum, f) => sum + f.content.length,
       0,
@@ -1032,16 +1011,13 @@ export const getMemoryFiles = memoize(
         local_count: typeCounts['Local'] ?? 0,
         managed_count: typeCounts['Managed'] ?? 0,
         automem_count: typeCounts['AutoMem'] ?? 0,
-        ...(feature('TEAMMEM')
-          ? { teammem_count: typeCounts['TeamMem'] ?? 0 }
-          : {}),
         duration_ms: Date.now() - startTime,
       })
     }
 
     // Fire InstructionsLoaded hook for each instruction file loaded
     // (fire-and-forget, audit/observability only).
-    // AutoMem/TeamMem are intentionally excluded — they're a separate
+    // AutoMem is intentionally excluded — it's a separate
     // memory system, not "instructions" in the CLAUDE.md/rules sense.
     // Gated on !forceIncludeExternal: the forceIncludeExternal=true variant
     // is only used by getExternalClaudeMdIncludes() for approval checks, not
@@ -1147,7 +1123,7 @@ export function filterInjectedMemoryFiles(
     false,
   )
   if (!skipMemoryIndex) return files
-  return files.filter(f => f.type !== 'AutoMem' && f.type !== 'TeamMem')
+  return files.filter(f => f.type !== 'AutoMem')
 }
 
 export const getClaudeMds = (
@@ -1170,20 +1146,12 @@ export const getClaudeMds = (
           ? ' (project instructions, checked into the codebase)'
           : file.type === 'Local'
             ? " (user's private project instructions, not checked in)"
-            : feature('TEAMMEM') && file.type === 'TeamMem'
-              ? ' (shared team memory, synced across the organization)'
-              : file.type === 'AutoMem'
-                ? " (user's auto-memory, persists across conversations)"
-                : " (user's private global instructions for all projects)"
+            : file.type === 'AutoMem'
+              ? " (user's auto-memory, persists across conversations)"
+              : " (user's private global instructions for all projects)"
 
       const content = file.content.trim()
-      if (feature('TEAMMEM') && file.type === 'TeamMem') {
-        memories.push(
-          `Contents of ${file.path}${description}:\n\n<team-memory-content source="shared">\n${content}\n</team-memory-content>`,
-        )
-      } else {
-        memories.push(`Contents of ${file.path}${description}:\n\n${content}`)
-      }
+      memories.push(`Contents of ${file.path}${description}:\n\n${content}`)
     }
   }
 

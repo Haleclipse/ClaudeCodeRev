@@ -19,6 +19,9 @@ const teamMemSaved = feature('TEAMMEM')
   ? (require('./teamMemSaved.js') as typeof import('./teamMemSaved.js'))
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
+
+// Memory file paths listed in a memory_saved message outside verbose mode
+const MAX_VISIBLE_MEMORY_PATHS = 3
 import { TURN_COMPLETION_VERBS } from '../../constants/turnCompletionVerbs.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 import type {
@@ -62,7 +65,13 @@ export function SystemTextMessage({
   }
 
   if (message.subtype === 'memory_saved') {
-    return <MemorySavedMessage message={message} addMargin={addMargin} />
+    return (
+      <MemorySavedMessage
+        message={message}
+        addMargin={addMargin}
+        verbose={verbose || !!isTranscriptMode}
+      />
+    )
   }
 
   if (message.subtype === 'away_summary') {
@@ -408,9 +417,11 @@ function TurnDurationMessage({
 function MemorySavedMessage({
   message,
   addMargin,
+  verbose,
 }: {
   message: SystemMemorySavedMessage
   addMargin: boolean
+  verbose: boolean
 }): React.ReactNode {
   const bg = useSelectedMessageBg()
   const { writtenPaths } = message
@@ -424,6 +435,11 @@ function MemorySavedMessage({
       : null,
     team?.segment,
   ].filter(Boolean)
+  // Outside verbose/transcript mode only the first few paths are listed
+  const visiblePaths = verbose
+    ? writtenPaths
+    : writtenPaths.slice(0, MAX_VISIBLE_MEMORY_PATHS)
+  const hiddenCount = writtenPaths.length - visiblePaths.length
   return (
     <Box
       flexDirection="column"
@@ -438,9 +454,16 @@ function MemorySavedMessage({
           {message.verb ?? 'Saved'} {parts.join(' \u00B7 ')}
         </Text>
       </Box>
-      {writtenPaths.map(p => (
+      {visiblePaths.map(p => (
         <MemoryFileRow key={p} path={p} />
       ))}
+      {hiddenCount > 0 && (
+        <MessageResponse>
+          <Text dimColor>
+            +{hiddenCount} more <CtrlOToExpand />
+          </Text>
+        </MessageResponse>
+      )}
     </Box>
   )
 }

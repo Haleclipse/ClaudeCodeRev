@@ -61,12 +61,12 @@ export function MemoryFileSelector({
     f => f.path === projectMemoryPath,
   )
 
-  // Filter out AutoMem/TeamMem entrypoints: these are MEMORY.md files, and
-  // /memory already surfaces "Open auto-memory folder" / "Open team memory
-  // folder" options below. Listing the entrypoint file separately is redundant.
+  // Filter out AutoMem entrypoints: these are MEMORY.md files, and /memory
+  // already surfaces "Open auto-memory folder" below. Listing the entrypoint
+  // file separately is redundant.
   const allMemoryFiles: ExtendedMemoryFileInfo[] = [
     ...existingMemoryFiles
-      .filter(f => f.type !== 'AutoMem' && f.type !== 'TeamMem')
+      .filter(f => f.type !== 'AutoMem')
       .map(f => ({ ...f, exists: true })),
     // Add User memory if it doesn't exist
     ...(hasUserMemory

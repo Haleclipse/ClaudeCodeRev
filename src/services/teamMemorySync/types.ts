@@ -107,6 +107,7 @@ export type TeamMemoryHashesResult = {
 export type TeamMemorySyncPushResult = {
   success: boolean
   filesUploaded: number
+  filesSoftDeleted?: number
   checksum?: string
   conflict?: boolean // true if 412 Precondition Failed
   error?: string

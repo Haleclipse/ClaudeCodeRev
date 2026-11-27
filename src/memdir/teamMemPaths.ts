@@ -86,14 +86,6 @@ export function getTeamMemPath(): string {
 }
 
 /**
- * Returns the team memory entrypoint: <memoryBase>/projects/<sanitized-project-root>/memory/team/MEMORY.md
- * Lives as a subdirectory of the auto-memory directory, scoped per-project.
- */
-export function getTeamMemEntrypoint(): string {
-  return join(getAutoMemPath(), 'team', 'MEMORY.md')
-}
-
-/**
  * Resolve symlinks for the deepest existing ancestor of a path.
  * The target file may not exist yet (we may be about to create it), so we
  * walk up the directory tree until realpath() succeeds, then rejoin the
