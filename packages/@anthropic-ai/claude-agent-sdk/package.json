@@ -1,8 +1,8 @@
 {
   "name": "@anthropic-ai/claude-agent-sdk",
-  "version": "0.2.91",
-  "claudeCodeVersion": "2.1.91",
-  "description": "Types-only copy of @anthropic-ai/claude-agent-sdk@0.2.91 (declarations for src/entrypoints/sdk/*.generated.ts); runtime files omitted. Refresh with scripts/sync-agent-sdk-types.ts.",
+  "version": "0.2.92",
+  "claudeCodeVersion": "2.1.92",
+  "description": "Types-only copy of @anthropic-ai/claude-agent-sdk@0.2.92 (declarations for src/entrypoints/sdk/*.generated.ts); runtime files omitted. Refresh with scripts/sync-agent-sdk-types.ts.",
   "type": "module",
   "types": "sdk.d.ts",
   "exports": {

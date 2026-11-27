@@ -3791,6 +3791,10 @@ export declare interface Settings {
      */
     forceLoginOrgUUID?: string | string[];
     /**
+     * When set in managed settings, the CLI blocks startup until remote managed settings are freshly fetched, and exits if the fetch fails
+     */
+    forceRemoteSettingsRefresh?: boolean;
+    /**
      * Path to a script that outputs OpenTelemetry headers
      */
     otelHeadersHelper?: string;
@@ -3987,6 +3991,16 @@ export declare interface Settings {
      * Custom directory for plan files, relative to project root. If not set, defaults to ~/.claude/plans/
      */
     plansDirectory?: string;
+    /**
+     * Autonomous background operation configuration
+     */
+    proactive?: {
+        /**
+         * When true, autonomous background operation is activated automatically at launch (if entitled). When false or null, the user must opt in via the /proactive command or --proactive flag. Existing entitlement gates (GrowthBook flag, ZDR, managed-settings) still apply.
+         */
+        autoEnable?: boolean | null;
+    };
+
     /**
      * Teams/Enterprise opt-in for channel notifications (MCP servers with the claude/channel capability pushing inbound messages). Default off. Set true to allow; users then select servers via --channels.
      */
