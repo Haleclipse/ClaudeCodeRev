@@ -2407,11 +2407,23 @@ export function mergeAssistantMessages(
   a: AssistantMessage,
   b: AssistantMessage,
 ): AssistantMessage {
+  const content = [...a.message.content, ...b.message.content]
+  // Drop whitespace-only text blocks once the message has non-thinking
+  // content (extended thinking can emit them, and the API rejects them)
+  const withoutBlankText = content.filter(
+    block =>
+      block.type !== 'text' ||
+      block.text.length === 0 ||
+      block.text.trim() !== '',
+  )
+  const hasNonThinkingContent = withoutBlankText.some(
+    block => block.type !== 'thinking' && block.type !== 'redacted_thinking',
+  )
   return {
     ...a,
     message: {
       ...a.message,
-      content: [...a.message.content, ...b.message.content],
+      content: hasNonThinkingContent ? withoutBlankText : content,
     },
   }
 }
@@ -2717,15 +2729,20 @@ export function normalizeContentFromAPI(
         if (typeof normalizedInput === 'object' && normalizedInput !== null) {
           const tool = findToolByName(tools, contentBlock.name)
           if (tool) {
+            const withParsedFields = parseJsonEncodedInputFields(
+              normalizedInput as { [key: string]: unknown },
+              tool.inputSchema,
+            )
             try {
               normalizedInput = normalizeToolInput(
                 tool,
-                normalizedInput as { [key: string]: unknown },
+                withParsedFields,
                 agentId,
               )
             } catch (error) {
               logError(new Error('Error normalizing tool input: ' + error))
               // Keep the original input if normalization fails
+              normalizedInput = withParsedFields
             }
           }
         }
@@ -2765,6 +2782,68 @@ export function normalizeContentFromAPI(
         return contentBlock
     }
   })
+}
+
+type ZodDefLike = {
+  type: string
+  shape?: Record<string, { _zod: { def: ZodDefLike } }>
+  innerType?: { _zod: { def: ZodDefLike } }
+  in?: { _zod: { def: ZodDefLike } }
+}
+
+/**
+ * Parse JSON-encoded strings back into arrays / objects for top-level fields
+ * whose schema type is array or object. A parsed value replaces the string
+ * only when its type matches the schema.
+ */
+function parseJsonEncodedInputFields(
+  input: { [key: string]: unknown },
+  schema: unknown,
+): { [key: string]: unknown } {
+  const def = (schema as { _zod?: { def: ZodDefLike } })._zod?.def
+  if (def?.type !== 'object' || !def.shape) return input
+  let result = input
+  for (const [key, fieldSchema] of Object.entries(def.shape)) {
+    const value = input[key]
+    if (typeof value !== 'string') continue
+    const fieldType = getUnwrappedZodType(fieldSchema._zod.def)
+    if (fieldType === 'array' || fieldType === 'object') {
+      const parsed = safeParseJSON(value, false)
+      if (
+        fieldType === 'array'
+          ? Array.isArray(parsed)
+          : parsed !== null &&
+            typeof parsed === 'object' &&
+            !Array.isArray(parsed)
+      ) {
+        if (result === input) result = { ...input }
+        result[key] = parsed
+      }
+    }
+  }
+  return result
+}
+
+/** Zod type name after unwrapping optional / nullable / default / pipe. */
+function getUnwrappedZodType(def: ZodDefLike | undefined): string {
+  let current = def
+  while (current) {
+    switch (current.type) {
+      case 'optional':
+      case 'nullable':
+      case 'default':
+        if (!current.innerType) return current.type
+        current = current.innerType._zod.def
+        break
+      case 'pipe':
+        if (!current.in) return current.type
+        current = current.in._zod.def
+        break
+      default:
+        return current.type
+    }
+  }
+  return 'unknown'
 }
 
 export function isEmptyMessageText(text: string): boolean {
