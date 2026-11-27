@@ -1849,6 +1849,9 @@ function runHeadlessStreaming(
       currentCommands = newCommands
     })
   })
+  // The official build declares this flag here; its reads and writes are all
+  // in gated code that the external bundle drops.
+  let gatedFlag = false
 
   // Proactive mode: schedule a tick to keep the model looping autonomously.
   // setTimeout(0) yields to the event loop so pending stdin messages
