@@ -2,7 +2,7 @@
   "generatedBy": "scripts/gen-stubs.ts",
   "version": "2.1.92",
   "summary": {
-    "sourceFiles": 1937,
+    "sourceFiles": 1940,
     "stubFiles": 167,
     "gatedTargets": 124,
     "gatedTargetsSource": 42,
@@ -24,7 +24,7 @@
       ],
       "env": [],
       "sites": [
-        "src/main.tsx:156"
+        "src/main.tsx:155"
       ]
     },
     {
@@ -40,7 +40,7 @@
       "env": [],
       "sites": [
         "src/bridge/initReplBridge.ts:548",
-        "src/main.tsx:153"
+        "src/main.tsx:152"
       ]
     },
     {
@@ -57,8 +57,8 @@
       ],
       "env": [],
       "sites": [
-        "src/main.tsx:4121",
-        "src/utils/config.ts:41"
+        "src/main.tsx:4117",
+        "src/utils/config.ts:38"
       ]
     },
     {
@@ -345,8 +345,8 @@
       "flags": [],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:477",
-        "src/screens/REPL.tsx:481"
+        "src/screens/REPL.tsx:478",
+        "src/screens/REPL.tsx:482"
       ]
     },
     {
@@ -359,7 +359,7 @@
       "flags": [],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:214"
+        "src/screens/REPL.tsx:212"
       ]
     },
     {
@@ -569,7 +569,7 @@
       "flags": [],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:486"
+        "src/screens/REPL.tsx:487"
       ]
     },
     {
@@ -603,14 +603,14 @@
         "CLAUDE_CODE_COORDINATOR_MODE"
       ],
       "sites": [
-        "src/QueryEngine.ts:130",
+        "src/QueryEngine.ts:131",
         "src/cli/print.ts:363",
-        "src/commands/clear/conversation.ts:242",
+        "src/commands/clear/conversation.ts:249",
         "src/components/PromptInput/PromptInputFooterLeftSide.tsx:6",
-        "src/main.tsx:147",
-        "src/screens/REPL.tsx:229",
-        "src/screens/REPL.tsx:2404",
-        "src/screens/REPL.tsx:2568",
+        "src/main.tsx:146",
+        "src/screens/REPL.tsx:227",
+        "src/screens/REPL.tsx:2416",
+        "src/screens/REPL.tsx:2580",
         "src/screens/ResumeConversation.tsx:245",
         "src/screens/ResumeConversation.tsx:292",
         "src/tools.ts:121",
@@ -645,7 +645,7 @@
       "flags": [],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:221"
+        "src/screens/REPL.tsx:219"
       ]
     },
     {
@@ -660,7 +660,7 @@
       ],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:427"
+        "src/screens/REPL.tsx:428"
       ]
     },
     {
@@ -688,8 +688,8 @@
       ],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:199",
-        "src/screens/REPL.tsx:207"
+        "src/screens/REPL.tsx:197",
+        "src/screens/REPL.tsx:205"
       ]
     },
     {
@@ -740,8 +740,6 @@
         "src/memdir/memdir.ts:8",
         "src/services/extractMemories/extractMemories.ts:66",
         "src/services/teamMemorySync/teamMemSecretGuard.ts:22",
-        "src/utils/claudemd.ts:83",
-        "src/utils/config.ts:38",
         "src/utils/memoryFileDetection.ts:18",
         "src/utils/sessionFileAccessHooks.ts:33"
       ]
@@ -778,15 +776,17 @@
       ],
       "sites": [
         "src/cli/print.ts:367",
-        "src/commands/clear/conversation.ts:120",
+        "src/commands/clear/conversation.ts:123",
         "src/components/Messages.tsx:102",
         "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61",
         "src/components/PromptInput/usePromptInputPlaceholder.ts:13",
-        "src/constants/prompts.ts:72",
-        "src/main.tsx:6630",
-        "src/screens/REPL.tsx:417",
+        "src/constants/prompts.ts:70",
+        "src/hooks/useScheduledTasks.ts:38",
+        "src/main.tsx:6628",
+        "src/screens/REPL.tsx:418",
         "src/services/compact/prompt.ts:8",
         "src/tools/AgentTool/AgentTool.tsx:137",
+        "src/tools/ScheduleCronTool/CronCreateTool.ts:34",
         "src/utils/systemPrompt.ts:20"
       ]
     },
@@ -803,7 +803,7 @@
       ],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:424"
+        "src/screens/REPL.tsx:425"
       ]
     },
     {
@@ -818,7 +818,7 @@
       ],
       "env": [],
       "sites": [
-        "src/constants/prompts.ts:66"
+        "src/constants/prompts.ts:64"
       ]
     },
     {
@@ -852,12 +852,12 @@
         "NODE_ENV"
       ],
       "sites": [
-        "src/QueryEngine.ts:137",
+        "src/QueryEngine.ts:138",
         "src/components/Message.tsx:214",
-        "src/query.ts:118",
-        "src/utils/messages.ts:2371",
-        "src/utils/messages.ts:2453",
-        "src/utils/messages.ts:4256"
+        "src/query.ts:117",
+        "src/utils/messages.ts:2377",
+        "src/utils/messages.ts:2459",
+        "src/utils/messages.ts:4253"
       ]
     },
     {
@@ -873,9 +873,9 @@
       ],
       "env": [],
       "sites": [
-        "src/QueryEngine.ts:140",
+        "src/QueryEngine.ts:141",
         "src/components/Message.tsx:212",
-        "src/utils/messages.ts:4806"
+        "src/utils/messages.ts:4804"
       ]
     },
     {
@@ -896,8 +896,8 @@
         "src/components/ContextVisualization.tsx:29",
         "src/components/TokenWarning.tsx:108",
         "src/query.ts:20",
-        "src/screens/REPL.tsx:5029",
-        "src/services/compact/autoCompact.ts:326",
+        "src/screens/REPL.tsx:5046",
+        "src/services/compact/autoCompact.ts:345",
         "src/services/compact/postCompactCleanup.ts:46",
         "src/setup.ts:298",
         "src/utils/analyzeContext.ts:1131"
@@ -950,7 +950,7 @@
       "sites": [
         "src/cli/print.ts:379",
         "src/query/stopHooks.ts:44",
-        "src/utils/backgroundHousekeeping.ts:7"
+        "src/utils/backgroundHousekeeping.ts:6"
       ]
     },
     {
@@ -981,7 +981,7 @@
       ],
       "env": [],
       "sites": [
-        "src/constants/prompts.ts:94",
+        "src/constants/prompts.ts:92",
         "src/tools/SkillTool/SkillTool.ts:113",
         "src/utils/attachments.ts:100"
       ]
@@ -1264,9 +1264,9 @@
       ],
       "env": [],
       "sites": [
-        "src/cli/print.ts:4991",
-        "src/cli/print.ts:5200",
-        "src/screens/REPL.tsx:2415",
+        "src/cli/print.ts:4998",
+        "src/cli/print.ts:5207",
+        "src/screens/REPL.tsx:2427",
         "src/screens/ResumeConversation.tsx:251"
       ]
     },
@@ -1290,12 +1290,12 @@
       ],
       "sites": [
         "src/components/Settings/Config.tsx:226",
-        "src/constants/prompts.ts:82",
+        "src/constants/prompts.ts:80",
         "src/hooks/useGlobalKeybindings.tsx:107",
         "src/hooks/useGlobalKeybindings.tsx:180",
         "src/main.tsx:2614",
-        "src/main.tsx:3225",
-        "src/main.tsx:3244"
+        "src/main.tsx:3221",
+        "src/main.tsx:3240"
       ]
     },
     {
@@ -1313,7 +1313,7 @@
       "env": [],
       "sites": [
         "src/components/Messages.tsx:107",
-        "src/constants/prompts.ts:77",
+        "src/constants/prompts.ts:75",
         "src/main.tsx:2612",
         "src/tools/ToolSearchTool/prompt.ts:12",
         "src/utils/attachments.ts:206",
@@ -1347,7 +1347,7 @@
       "flags": [],
       "env": [],
       "sites": [
-        "src/constants/prompts.ts:88"
+        "src/constants/prompts.ts:86"
       ]
     },
     {
@@ -1394,7 +1394,7 @@
       "env": [],
       "sites": [
         "src/tools.ts:108",
-        "src/utils/permissions/classifierDecision.ts:34"
+        "src/utils/permissions/classifierDecision.ts:33"
       ]
     },
     {
@@ -1653,7 +1653,7 @@
       ],
       "env": [],
       "sites": [
-        "src/utils/permissions/classifierDecision.ts:29"
+        "src/utils/permissions/classifierDecision.ts:28"
       ]
     },
     {
@@ -1683,7 +1683,7 @@
         "USER_TYPE"
       ],
       "sites": [
-        "src/utils/permissions/classifierDecision.ts:40"
+        "src/utils/permissions/classifierDecision.ts:39"
       ]
     },
     {
@@ -1713,7 +1713,7 @@
       ],
       "env": [],
       "sites": [
-        "src/screens/REPL.tsx:554"
+        "src/screens/REPL.tsx:555"
       ]
     },
     {
@@ -1758,7 +1758,7 @@
       ],
       "env": [],
       "sites": [
-        "src/utils/permissions/classifierDecision.ts:45"
+        "src/utils/permissions/classifierDecision.ts:44"
       ]
     },
     {
@@ -1819,7 +1819,7 @@
       ],
       "env": [],
       "sites": [
-        "src/services/mcp/client.ts:244"
+        "src/services/mcp/client.ts:242"
       ]
     },
     {
@@ -1864,7 +1864,7 @@
       ],
       "env": [],
       "sites": [
-        "src/utils/backgroundHousekeeping.ts:10"
+        "src/utils/backgroundHousekeeping.ts:9"
       ]
     },
     {
@@ -1949,8 +1949,8 @@
       ],
       "env": [],
       "sites": [
-        "src/commands/clear/conversation.ts:239",
-        "src/screens/REPL.tsx:2566",
+        "src/commands/clear/conversation.ts:246",
+        "src/screens/REPL.tsx:2578",
         "src/screens/ResumeConversation.tsx:290"
       ]
     },
@@ -1966,7 +1966,7 @@
       ],
       "env": [],
       "sites": [
-        "src/query.ts:121"
+        "src/query.ts:120"
       ]
     },
     {
@@ -2011,7 +2011,7 @@
       ],
       "env": [],
       "sites": [
-        "src/cli/print.ts:2719",
+        "src/cli/print.ts:2726",
         "src/utils/messages/systemInit.ts:91"
       ]
     }
@@ -2041,8 +2041,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:156 (dynamic)",
-        "src/main.tsx:156 (require)"
+        "src/main.tsx:155 (dynamic)",
+        "src/main.tsx:155 (require)"
       ]
     },
     {
@@ -2054,8 +2054,8 @@
         "src/bridge/initReplBridge.ts:548 (require)",
         "src/commands/bridge/bridge.tsx:268 (dynamic)",
         "src/hooks/useReplBridge.tsx:209 (dynamic)",
-        "src/main.tsx:153 (dynamic)",
-        "src/main.tsx:153 (require)"
+        "src/main.tsx:152 (dynamic)",
+        "src/main.tsx:152 (require)"
       ]
     },
     {
@@ -2066,7 +2066,7 @@
       ],
       "referencedFrom": [
         "src/dialogLaunchers.tsx:10",
-        "src/main.tsx:4534 (dynamic)"
+        "src/main.tsx:4527 (dynamic)"
       ]
     },
     {
@@ -2092,7 +2092,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/entrypoints/cli.tsx:203 (dynamic)"
+        "src/entrypoints/cli.tsx:202 (dynamic)"
       ]
     },
     {
@@ -2100,15 +2100,15 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6345 (dynamic)",
-        "src/main.tsx:6361 (dynamic)",
-        "src/main.tsx:6385 (dynamic)",
-        "src/main.tsx:6404 (dynamic)",
-        "src/main.tsx:6421 (dynamic)",
-        "src/main.tsx:6431 (dynamic)",
-        "src/main.tsx:6459 (dynamic)",
-        "src/main.tsx:6469 (dynamic)",
-        "src/main.tsx:6483 (dynamic)"
+        "src/main.tsx:6338 (dynamic)",
+        "src/main.tsx:6354 (dynamic)",
+        "src/main.tsx:6378 (dynamic)",
+        "src/main.tsx:6397 (dynamic)",
+        "src/main.tsx:6414 (dynamic)",
+        "src/main.tsx:6424 (dynamic)",
+        "src/main.tsx:6452 (dynamic)",
+        "src/main.tsx:6462 (dynamic)",
+        "src/main.tsx:6476 (dynamic)"
       ]
     },
     {
@@ -2116,7 +2116,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/entrypoints/cli.tsx:229 (dynamic)"
+        "src/entrypoints/cli.tsx:225 (dynamic)"
       ]
     },
     {
@@ -2124,7 +2124,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6308 (dynamic)"
+        "src/main.tsx:6301 (dynamic)"
       ]
     },
     {
@@ -2145,7 +2145,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6284 (dynamic)"
+        "src/main.tsx:6277 (dynamic)"
       ]
     },
     {
@@ -2487,8 +2487,8 @@
         "shouldShowModelSwitchCallout"
       ],
       "referencedFrom": [
-        "src/screens/REPL.tsx:477 (require)",
-        "src/screens/REPL.tsx:481 (require)"
+        "src/screens/REPL.tsx:478 (require)",
+        "src/screens/REPL.tsx:482 (require)"
       ]
     },
     {
@@ -2496,8 +2496,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/screens/REPL.tsx:212 (dynamic)",
-        "src/screens/REPL.tsx:214 (require)"
+        "src/screens/REPL.tsx:210 (dynamic)",
+        "src/screens/REPL.tsx:212 (require)"
       ]
     },
     {
@@ -2513,9 +2513,7 @@
         "src/components/FeedbackSurvey/useFeedbackSurvey.tsx:22",
         "src/components/FeedbackSurvey/useMemorySurvey.tsx:23",
         "src/components/FeedbackSurvey/usePostCompactSurvey.tsx:14",
-        "src/components/FeedbackSurvey/useSurveyState.tsx:4",
-        "src/components/SkillImprovementSurvey.tsx:7",
-        "src/hooks/useSkillImprovementSurvey.ts:2"
+        "src/components/FeedbackSurvey/useSurveyState.tsx:4"
       ]
     },
     {
@@ -2530,7 +2528,7 @@
         "src/components/Spinner/SpinnerAnimationRow.tsx:13",
         "src/components/Spinner/index.ts:5",
         "src/components/Spinner/useShimmerAnimation.ts:4",
-        "src/components/Spinner/utils.ts:2",
+        "src/components/Spinner/utils.ts:3",
         "src/hooks/useCancelRequest.ts:17",
         "src/hooks/useRemoteSession.ts:4",
         "src/utils/handlePromptSubmit.ts:6"
@@ -2543,7 +2541,7 @@
         "UndercoverAutoCallout"
       ],
       "referencedFrom": [
-        "src/screens/REPL.tsx:486 (require)"
+        "src/screens/REPL.tsx:487 (require)"
       ]
     },
     {
@@ -2552,7 +2550,7 @@
       "exports": [],
       "referencedFrom": [
         "src/dialogLaunchers.tsx:39 (dynamic)",
-        "src/main.tsx:3339 (dynamic)"
+        "src/main.tsx:3335 (dynamic)"
       ]
     },
     {
@@ -2593,7 +2591,7 @@
       "referencedFrom": [
         "src/commands/plugin/ManagePlugins.tsx:13",
         "src/components/mcp/MCPAgentServerMenu.tsx:17",
-        "src/components/mcp/MCPListPanel.tsx:15",
+        "src/components/mcp/MCPListPanel.tsx:16",
         "src/components/mcp/MCPRemoteServerMenu.tsx:45",
         "src/components/mcp/MCPSettings.tsx:22",
         "src/components/mcp/MCPStdioServerMenu.tsx:24",
@@ -2707,14 +2705,14 @@
         "QuerySource"
       ],
       "referencedFrom": [
-        "src/Tool.ts:77",
-        "src/query.ts:96",
+        "src/Tool.ts:79",
+        "src/query.ts:95",
         "src/query/stopHooks.ts:52",
         "src/services/api/claude.ts:143",
         "src/services/api/promptCacheBreakDetection.ts:13",
         "src/services/api/withRetry.ts:8",
         "src/services/compact/autoCompact.ts:7",
-        "src/services/compact/compact.ts:13",
+        "src/services/compact/compact.ts:12",
         "src/services/compact/microCompact.ts:3",
         "src/services/compact/postCompactCleanup.ts:2",
         "src/tools/AgentTool/runAgent.ts:12",
@@ -2840,7 +2838,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/entrypoints/cli.tsx:241 (dynamic)"
+        "src/entrypoints/cli.tsx:237 (dynamic)"
       ]
     },
     {
@@ -2848,8 +2846,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/screens/REPL.tsx:219 (dynamic)",
-        "src/screens/REPL.tsx:221 (require)"
+        "src/screens/REPL.tsx:217 (dynamic)",
+        "src/screens/REPL.tsx:219 (require)"
       ]
     },
     {
@@ -2961,17 +2959,19 @@
       "referencedFrom": [
         "src/cli/print.ts:367 (dynamic)",
         "src/cli/print.ts:367 (require)",
-        "src/commands/clear/conversation.ts:120 (require)",
+        "src/commands/clear/conversation.ts:123 (require)",
         "src/components/Messages.tsx:102 (require)",
         "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61 (require)",
         "src/components/PromptInput/usePromptInputPlaceholder.ts:13 (require)",
-        "src/constants/prompts.ts:72 (require)",
-        "src/main.tsx:6630 (require)",
-        "src/screens/REPL.tsx:417 (require)",
+        "src/constants/prompts.ts:70 (require)",
+        "src/hooks/useScheduledTasks.ts:38 (require)",
+        "src/main.tsx:6628 (require)",
+        "src/screens/REPL.tsx:418 (require)",
         "src/services/compact/prompt.ts:8 (dynamic)",
         "src/services/compact/prompt.ts:8 (require)",
         "src/tools/AgentTool/AgentTool.tsx:137 (dynamic)",
         "src/tools/AgentTool/AgentTool.tsx:137 (require)",
+        "src/tools/ScheduleCronTool/CronCreateTool.ts:34 (require)",
         "src/utils/systemPrompt.ts:20 (dynamic)",
         "src/utils/systemPrompt.ts:20 (require)"
       ]
@@ -2983,7 +2983,7 @@
         "useProactive"
       ],
       "referencedFrom": [
-        "src/screens/REPL.tsx:424 (require)"
+        "src/screens/REPL.tsx:425 (require)"
       ]
     },
     {
@@ -2991,7 +2991,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/entrypoints/cli.tsx:253 (dynamic)"
+        "src/entrypoints/cli.tsx:249 (dynamic)"
       ]
     },
     {
@@ -2999,7 +2999,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5674 (dynamic)"
+        "src/main.tsx:5667 (dynamic)"
       ]
     },
     {
@@ -3007,7 +3007,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5831 (dynamic)"
+        "src/main.tsx:5824 (dynamic)"
       ]
     },
     {
@@ -3015,7 +3015,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5680 (dynamic)"
+        "src/main.tsx:5673 (dynamic)"
       ]
     },
     {
@@ -3023,7 +3023,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5803 (dynamic)",
+        "src/main.tsx:5796 (dynamic)",
         "src/main.tsx:926 (dynamic)"
       ]
     },
@@ -3032,7 +3032,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5672 (dynamic)"
+        "src/main.tsx:5665 (dynamic)"
       ]
     },
     {
@@ -3040,7 +3040,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5677 (dynamic)"
+        "src/main.tsx:5670 (dynamic)"
       ]
     },
     {
@@ -3048,7 +3048,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5678 (dynamic)"
+        "src/main.tsx:5671 (dynamic)"
       ]
     },
     {
@@ -3056,7 +3056,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5673 (dynamic)"
+        "src/main.tsx:5666 (dynamic)"
       ]
     },
     {
@@ -3064,8 +3064,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/constants/prompts.ts:66 (dynamic)",
-        "src/constants/prompts.ts:66 (require)"
+        "src/constants/prompts.ts:64 (dynamic)",
+        "src/constants/prompts.ts:64 (require)"
       ]
     },
     {
@@ -3073,7 +3073,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/services/api/claude.ts:1195 (dynamic)",
+        "src/services/api/claude.ts:1156 (dynamic)",
         "src/services/compact/microCompact.ts:100 (dynamic)",
         "src/services/compact/microCompact.ts:113 (dynamic)",
         "src/services/compact/microCompact.ts:56 (dynamic)",
@@ -3101,20 +3101,20 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/QueryEngine.ts:137 (dynamic)",
-        "src/QueryEngine.ts:137 (require)",
+        "src/QueryEngine.ts:138 (dynamic)",
+        "src/QueryEngine.ts:138 (require)",
         "src/components/Message.tsx:214 (dynamic)",
         "src/components/Message.tsx:214 (require)",
-        "src/query.ts:118 (dynamic)",
-        "src/query.ts:118 (require)",
+        "src/query.ts:117 (dynamic)",
+        "src/query.ts:117 (require)",
         "src/utils/attachments.ts:3968 (dynamic)",
         "src/utils/attachments.ts:3968 (require)",
-        "src/utils/messages.ts:2371 (dynamic)",
-        "src/utils/messages.ts:2371 (require)",
-        "src/utils/messages.ts:2453 (dynamic)",
-        "src/utils/messages.ts:2453 (require)",
-        "src/utils/messages.ts:4256 (dynamic)",
-        "src/utils/messages.ts:4256 (require)"
+        "src/utils/messages.ts:2377 (dynamic)",
+        "src/utils/messages.ts:2377 (require)",
+        "src/utils/messages.ts:2459 (dynamic)",
+        "src/utils/messages.ts:2459 (require)",
+        "src/utils/messages.ts:4253 (dynamic)",
+        "src/utils/messages.ts:4253 (require)"
       ]
     },
     {
@@ -3122,12 +3122,12 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/QueryEngine.ts:140 (dynamic)",
-        "src/QueryEngine.ts:140 (require)",
+        "src/QueryEngine.ts:141 (dynamic)",
+        "src/QueryEngine.ts:141 (require)",
         "src/components/Message.tsx:212 (dynamic)",
         "src/components/Message.tsx:212 (require)",
-        "src/utils/messages.ts:4806 (dynamic)",
-        "src/utils/messages.ts:4806 (require)"
+        "src/utils/messages.ts:4804 (dynamic)",
+        "src/utils/messages.ts:4804 (require)"
       ]
     },
     {
@@ -3145,10 +3145,10 @@
         "src/components/TokenWarning.tsx:33 (require)",
         "src/query.ts:20 (dynamic)",
         "src/query.ts:20 (require)",
-        "src/screens/REPL.tsx:5029 (dynamic)",
-        "src/screens/REPL.tsx:5029 (require)",
-        "src/services/compact/autoCompact.ts:326 (dynamic)",
-        "src/services/compact/autoCompact.ts:326 (require)",
+        "src/screens/REPL.tsx:5046 (dynamic)",
+        "src/screens/REPL.tsx:5046 (require)",
+        "src/services/compact/autoCompact.ts:345 (dynamic)",
+        "src/services/compact/autoCompact.ts:345 (require)",
         "src/services/compact/postCompactCleanup.ts:46 (dynamic)",
         "src/services/compact/postCompactCleanup.ts:46 (require)",
         "src/setup.ts:298 (dynamic)",
@@ -3221,7 +3221,7 @@
         "src/services/oauth/client.ts:24",
         "src/services/oauth/getOauthProfile.ts:3",
         "src/services/oauth/index.ts:6",
-        "src/utils/auth.ts:27",
+        "src/utils/auth.ts:28",
         "src/utils/config.ts:11"
       ]
     },
@@ -3241,8 +3241,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/constants/prompts.ts:94 (dynamic)",
-        "src/constants/prompts.ts:94 (require)",
+        "src/constants/prompts.ts:92 (dynamic)",
+        "src/constants/prompts.ts:92 (require)",
         "src/tools/SkillTool/SkillTool.ts:113 (dynamic)",
         "src/tools/SkillTool/SkillTool.ts:113 (require)",
         "src/utils/attachments.ts:100 (dynamic)",
@@ -3379,7 +3379,7 @@
       ],
       "referencedFrom": [
         "src/hooks/useSSHSession.ts:23",
-        "src/main.tsx:4448 (dynamic)",
+        "src/main.tsx:4441 (dynamic)",
         "src/screens/REPL.tsx:149"
       ]
     },
@@ -3428,8 +3428,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/constants/prompts.ts:88 (dynamic)",
-        "src/constants/prompts.ts:88 (require)"
+        "src/constants/prompts.ts:86 (dynamic)",
+        "src/constants/prompts.ts:86 (require)"
       ]
     },
     {
@@ -3458,8 +3458,8 @@
       "exports": [],
       "referencedFrom": [
         "src/tools.ts:108 (require)",
-        "src/utils/permissions/classifierDecision.ts:34 (dynamic)",
-        "src/utils/permissions/classifierDecision.ts:34 (require)"
+        "src/utils/permissions/classifierDecision.ts:33 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:33 (require)"
       ]
     },
     {
@@ -3578,8 +3578,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/utils/permissions/classifierDecision.ts:29 (dynamic)",
-        "src/utils/permissions/classifierDecision.ts:29 (require)"
+        "src/utils/permissions/classifierDecision.ts:28 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:28 (require)"
       ]
     },
     {
@@ -3589,7 +3589,7 @@
         "TungstenLiveMonitor"
       ],
       "referencedFrom": [
-        "src/screens/REPL.tsx:551"
+        "src/screens/REPL.tsx:552"
       ]
     },
     {
@@ -3619,8 +3619,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/utils/permissions/classifierDecision.ts:40 (dynamic)",
-        "src/utils/permissions/classifierDecision.ts:40 (require)"
+        "src/utils/permissions/classifierDecision.ts:39 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:39 (require)"
       ]
     },
     {
@@ -3628,8 +3628,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/screens/REPL.tsx:554 (dynamic)",
-        "src/screens/REPL.tsx:554 (require)"
+        "src/screens/REPL.tsx:555 (dynamic)",
+        "src/screens/REPL.tsx:555 (require)"
       ]
     },
     {
@@ -3679,8 +3679,8 @@
       ],
       "referencedFrom": [
         "src/constants/tools.ts:29",
-        "src/utils/permissions/classifierDecision.ts:45 (dynamic)",
-        "src/utils/permissions/classifierDecision.ts:45 (require)"
+        "src/utils/permissions/classifierDecision.ts:44 (dynamic)",
+        "src/utils/permissions/classifierDecision.ts:44 (require)"
       ]
     },
     {
@@ -3763,7 +3763,7 @@
         "UserMessage"
       ],
       "referencedFrom": [
-        "src/QueryEngine.ts:50",
+        "src/QueryEngine.ts:51",
         "src/Tool.ts:32",
         "src/bridge/bridgeMessaging.ts:22",
         "src/bridge/initReplBridge.ts:30",
@@ -3774,11 +3774,11 @@
         "src/cli/print.ts:40",
         "src/cli/structuredIO.ts:7",
         "src/commands/btw/btw.tsx:18",
-        "src/commands/clear/conversation.ts:29",
+        "src/commands/clear/conversation.ts:30",
         "src/commands/compact/compact.ts:23",
         "src/commands/context/context-noninteractive.ts:6",
         "src/commands/context/context.tsx:7",
-        "src/commands/copy/copy.tsx:18",
+        "src/commands/copy/copy.tsx:17",
         "src/commands/export/export.tsx:6",
         "src/commands/feedback/feedback.tsx:9",
         "src/commands/rename/generateSessionName.ts:2",
@@ -3806,7 +3806,7 @@
         "src/components/messages/CollapsedReadSearchContent.tsx:8",
         "src/components/messages/GroupedToolUseContent.tsx:11",
         "src/components/messages/SystemAPIErrorMessage.tsx:5",
-        "src/components/messages/SystemTextMessage.tsx:24",
+        "src/components/messages/SystemTextMessage.tsx:27",
         "src/components/messages/UserToolResultMessage/UserToolErrorMessage.tsx:11",
         "src/components/messages/UserToolResultMessage/UserToolRejectMessage.tsx:9",
         "src/components/messages/UserToolResultMessage/UserToolResultMessage.tsx:8",
@@ -3816,7 +3816,7 @@
         "src/components/messages/teamMemSaved.ts:1",
         "src/components/permissions/PermissionExplanation.tsx:5",
         "src/components/permissions/PermissionRequest.tsx:19",
-        "src/components/ultraplan/UltraplanChoiceDialog.tsx:16",
+        "src/components/ultraplan/UltraplanChoiceDialog.tsx:17",
         "src/hooks/toolPermission/PermissionContext.ts:16",
         "src/hooks/useAssistantHistory.ts:19",
         "src/hooks/useAwaySummary.ts:9",
@@ -3828,17 +3828,16 @@
         "src/hooks/useRemoteSession.ts:22",
         "src/hooks/useReplBridge.tsx:30",
         "src/hooks/useSSHSession.ts:27",
-        "src/hooks/useScheduledTasks.ts:9",
+        "src/hooks/useScheduledTasks.ts:12",
         "src/hooks/useSessionBackgrounding.ts:12",
-        "src/hooks/useSkillImprovementSurvey.ts:9",
         "src/hooks/useSwarmInitialization.ts:13",
         "src/hooks/useTurnDiffs.ts:5",
-        "src/main.tsx:217",
+        "src/main.tsx:216",
         "src/query.ts:31",
         "src/query/stopHooks.ts:10",
         "src/remote/remotePermissionBridge.ts:4",
         "src/remote/sdkMessageAdapter.ts:11",
-        "src/screens/REPL.tsx:299",
+        "src/screens/REPL.tsx:297",
         "src/screens/ResumeConversation.tsx:27",
         "src/services/PromptSuggestion/promptSuggestion.ts:4",
         "src/services/PromptSuggestion/speculation.ts:16",
@@ -3851,7 +3850,7 @@
         "src/services/autoDream/autoDream.ts:22",
         "src/services/awaySummary.ts:3",
         "src/services/compact/autoCompact.ts:9",
-        "src/services/compact/compact.ts:25",
+        "src/services/compact/compact.ts:24",
         "src/services/compact/grouping.ts:1",
         "src/services/compact/microCompact.ts:12",
         "src/services/compact/prompt.ts:2",
@@ -3859,8 +3858,9 @@
         "src/services/extractMemories/extractMemories.ts:41",
         "src/services/mcp/client.ts:125",
         "src/services/tools/StreamingToolExecutor.ts:10",
+        "src/services/tools/dedupToolResults.ts:3",
         "src/services/tools/postToolUseFileSync.ts:3",
-        "src/services/tools/toolExecution.ts:60",
+        "src/services/tools/toolExecution.ts:66",
         "src/services/tools/toolHooks.ts:10",
         "src/services/tools/toolOrchestration.ts:4",
         "src/services/vcr.ts:9",
@@ -3912,7 +3912,7 @@
         "src/utils/conversationRecovery.ts:15",
         "src/utils/exportRenderer.tsx:9",
         "src/utils/fingerprint.ts:2",
-        "src/utils/forkedAgent.ts:27",
+        "src/utils/forkedAgent.ts:28",
         "src/utils/groupToolUses.ts:4",
         "src/utils/handlePromptSubmit.ts:14",
         "src/utils/hooks.ts:119",
@@ -3922,7 +3922,6 @@
         "src/utils/hooks/execPromptHook.ts:5",
         "src/utils/hooks/postSamplingHooks.ts:3",
         "src/utils/hooks/sessionHooks.ts:3",
-        "src/utils/hooks/skillImprovement.ts:11",
         "src/utils/mcpInstructionsDelta.ts:6",
         "src/utils/messagePredicates.ts:1",
         "src/utils/messages.ts:41",
@@ -3945,7 +3944,7 @@
         "src/utils/swarm/inProcessRunner.ts:59",
         "src/utils/teammateMailbox.ts:16",
         "src/utils/telemetry/betaSessionTracing.ts:33",
-        "src/utils/telemetry/sessionTracing.ts:17",
+        "src/utils/telemetry/sessionTracing.ts:16",
         "src/utils/teleport.tsx:29",
         "src/utils/tokens.ts:3",
         "src/utils/toolResultStorage.ts:18",
@@ -4016,8 +4015,8 @@
         "src/components/BashModeProgress.tsx:4",
         "src/tools/AgentTool/AgentTool.tsx:333",
         "src/tools/AgentTool/UI.tsx:25",
-        "src/tools/BashTool/BashTool.tsx:463",
-        "src/tools/BashTool/BashTool.tsx:465",
+        "src/tools/BashTool/BashTool.tsx:483",
+        "src/tools/BashTool/BashTool.tsx:485",
         "src/tools/MCPTool/MCPTool.ts:25",
         "src/tools/MCPTool/UI.tsx:15",
         "src/tools/PowerShellTool/PowerShellTool.tsx:359",
@@ -4041,7 +4040,7 @@
         "Permutations"
       ],
       "referencedFrom": [
-        "src/Tool.ts:86",
+        "src/Tool.ts:88",
         "src/components/tasks/AsyncAgentDetailDialog.tsx:2",
         "src/components/tasks/BackgroundTask.tsx:4",
         "src/components/tasks/BackgroundTasksDialog.tsx:41",
@@ -4081,7 +4080,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:4967 (dynamic)"
+        "src/main.tsx:4960 (dynamic)"
       ]
     },
     {
@@ -4131,7 +4130,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:3994 (dynamic)"
+        "src/main.tsx:3990 (dynamic)"
       ]
     },
     {
@@ -4142,7 +4141,7 @@
         "SecureStorageData"
       ],
       "referencedFrom": [
-        "src/services/mcp/auth.ts:43",
+        "src/services/mcp/auth.ts:44",
         "src/utils/secureStorage/fallbackStorage.ts:1",
         "src/utils/secureStorage/index.ts:4",
         "src/utils/secureStorage/macOsKeychainHelpers.ts:21",
@@ -4155,7 +4154,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:4274 (dynamic)"
+        "src/main.tsx:4267 (dynamic)"
       ]
     },
     {
@@ -4171,8 +4170,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/query.ts:121 (dynamic)",
-        "src/query.ts:121 (require)"
+        "src/query.ts:120 (dynamic)",
+        "src/query.ts:120 (require)"
       ]
     },
     {
@@ -4182,7 +4181,7 @@
       "referencedFrom": [
         "src/tools/SendMessageTool/SendMessageTool.ts:778 (dynamic)",
         "src/tools/SendMessageTool/SendMessageTool.ts:778 (require)",
-        "src/utils/conversationRecovery.ts:509 (dynamic)"
+        "src/utils/conversationRecovery.ts:516 (dynamic)"
       ]
     },
     {
@@ -4190,7 +4189,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/cli/print.ts:2719 (require)",
+        "src/cli/print.ts:2726 (require)",
         "src/setup.ts:96 (dynamic)",
         "src/utils/messages/systemInit.ts:91 (require)"
       ]
