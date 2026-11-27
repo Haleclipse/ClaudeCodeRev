@@ -40,6 +40,7 @@ import { getCachedPowerShellPath } from './shell/powershellDetection.js'
 import { createPowerShellProvider } from './shell/powershellProvider.js'
 import type { ShellProvider, ShellType } from './shell/shellProvider.js'
 import { subprocessEnv } from './subprocessEnv.js'
+import { getTempDir } from './tempfile.js'
 import { posixPathToWindowsPath } from './windowsPaths.js'
 
 const DEFAULT_TIMEOUT = 30 * 60 * 1000 // 30 minutes
@@ -210,10 +211,7 @@ export async function exec(
     .padStart(4, '0')
 
   // Sandbox temp directory - use per-user directory name to prevent multi-user permission conflicts
-  const sandboxTmpDir = posixJoin(
-    process.env.CLAUDE_CODE_TMPDIR || '/tmp',
-    getClaudeTempDirName(),
-  )
+  const sandboxTmpDir = posixJoin(getTempDir(), getClaudeTempDirName())
 
   const { commandString: builtCommand, cwdFilePath } =
     await provider.buildExecCommand(command, {

@@ -1,7 +1,7 @@
-import { tmpdir } from 'os'
 import { join } from 'path'
 import { join as posixJoin } from 'path/posix'
 import { getSessionEnvVars } from '../sessionEnvVars.js'
+import { getTempDir } from '../tempfile.js'
 import type { ShellProvider } from './shellProvider.js'
 
 /**
@@ -50,7 +50,7 @@ export function createPowerShellProvider(shellPath: string): ShellProvider {
       const cwdFilePath =
         opts.useSandbox && opts.sandboxTmpDir
           ? posixJoin(opts.sandboxTmpDir, `claude-pwd-ps-${opts.id}`)
-          : join(tmpdir(), `claude-pwd-ps-${opts.id}`)
+          : join(getTempDir(), `claude-pwd-ps-${opts.id}`)
       const escapedCwdFilePath = cwdFilePath.replace(/'/g, "''")
       // Exit-code capture: prefer $LASTEXITCODE when a native exe ran.
       // On PS 5.1, a native command that writes to stderr while the stream

@@ -11,7 +11,6 @@ import {
   unlink,
   writeFile,
 } from 'fs/promises'
-import { tmpdir } from 'os'
 import { extname, join } from 'path'
 import type { Command } from '../commands.js'
 import { queryWithModel } from '../services/api/claude.js'
@@ -35,6 +34,7 @@ import {
 import { jsonParse, jsonStringify } from '../utils/slowOperations.js'
 import { countCharInString } from '../utils/stringUtils.js'
 import { asSystemPrompt } from '../utils/systemPromptType.js'
+import { getTempDir } from '../utils/tempfile.js'
 import { escapeXmlAttr as escapeHtml } from '../utils/xml.js'
 
 // Model for facet extraction and summarization (Opus - best quality)
@@ -105,7 +105,7 @@ const collectFromRemoteHost: (
         const result = { copied: 0, skipped: 0 }
 
         // Create temp directory
-        const tempDir = await mkdtemp(join(tmpdir(), 'claude-hs-'))
+        const tempDir = await mkdtemp(join(getTempDir(), 'claude-hs-'))
 
         try {
           // SCP the projects folder

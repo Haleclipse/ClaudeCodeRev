@@ -2,7 +2,7 @@ import { feature } from 'bun:bundle'
 import { randomBytes } from 'crypto'
 import ignore from 'ignore'
 import memoize from 'lodash-es/memoize.js'
-import { homedir, tmpdir } from 'os'
+import { homedir } from 'os'
 import { join, normalize, posix, sep } from 'path'
 import { hasAutoMemPathOverride, isAutoMemPath } from 'src/memdir/paths.js'
 import { isAgentMemoryPath } from 'src/tools/AgentTool/agentMemory.js'
@@ -41,6 +41,7 @@ import {
   getSettingsRootPathForSource,
 } from '../settings/settings.js'
 import { containsVulnerableUncPath } from '../shell/readOnlyCommandValidation.js'
+import { getTempDir } from '../tempfile.js'
 import { getToolResultsDir } from '../toolResultStorage.js'
 import { windowsPathToPosixPath } from '../windowsPaths.js'
 import type {
@@ -335,9 +336,7 @@ export function getClaudeTempDirName(): string {
 // and per-turn from BashTool prompt. Inputs (CLAUDE_CODE_TMPDIR env + platform) are
 // fixed at startup, and the realpath of the system tmp dir does not change mid-session.
 export const getClaudeTempDir = memoize(function getClaudeTempDir(): string {
-  const baseTmpDir =
-    process.env.CLAUDE_CODE_TMPDIR ||
-    (getPlatform() === 'windows' ? tmpdir() : '/tmp')
+  const baseTmpDir = getTempDir()
 
   // Resolve symlinks in the base temp directory (e.g., /tmp -> /private/tmp on macOS)
   // This ensures the path matches resolved paths in permission checks

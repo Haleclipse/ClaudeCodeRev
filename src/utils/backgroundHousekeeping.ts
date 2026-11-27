@@ -1,6 +1,5 @@
 import { feature } from 'bun:bundle'
 import { initAutoDream } from '../services/autoDream/autoDream.js'
-import { initSkillImprovement } from './hooks/skillImprovement.js'
 
 /* eslint-disable @typescript-eslint/no-require-imports */
 const extractMemoriesModule = feature('EXTRACT_MEMORIES')
@@ -28,7 +27,6 @@ const RECURRING_CLEANUP_INTERVAL_MS = 24 * 60 * 60 * 1000
 const DELAY_VERY_SLOW_OPERATIONS_THAT_HAPPEN_EVERY_SESSION = 10 * 60 * 1000
 
 export function startBackgroundHousekeeping(): void {
-  void initSkillImprovement()
   if (feature('EXTRACT_MEMORIES')) {
     extractMemoriesModule!.initExtractMemories()
   }

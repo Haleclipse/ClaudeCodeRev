@@ -17,6 +17,7 @@ import {
 } from './imageResizer.js'
 import { logError } from './log.js'
 import { execaShell } from './safeExeca.js'
+import { getTempDir } from './tempfile.js'
 
 // Native NSPasteboard reader. Falls through to osascript when the native
 // module is unavailable.
@@ -30,9 +31,7 @@ function getClipboardCommands() {
 
   // Platform-specific temporary file paths
   // Use CLAUDE_CODE_TMPDIR if set, otherwise fall back to platform defaults
-  const baseTmpDir =
-    process.env.CLAUDE_CODE_TMPDIR ||
-    (platform === 'win32' ? process.env.TEMP || 'C:\\Temp' : '/tmp')
+  const baseTmpDir = getTempDir()
   const screenshotFilename = 'claude_cli_latest_screenshot.png'
   const tempPaths: Record<SupportedPlatform, string> = {
     darwin: join(baseTmpDir, screenshotFilename),

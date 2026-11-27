@@ -1,6 +1,6 @@
 import { feature } from 'bun:bundle'
 import { randomUUID } from 'crypto'
-import { hostname, tmpdir } from 'os'
+import { hostname } from 'os'
 import { basename, join, resolve } from 'path'
 import { getRemoteSessionUrl } from '../constants/product.js'
 import { shutdownDatadog } from '../services/analytics/datadog.js'
@@ -21,6 +21,7 @@ import { truncateToWidth } from '../utils/format.js'
 import { logError } from '../utils/log.js'
 import { sleep } from '../utils/sleep.js'
 import { plural } from '../utils/stringUtils.js'
+import { getTempDir } from '../utils/tempfile.js'
 import { generateShortWordSlug } from '../utils/words.js'
 import {
   createAgentWorktree,
@@ -352,7 +353,7 @@ export async function runBridgeLoop(
           ? `${config.debugFile.slice(0, ext)}-*${config.debugFile.slice(ext)}`
           : `${config.debugFile}-*`
     } else {
-      debugGlob = join(tmpdir(), 'claude', 'bridge-session-*.log')
+      debugGlob = join(getTempDir(), 'claude', 'bridge-session-*.log')
     }
     logger.setDebugLogPath(debugGlob)
   }
@@ -1103,7 +1104,7 @@ export async function runBridgeLoop(
             }
           } else if (config.verbose || process.env.USER_TYPE === 'ant') {
             sessionDebugFile = join(
-              tmpdir(),
+              getTempDir(),
               'claude',
               `bridge-session-${safeId}.log`,
             )

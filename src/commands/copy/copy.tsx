@@ -1,6 +1,5 @@
 import { mkdir, writeFile } from 'fs/promises'
 import { marked, type Tokens } from 'marked'
-import { tmpdir } from 'os'
 import { join } from 'path'
 import React, { useRef } from 'react'
 import type { CommandResultDisplay } from '../../commands.js'
@@ -19,8 +18,9 @@ import type { AssistantMessage, Message } from '../../types/message.js'
 import { getGlobalConfig, saveGlobalConfig } from '../../utils/config.js'
 import { extractTextContent, stripPromptXMLTags } from '../../utils/messages.js'
 import { countCharInString } from '../../utils/stringUtils.js'
+import { getTempDir } from '../../utils/tempfile.js'
 
-const COPY_DIR = join(tmpdir(), 'claude')
+const COPY_DIR = join(getTempDir(), 'claude')
 const RESPONSE_FILENAME = 'response.md'
 const MAX_LOOKBACK = 20
 

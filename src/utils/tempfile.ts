@@ -3,6 +3,20 @@ import { tmpdir } from 'os'
 import { join } from 'path'
 
 /**
+ * Base directory for temporary files: CLAUDE_CODE_TMPDIR when set, /tmp on
+ * macOS, otherwise the OS temp directory.
+ */
+export function getTempDir(): string {
+  if (process.env.CLAUDE_CODE_TMPDIR) {
+    return process.env.CLAUDE_CODE_TMPDIR
+  }
+  if (process.platform === 'darwin') {
+    return '/tmp'
+  }
+  return tmpdir()
+}
+
+/**
  * Generate a temporary file path.
  *
  * @param prefix Optional prefix for the temp file name
@@ -27,5 +41,5 @@ export function generateTempFilePath(
         .digest('hex')
         .slice(0, 16)
     : randomUUID()
-  return join(tmpdir(), `${prefix}-${id}${extension}`)
+  return join(getTempDir(), `${prefix}-${id}${extension}`)
 }

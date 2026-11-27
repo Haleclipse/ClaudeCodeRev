@@ -1,10 +1,10 @@
 import { mkdir, unlink, writeFile } from 'fs/promises'
-import { tmpdir } from 'os'
 import { join } from 'path'
 import { type AnsiToPngOptions, ansiToPng } from './ansiToPng.js'
 import { execFileNoThrowWithCwd } from './execFileNoThrow.js'
 import { logError } from './log.js'
 import { getPlatform } from './platform.js'
+import { getTempDir } from './tempfile.js'
 
 /**
  * Copies an image (from ANSI text) to the system clipboard.
@@ -18,7 +18,7 @@ export async function copyAnsiToClipboard(
   options?: AnsiToPngOptions,
 ): Promise<{ success: boolean; message: string }> {
   try {
-    const tempDir = join(tmpdir(), 'claude-code-screenshots')
+    const tempDir = join(getTempDir(), 'claude-code-screenshots')
     await mkdir(tempDir, { recursive: true })
 
     const pngPath = join(tempDir, `screenshot-${Date.now()}.png`)

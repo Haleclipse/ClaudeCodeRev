@@ -399,12 +399,6 @@ export type AppState = DeepImmutable<{
   }
   speculation: SpeculationState
   speculationSessionTimeSavedMs: number
-  skillImprovement: {
-    suggestion: {
-      skillName: string
-      updates: { section: string; change: string; reason: string }[]
-    } | null
-  }
   // Auth version - incremented on login/logout to trigger re-fetching of auth-dependent data
   authVersion: number
   // Initial message to process (from CLI args or plan mode exit)
@@ -569,9 +563,6 @@ export function getDefaultAppState(): AppState {
     },
     speculation: IDLE_SPECULATION_STATE,
     speculationSessionTimeSavedMs: 0,
-    skillImprovement: {
-      suggestion: null,
-    },
     authVersion: 0,
     initialMessage: null,
     effortValue: undefined,

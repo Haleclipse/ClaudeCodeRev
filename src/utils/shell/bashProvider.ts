@@ -1,6 +1,5 @@
 import { feature } from 'bun:bundle'
 import { access } from 'fs/promises'
-import { tmpdir as osTmpdir } from 'os'
 import { join as nativeJoin } from 'path'
 import { join as posixJoin } from 'path/posix'
 import { quoteWithEvalStdinRedirect } from '../bash/bashPipeCommand.js'
@@ -16,6 +15,7 @@ import { logForDebugging } from '../debug.js'
 import { getPlatform } from '../platform.js'
 import { getSessionEnvironmentScript } from '../sessionEnvironment.js'
 import { getSessionEnvVars } from '../sessionEnvVars.js'
+import { getTempDir } from '../tempfile.js'
 import {
   ensureSocketInitialized,
   getClaudeTmuxEnv,
@@ -105,7 +105,7 @@ export async function createBashShellProvider(
       // Stash sandboxTmpDir for use in getEnvironmentOverrides
       currentSandboxTmpDir = opts.sandboxTmpDir
 
-      const tmpdir = osTmpdir()
+      const tmpdir = getTempDir()
       const isWindows = getPlatform() === 'windows'
       const shellTmpdir = isWindows ? windowsPathToPosixPath(tmpdir) : tmpdir
 

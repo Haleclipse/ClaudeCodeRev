@@ -11,7 +11,7 @@ import { parseTokenBudget } from '../utils/tokenBudget.js'
 import { tokenCountWithEstimation } from '../utils/tokens.js'
 import { count } from '../utils/array.js'
 import { dirname, join } from 'path'
-import { tmpdir } from 'os'
+import { getTempDir } from '../utils/tempfile.js'
 import figures from 'figures'
 // eslint-disable-next-line custom-rules/prefer-use-keybindings -- / n N Esc [ v are bare letters in transcript modal context, same class as g/G/j/k in ScrollKeybindingHandler
 import { useInput } from '../ink.js'
@@ -147,8 +147,6 @@ import type { DirectConnectConfig } from '../server/directConnectManager.js'
 import { useSSHSession } from '../hooks/useSSHSession.js'
 import { useAssistantHistory } from '../hooks/useAssistantHistory.js'
 import type { SSHSession } from '../ssh/createSSHSession.js'
-import { SkillImprovementSurvey } from '../components/SkillImprovementSurvey.js'
-import { useSkillImprovementSurvey } from '../hooks/useSkillImprovementSurvey.js'
 import { useMoreRight } from '../moreright/useMoreRight.js'
 import {
   SpinnerWithVerb,
@@ -2326,8 +2324,6 @@ export function REPL({
     'session',
     hasActivePrompt,
   )
-
-  const skillImprovementSurvey = useSkillImprovementSurvey(setMessages)
 
   const showIssueFlagBanner = useIssueFlagBanner(messages, submitCount)
 
@@ -5834,7 +5830,7 @@ export function REPL({
               w,
             )
             const text = raw.replace(/[ \t]+$/gm, '')
-            const path = join(tmpdir(), `cc-transcript-${Date.now()}.txt`)
+            const path = join(getTempDir(), `cc-transcript-${Date.now()}.txt`)
             await writeFile(path, text)
             const opened = openFileInExternalEditor(path)
             setStatus(
@@ -6996,20 +6992,6 @@ export function REPL({
                           setInputValue={setInputValue}
                         />
                       )}
-                      {/* Skill improvement survey - appears when improvements detected (ant-only) */}
-                      {"external" === 'ant' &&
-                        skillImprovementSurvey.suggestion && (
-                          <SkillImprovementSurvey
-                            isOpen={skillImprovementSurvey.isOpen}
-                            skillName={
-                              skillImprovementSurvey.suggestion.skillName
-                            }
-                            updates={skillImprovementSurvey.suggestion.updates}
-                            handleSelect={skillImprovementSurvey.handleSelect}
-                            inputValue={inputValue}
-                            setInputValue={setInputValue}
-                          />
-                        )}
                       {showIssueFlagBanner && <IssueFlagBanner />}
                       {
                       }

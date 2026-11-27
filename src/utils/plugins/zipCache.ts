@@ -40,13 +40,13 @@ import {
   stat,
   writeFile,
 } from 'fs/promises'
-import { tmpdir } from 'os'
 import { basename, dirname, join } from 'path'
 import { logForDebugging } from '../debug.js'
 import { parseZipModes, unzipFile } from '../dxt/zip.js'
 import { isEnvTruthy } from '../envUtils.js'
 import { getFsImplementation } from '../fsOperations.js'
 import { expandTilde } from '../permissions/pathValidation.js'
+import { getTempDir } from '../tempfile.js'
 import type { MarketplaceSource } from './schemas.js'
 
 /**
@@ -129,7 +129,7 @@ export async function getSessionPluginCachePath(): Promise<string> {
   if (!sessionPluginCachePromise) {
     sessionPluginCachePromise = (async () => {
       const suffix = randomBytes(8).toString('hex')
-      const dir = join(tmpdir(), `claude-plugin-session-${suffix}`)
+      const dir = join(getTempDir(), `claude-plugin-session-${suffix}`)
       await getFsImplementation().mkdir(dir)
       sessionPluginCachePath = dir
       logForDebugging(`Created session plugin cache at ${dir}`)

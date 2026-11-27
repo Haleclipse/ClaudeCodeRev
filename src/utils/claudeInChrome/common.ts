@@ -1,12 +1,13 @@
 import { readdirSync } from 'fs'
 import { stat } from 'fs/promises'
-import { homedir, platform, tmpdir, userInfo } from 'os'
+import { homedir, platform, userInfo } from 'os'
 import { join } from 'path'
 import { normalizeNameForMCP } from '../../services/mcp/normalization.js'
 import { logForDebugging } from '../debug.js'
 import { isFsInaccessible } from '../errors.js'
 import { execFileNoThrow } from '../execFileNoThrow.js'
 import { getPlatform } from '../platform.js'
+import { getTempDir } from '../tempfile.js'
 import { which } from '../which.js'
 
 export const CLAUDE_IN_CHROME_MCP_SERVER_NAME = 'claude-in-chrome'
@@ -513,7 +514,7 @@ export function getAllSocketPaths(): string[] {
 
   // Legacy fallback paths
   const legacyName = `claude-mcp-browser-bridge-${getUsername()}`
-  const legacyTmpdir = join(tmpdir(), legacyName)
+  const legacyTmpdir = join(getTempDir(), legacyName)
   const legacyTmp = `/tmp/${legacyName}`
 
   if (!paths.includes(legacyTmpdir)) {

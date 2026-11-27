@@ -45,6 +45,7 @@ import {
 } from './idePathConversion.js'
 import { sleep } from './sleep.js'
 import { jsonParse } from './slowOperations.js'
+import { getTempDir } from './tempfile.js'
 
 function isProcessRunning(pid: number): boolean {
   try {
@@ -1437,7 +1438,7 @@ async function installFromArtifactory(command: string): Promise<string> {
     // Download the .vsix file from artifactory
     const vsixUrl = `https://artifactory.infra.ant.dev/artifactory/armorcode-claude-code-internal/claude-vscode-releases/${version}/claude-code.vsix`
     const tempVsixPath = join(
-      os.tmpdir(),
+      getTempDir(),
       `claude-code-${version}-${Date.now()}.vsix`,
     )
 
