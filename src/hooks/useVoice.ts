@@ -1156,7 +1156,7 @@ export function useVoice({
         )
       }
     },
-    [enabled, focusMode, cleanup, mode],
+    [enabled, focusMode, mode, cleanup],
   )
 
   // Cleanup only when disabled or unmounted - NOT on state changes

@@ -77,5 +77,5 @@ export function useTabStatus(
         ? { ...preset, status: statusDetail }
         : preset
     writeRaw(wrapForMultiplexer(tabStatus(status)))
-  }, [kind, writeRaw, statusDetail])
+  }, [kind, statusDetail, writeRaw])
 }

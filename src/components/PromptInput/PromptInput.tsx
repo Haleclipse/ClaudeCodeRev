@@ -390,7 +390,7 @@ function PromptInput({
     },
     [onInputChange],
   )
-  const onSubmitRef = React.useRef<
+  const onSubmitRef = useRef<
     | ((inputParam: string, isSubmittingSlashCommand?: boolean) => Promise<void>)
     | null
   >(null)

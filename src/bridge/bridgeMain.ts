@@ -25,7 +25,7 @@ import { getTempDir } from '../utils/tempfile.js'
 import { generateShortWordSlug } from '../utils/words.js'
 import {
   createAgentWorktree,
-  getWorktreeChanges,
+  getAgentWorktreeChanges,
   removeAgentWorktree,
 } from '../utils/worktree.js'
 import {
@@ -1629,7 +1629,7 @@ async function cleanupSessionWorktree(
 ): Promise<void> {
   const { dirty, commitsAhead, gitError } = wt.hookBased
     ? { dirty: false, commitsAhead: 0 }
-    : await getWorktreeChanges(wt.worktreePath, wt.headCommit)
+    : await getAgentWorktreeChanges(wt.worktreePath, wt.headCommit)
   if (dirty || commitsAhead > 0) {
     const commits = `${commitsAhead} ${plural(commitsAhead, 'commit')}`
     const reason = gitError

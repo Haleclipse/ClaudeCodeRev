@@ -142,13 +142,13 @@ function ApplyAdvisorChoice({
   onDone: LocalJSXCommandOnDone
 }): React.ReactNode {
   const setAppState = useSetAppState()
-  const mainLoopModel = useMainLoopModel()
+  const baseModel = useMainLoopModel()
   const appliedRef = React.useRef(false)
   React.useEffect(() => {
     if (appliedRef.current) return
     appliedRef.current = true
-    onDone(applyAdvisorChoice(choice, mainLoopModel, setAppState))
-  }, [choice, mainLoopModel, setAppState, onDone])
+    onDone(applyAdvisorChoice(choice, baseModel, setAppState))
+  }, [choice, baseModel, setAppState, onDone])
   return null
 }
 

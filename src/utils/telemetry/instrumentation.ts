@@ -214,7 +214,7 @@ async function getOtlpReaders() {
   })
 }
 
-async function getOtlpLogExporters() {
+export async function getOtlpLogExporters() {
   const exporterTypes = parseExporterTypes(process.env.OTEL_LOGS_EXPORTER)
 
   const protocol =
@@ -746,7 +746,7 @@ export async function flushTelemetry(): Promise<void> {
   }
 }
 
-function parseOtelHeadersEnvVar(): Record<string, string> {
+export function parseOtelHeadersEnvVar(): Record<string, string> {
   const headers: Record<string, string> = {}
   const envHeaders = process.env.OTEL_EXPORTER_OTLP_HEADERS
   if (envHeaders) {
@@ -765,7 +765,7 @@ function parseOtelHeadersEnvVar(): Record<string, string> {
  * - HTTP agent options (proxy, mTLS)
  * - Dynamic headers via otelHeadersHelper or static headers from env var
  */
-function getOTLPExporterConfig() {
+export function getOTLPExporterConfig() {
   const proxyUrl = getProxyUrl()
   const mtlsConfig = getMTLSConfig()
   const settings = getSettings_DEPRECATED()

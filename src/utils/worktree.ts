@@ -1030,7 +1030,7 @@ export async function createAgentWorktree(
  * Without a baseline commit only the working tree is checked. A failing git
  * command is reported as dirty with gitError set.
  */
-export async function getWorktreeChanges(
+export async function getAgentWorktreeChanges(
   worktreePath: string,
   headCommit: string | undefined,
 ): Promise<{ dirty: boolean; commitsAhead: number; gitError?: boolean }> {
@@ -1257,7 +1257,7 @@ export async function hasWorktreeChanges(
   worktreePath: string,
   headCommit: string,
 ): Promise<boolean> {
-  const { dirty, commitsAhead } = await getWorktreeChanges(
+  const { dirty, commitsAhead } = await getAgentWorktreeChanges(
     worktreePath,
     headCommit,
   )

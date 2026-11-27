@@ -75,10 +75,10 @@ function ProfileChooser({
   const prepopulated = tooMany
     ? profiles.find(name => name.toLowerCase().includes('bedrock'))
     : undefined
-  const [profileName, setProfileName] = useState(
+  const [value, setValue] = useState(
     wizardData.awsProfile ?? prepopulated ?? '',
   )
-  const [cursorOffset, setCursorOffset] = useState(profileName.length)
+  const [cursorOffset, setCursorOffset] = useState(value.length)
   const [error, setError] = useState<string | null>(null)
 
   useKeybinding('confirm:no', goBack, {
@@ -121,7 +121,7 @@ function ProfileChooser({
   }
 
   const handleSubmit = (): void => {
-    const trimmed = profileName.trim()
+    const trimmed = value.trim()
     if (!trimmed) {
       setError('Profile name is required')
       return
@@ -158,8 +158,8 @@ function ProfileChooser({
         </Text>
         <Box marginTop={1}>
           <TextInput
-            value={profileName}
-            onChange={setProfileName}
+            value={value}
+            onChange={setValue}
             onSubmit={handleSubmit}
             placeholder="my-bedrock-profile"
             columns={60}

@@ -83,6 +83,7 @@ let mockHeaders: MockHeaders = {}
 let mockEnabled = false
 let mockHeaderless429Message: string | null = null
 let mockSubscriptionType: SubscriptionType | null = null
+let mockRateLimitTier: string | null = null
 let mockFastModeRateLimitDurationMs: number | null = null
 let mockFastModeRateLimitExpiresAt: number | null = null
 // Default subscription type for mock testing
@@ -815,7 +816,10 @@ export function setMockSubscriptionType(
 
 // Mock rate-limit tier override; null when no override is active
 export function getMockRateLimitTier(): string | null {
-  return null
+  if (!mockEnabled || process.env.USER_TYPE !== 'ant') {
+    return null
+  }
+  return mockRateLimitTier
 }
 
 export function getMockSubscriptionType(): SubscriptionType | null {

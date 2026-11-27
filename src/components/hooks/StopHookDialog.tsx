@@ -24,12 +24,12 @@ export function StopHookDialog({
   onSubmit,
   onCancel,
 }: Props): React.ReactNode {
-  const [value, setValue] = useState(initialPrompt)
+  const [prompt, setPrompt] = useState(initialPrompt)
   const [cursorOffset, setCursorOffset] = useState(initialPrompt.length)
   const [focus, setFocus] = useState<Focus>('input')
   const { columns } = useTerminalSize()
 
-  const trimmed = value.trim()
+  const trimmed = prompt.trim()
   const isEmpty = trimmed.length === 0
   // Submitting an empty prompt deletes an existing hook
   const deleting = existingHookPresent && isEmpty
@@ -95,8 +95,8 @@ export function StopHookDialog({
           <Box flexDirection="row" gap={1} marginTop={1}>
             <Text>{'>'}</Text>
             <TextInput
-              value={value}
-              onChange={setValue}
+              value={prompt}
+              onChange={setPrompt}
               onSubmit={handleSubmit}
               focus={focus === 'input'}
               showCursor={focus === 'input'}

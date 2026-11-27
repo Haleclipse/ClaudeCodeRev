@@ -1,10 +1,10 @@
 import axios from 'axios'
-// Import order mirrors the module-init order of the 2.1.89 bundle.
+// Import order mirrors the module-init order of the 2.1.92 bundle.
 import { randomUUID } from '../utils/crypto.js'
 import { onInteraction } from '../bootstrap/state.js'
 import { logForDebugging } from '../utils/debug.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from './analytics/growthbook.js'
 import { isEssentialTrafficOnly } from '../utils/privacyLevel.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from './analytics/growthbook.js'
 
 /**
  * Remote Control client presence: while a bridge session is up, each user
