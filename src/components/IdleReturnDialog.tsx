@@ -8,17 +8,17 @@ type IdleReturnAction = 'continue' | 'clear' | 'dismiss' | 'never'
 
 type Props = {
   idleMinutes: number
-  totalInputTokens: number
+  contextTokens: number
   onDone: (action: IdleReturnAction) => void
 }
 
 export function IdleReturnDialog({
   idleMinutes,
-  totalInputTokens,
+  contextTokens,
   onDone,
 }: Props): React.ReactNode {
   const formattedIdle = formatIdleDuration(idleMinutes)
-  const formattedTokens = formatTokens(totalInputTokens)
+  const formattedTokens = formatTokens(contextTokens)
 
   return (
     <Dialog
