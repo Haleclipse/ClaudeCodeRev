@@ -78,9 +78,9 @@ export function renderToolUseMessage(
   input: Partial<BashToolInput>,
   { verbose, theme: _theme }: { verbose: boolean; theme: ThemeName },
 ): React.ReactNode {
-  const { command } = input
+  const { command, rerun } = input
   if (!command) {
-    return null
+    return rerun ? `rerun ${rerun}` : null
   }
 
   // Render sed in-place edits like file edits (show file path only)

@@ -18,6 +18,7 @@ import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
 } from '../../services/analytics/index.js'
+import type { ToolResultDedupState } from '../../services/tools/dedupToolResults.js'
 import type { AppState } from '../../state/AppState.js'
 import { isInProcessTeammateTask } from '../../tasks/InProcessTeammateTask/types.js'
 import {
@@ -59,6 +60,7 @@ export async function clearConversation({
   getAppState,
   setAppState,
   setConversationId,
+  resultDedupState,
 }: {
   setMessages: (updater: (prev: Message[]) => Message[]) => void
   readFileState: FileStateCache
@@ -68,6 +70,7 @@ export async function clearConversation({
   getAppState?: () => AppState
   setAppState?: (f: (prev: AppState) => AppState) => void
   setConversationId?: (id: UUID) => void
+  resultDedupState?: ToolResultDedupState
 }): Promise<void> {
   // Execute SessionEnd hooks before clearing (bounded by
   // CLAUDE_CODE_SESSIONEND_HOOKS_TIMEOUT_MS, default 1.5s)
@@ -137,6 +140,10 @@ export async function clearConversation({
   discoveredSkillNames?.clear()
   loadedNestedMemoryPaths?.clear()
   resetMemorySelector(memorySelector)
+  if (resultDedupState) {
+    resultDedupState.seen.clear()
+    resultDedupState.counter = 0
+  }
 
   // Clean out necessary items from App State
   if (setAppState) {

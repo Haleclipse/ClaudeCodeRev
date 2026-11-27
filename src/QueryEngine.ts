@@ -46,6 +46,7 @@ import {
   toolMatchesName,
 } from './Tool.js'
 import type { AgentDefinition } from './tools/AgentTool/loadAgentsDir.js'
+import { createRerunAliasTable } from './tools/BashTool/rerunAliases.js'
 import { SYNTHETIC_OUTPUT_TOOL_NAME } from './tools/SyntheticOutputTool/SyntheticOutputTool.js'
 import type { Message } from './types/message.js'
 import type { OrphanedPermission } from './types/textInputTypes.js'
@@ -217,6 +218,7 @@ export class QueryEngine {
   private discoveredSkillNames = new Set<string>()
   private loadedNestedMemoryPaths = new Set<string>()
   private memorySelector = createMemorySelector()
+  private bashRerunAliases = createRerunAliasTable()
 
   constructor(config: QueryEngineConfig) {
     this.config = config
@@ -398,6 +400,7 @@ export class QueryEngine {
       dynamicSkillDirTriggers: new Set<string>(),
       discoveredSkillNames: this.discoveredSkillNames,
       memorySelector: this.memorySelector,
+      bashRerunAliases: this.bashRerunAliases,
       setInProgressToolUseIDs: () => {},
       setResponseLength: () => {},
       updateFileHistoryState: (
@@ -658,6 +661,7 @@ export class QueryEngine {
       dynamicSkillDirTriggers: new Set<string>(),
       discoveredSkillNames: this.discoveredSkillNames,
       memorySelector: this.memorySelector,
+      bashRerunAliases: this.bashRerunAliases,
       setInProgressToolUseIDs: () => {},
       setResponseLength: () => {},
       updateFileHistoryState: processUserInputContext.updateFileHistoryState,

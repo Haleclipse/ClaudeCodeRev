@@ -61,6 +61,8 @@ import type { MemorySelector } from './memdir/memorySelector.js'
 import type { DenialTrackingState } from './utils/permissions/denialTracking.js'
 import type { SystemPrompt } from './utils/systemPromptType.js'
 import type { ContentReplacementState } from './utils/toolResultStorage.js'
+import type { RerunAliasTable } from './tools/BashTool/rerunAliases.js'
+import type { ToolResultDedupState } from './services/tools/dedupToolResults.js'
 
 // Re-export progress types for backwards compatibility
 export type {
@@ -267,6 +269,10 @@ export type ToolUseContext = {
   globLimits?: {
     maxResults?: number
   }
+  /** Session aliases for Bash rerun ({rerun: 'bN'}) */
+  bashRerunAliases?: RerunAliasTable
+  /** Per-session state for deduplicating identical tool results */
+  resultDedupState?: ToolResultDedupState
   toolDecisions?: Map<
     string,
     {

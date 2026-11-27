@@ -21,6 +21,7 @@ import {
 } from '../services/analytics/index.js'
 import { accumulateUsage, updateUsage } from '../services/api/claude.js'
 import { EMPTY_USAGE, type NonNullableUsage } from '../services/api/logging.js'
+import { createToolResultDedupState } from '../services/tools/dedupToolResults.js'
 import type { ToolUseContext } from '../Tool.js'
 import type { AgentDefinition } from '../tools/AgentTool/loadAgentsDir.js'
 import type { AgentId } from '../types/ids.js'
@@ -389,6 +390,7 @@ export function createSubagentContext(
     discoveredSkillNames: new Set<string>(),
     // Per-subagent relevant-memory selector conversation
     memorySelector: createMemorySelector(),
+    bashRerunAliases: { map: new Map(), nextId: 1 },
     toolDecisions: undefined,
     // Budget decisions: override > clone of parent > undefined (feature off).
     //
@@ -406,6 +408,7 @@ export function createSubagentContext(
       (parentContext.contentReplacementState
         ? cloneContentReplacementState(parentContext.contentReplacementState)
         : undefined),
+    resultDedupState: createToolResultDedupState(),
 
     // AbortController
     abortController,

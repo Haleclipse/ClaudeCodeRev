@@ -38,6 +38,12 @@ import {
 } from '../../Tool.js'
 import type { BashToolInput } from '../../tools/BashTool/BashTool.js'
 import { startSpeculativeClassifierCheck } from '../../tools/BashTool/bashPermissions.js'
+import {
+  formatRerunMarker,
+  isRerunAliasEnabled,
+  registerRerunAlias,
+  resolveRerunAlias,
+} from '../../tools/BashTool/rerunAliases.js'
 import { BASH_TOOL_NAME } from '../../tools/BashTool/toolName.js'
 import { FILE_EDIT_TOOL_NAME } from '../../tools/FileEditTool/constants.js'
 import type { Input as FileReadInput } from '../../tools/FileReadTool/FileReadTool.js'
@@ -130,6 +136,7 @@ import {
   getMcpServerScopeFromToolName,
   isMcpTool,
 } from '../mcp/utils.js'
+import { dedupToolResult } from './dedupToolResults.js'
 import { resyncFileStateAfterPostToolUse } from './postToolUseFileSync.js'
 import {
   resolveHookPermissionDecision,
@@ -635,6 +642,65 @@ async function checkPermissionsAndCallTool(
     progress: ToolProgress<ToolProgressData> | ProgressMessage<HookProgress>,
   ) => void,
 ): Promise<MessageUpdateLazy[]> {
+  const toolInputSizeBytes = jsonStringify(input).length
+
+  // Bash rerun: swap a [rerun: bN] alias back to the command it stands for
+  if (
+    tool.name === BASH_TOOL_NAME &&
+    isRerunAliasEnabled() &&
+    typeof input.rerun === 'string'
+  ) {
+    if (typeof input.command === 'string' && input.command.length > 0) {
+      return [
+        {
+          message: createUserMessage({
+            content: [
+              {
+                type: 'tool_result',
+                content:
+                  "<tool_use_error>'rerun' and 'command' are mutually exclusive — provide one or the other.</tool_use_error>",
+                is_error: true,
+                tool_use_id: toolUseID,
+              },
+            ],
+            toolUseResult:
+              "Error: 'rerun' and 'command' are mutually exclusive",
+            sourceToolAssistantUUID: assistantMessage.uuid,
+          }),
+        },
+      ]
+    }
+    const resolved = resolveRerunAlias(
+      toolUseContext.bashRerunAliases,
+      input.rerun,
+    )
+    if (resolved.error !== undefined) {
+      logEvent('tengu_bash_rerun_used', { ok: false })
+      return [
+        {
+          message: createUserMessage({
+            content: [
+              {
+                type: 'tool_result',
+                content: `<tool_use_error>${resolved.error}</tool_use_error>`,
+                is_error: true,
+                tool_use_id: toolUseID,
+              },
+            ],
+            toolUseResult: `Error: ${resolved.error}`,
+            sourceToolAssistantUUID: assistantMessage.uuid,
+          }),
+        },
+      ]
+    }
+    logEvent('tengu_bash_rerun_used', {
+      ok: true,
+      commandBytes: Buffer.byteLength(resolved.command!, 'utf8'),
+    })
+    const { rerun: _rerun, ...rest } = input
+    input = { ...rest, command: resolved.command }
+  }
+
   // Validate input types with zod (surprisingly, the model is not great at generating valid input)
   const parsedInput = tool.inputSchema.safeParse(input)
   if (!parsedInput.success) {
@@ -1272,6 +1338,20 @@ async function checkPermissionsAndCallTool(
   } else if (processedInput !== backfilledClone) {
     callInput = processedInput
   }
+  // Register a rerun alias for the command; it is appended to the result
+  let rerunAlias: string | undefined
+  if (
+    tool.name === BASH_TOOL_NAME &&
+    isRerunAliasEnabled() &&
+    toolUseContext.bashRerunAliases &&
+    'command' in processedInput &&
+    typeof processedInput.command === 'string'
+  ) {
+    rerunAlias = registerRerunAlias(
+      toolUseContext.bashRerunAliases,
+      processedInput.command,
+    )
+  }
   try {
     const result = await tool.call(
       callInput,
@@ -1358,10 +1438,30 @@ async function checkPermissionsAndCallTool(
 
     // Map the tool result to API format once and cache it. This block is reused
     // by addToolResult (skipping the remap) and measured here for analytics.
-    const mappedToolResultBlock = tool.mapToolResultToToolResultBlockParam(
+    const rawToolResultBlock = tool.mapToolResultToToolResultBlockParam(
       result.data,
       toolUseID,
     )
+    const mappedToolResultBlock = isMcpTool(tool)
+      ? rawToolResultBlock
+      : dedupToolResult(
+          rawToolResultBlock,
+          tool.name,
+          toolUseContext.resultDedupState,
+          tool.maxResultSizeChars,
+        )
+    if (rerunAlias !== undefined) {
+      const marker = formatRerunMarker(rerunAlias)
+      if (typeof mappedToolResultBlock.content === 'string') {
+        mappedToolResultBlock.content +=
+          (mappedToolResultBlock.content ? '\n' : '') + marker
+      } else if (Array.isArray(mappedToolResultBlock.content)) {
+        mappedToolResultBlock.content = [
+          ...mappedToolResultBlock.content,
+          { type: 'text', text: marker },
+        ]
+      }
+    }
     const mappedContent = mappedToolResultBlock.content
     const toolResultSizeBytes = !mappedContent
       ? 0
@@ -1411,6 +1511,7 @@ async function checkPermissionsAndCallTool(
       durationMs,
       preToolHookDurationMs,
       toolResultSizeBytes,
+      toolInputSizeBytes,
       ...(fileExtension !== undefined && { fileExtension }),
       ...(filePathLen !== undefined && { filePathLen }),
       ...(bashCommandLen !== undefined && { bashCommandLen }),
@@ -1788,7 +1889,10 @@ async function checkPermissionsAndCallTool(
         ...(mcpServerScope && { mcp_server_scope: mcpServerScope }),
       })
     }
-    const content = formatError(error)
+    const content =
+      rerunAlias !== undefined
+        ? `${formatError(error)}\n${formatRerunMarker(rerunAlias)}`
+        : formatError(error)
 
     // Determine if this was a user interrupt
     const isInterrupt = error instanceof AbortError

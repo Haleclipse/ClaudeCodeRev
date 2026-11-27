@@ -24,6 +24,7 @@ import { GLOB_TOOL_NAME } from '../GlobTool/prompt.js'
 import { GREP_TOOL_NAME } from '../GrepTool/prompt.js'
 import { isRelativePathsEnabled } from '../shared/relativePaths.js'
 import { TodoWriteTool } from '../TodoWriteTool/TodoWriteTool.js'
+import { isRerunAliasEnabled } from './rerunAliases.js'
 import { BASH_TOOL_NAME } from './toolName.js'
 
 export function getDefaultTimeoutMs(): number {
@@ -329,8 +330,12 @@ export function getSimplePrompt(): string {
         ]),
   ]
   const backgroundNote = getBackgroundUsageNote()
+  const rerunNote = isRerunAliasEnabled()
+    ? "To rerun a prior command exactly, emit {rerun:'bN'} from the result footer instead of retyping the command."
+    : null
 
   const instructionItems: Array<string | string[]> = [
+    ...(rerunNote !== null ? [rerunNote] : []),
     'If your command will create new directories or files, first use this tool to run `ls` to verify the parent directory exists and is the correct location.',
     'Always quote file paths that contain spaces with double quotes in your command (e.g., cd "path with spaces/file.txt")',
     isRelativePathsEnabled()

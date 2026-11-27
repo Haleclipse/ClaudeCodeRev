@@ -245,6 +245,7 @@ import {
 import { WEB_FETCH_TOOL_NAME } from '../tools/WebFetchTool/prompt.js'
 import { SLEEP_TOOL_NAME } from '../tools/SleepTool/prompt.js'
 import { clearSpeculativeChecks } from '../tools/BashTool/bashPermissions.js'
+import { createRerunAliasTable } from '../tools/BashTool/rerunAliases.js'
 import type { AutoUpdaterResult } from '../utils/autoUpdater.js'
 import {
   getGlobalConfig,
@@ -375,6 +376,7 @@ import {
   reconstructContentReplacementState,
   type ContentReplacementRecord,
 } from '../utils/toolResultStorage.js'
+import { restoreToolResultDedupState } from '../services/tools/dedupToolResults.js'
 import { partialCompactConversation } from '../services/compact/compact.js'
 import type { LogOption } from '../types/logs.js'
 import type { AgentColorName } from '../tools/AgentTool/agentColorManager.js'
@@ -2081,6 +2083,11 @@ export function REPL({
       initialContentReplacements,
     ),
   }))
+  // Tool result dedup numbering continues after the result ids already in a
+  // resumed conversation
+  const [resultDedupStateRef] = useState(() => ({
+    current: restoreToolResultDedupState(initialMessages ?? []),
+  }))
 
   const [haveShownCostDialog, setHaveShownCostDialog] = useState(
     getGlobalConfig().hasAcknowledgedCostThreshold,
@@ -2645,6 +2652,7 @@ export function REPL({
   // Session-level relevant-memory selector conversation (cached manifest +
   // prior selections). Reset in clearConversation and on compaction.
   const memorySelectorRef = useRef(createMemorySelector())
+  const bashRerunAliasesRef = useRef(createRerunAliasTable())
 
   // Helper to restore read file state from messages (used for resume flows)
   // This allows Claude to edit files that were read in previous sessions
@@ -3334,6 +3342,7 @@ export function REPL({
         dynamicSkillDirTriggers: new Set<string>(),
         discoveredSkillNames: discoveredSkillNamesRef.current,
         memorySelector: memorySelectorRef.current,
+        bashRerunAliases: bashRerunAliasesRef.current,
         setResponseLength,
         pushApiMetricsEntry:
           "external" === 'ant'
@@ -3381,6 +3390,7 @@ export function REPL({
         setConversationId,
         requestPrompt: feature('HOOK_PROMPTS') ? requestPrompt : undefined,
         contentReplacementState: contentReplacementStateRef.current,
+        resultDedupState: resultDedupStateRef.current,
       }
     },
     [
@@ -4202,11 +4212,13 @@ export function REPL({
           getAppState: () => store.getState(),
           setAppState,
           setConversationId,
+          resultDedupState: resultDedupStateRef.current,
         })
         haikuTitleAttemptedRef.current = false
         setHaikuTitle(undefined)
         bashTools.current.clear()
         bashToolsProcessedIdx.current = 0
+        bashRerunAliasesRef.current = createRerunAliasTable()
 
         // Restore the plan slug for the new session so getPlan() finds the file
         if (oldPlanSlug) {
@@ -6660,11 +6672,13 @@ export function REPL({
                           getAppState: () => store.getState(),
                           setAppState,
                           setConversationId,
+                          resultDedupState: resultDedupStateRef.current,
                         })
                         haikuTitleAttemptedRef.current = false
                         setHaikuTitle(undefined)
                         bashTools.current.clear()
                         bashToolsProcessedIdx.current = 0
+                        bashRerunAliasesRef.current = createRerunAliasTable()
                       }
                       skipIdleCheckRef.current = true
                       void onSubmitRef.current(pending.input, {
@@ -6820,6 +6834,7 @@ export function REPL({
                         memorySelector={memorySelectorRef.current}
                         getAppState={() => store.getState()}
                         setConversationId={setConversationId}
+                        resultDedupState={resultDedupStateRef.current}
                       />
                     )
                   : null}

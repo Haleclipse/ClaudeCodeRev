@@ -63,7 +63,11 @@ import type { ExecResult } from '../../utils/ShellCommand.js'
 import { SandboxManager } from '../../utils/sandbox/sandbox-adapter.js'
 import { semanticBoolean } from '../../utils/semanticBoolean.js'
 import { semanticNumber } from '../../utils/semanticNumber.js'
-import { EndTruncatingAccumulator, plural } from '../../utils/stringUtils.js'
+import {
+  EndTruncatingAccumulator,
+  plural,
+  textBefore,
+} from '../../utils/stringUtils.js'
 import { getTaskOutputPath } from '../../utils/task/diskOutput.js'
 import { TaskOutput } from '../../utils/task/TaskOutput.js'
 import { isOutputLineTruncated } from '../../utils/terminal.js'
@@ -90,6 +94,7 @@ import {
   getSimplePrompt,
 } from './prompt.js'
 import { checkReadOnlyConstraints } from './readOnlyValidation.js'
+import { isRerunAliasEnabled } from './rerunAliases.js'
 import { parseSedEditCommand } from './sedEditParser.js'
 import { shouldUseSandbox } from './shouldUseSandbox.js'
 import { BASH_TOOL_NAME } from './toolName.js'
@@ -308,6 +313,12 @@ For commands that are harder to parse at a glance (piped commands, obscure flags
     dangerouslyDisableSandbox: semanticBoolean(z.boolean().optional()).describe(
       'Set this to true to dangerously override sandbox mode and run commands without sandboxing.',
     ),
+    rerun: z
+      .string()
+      .optional()
+      .describe(
+        "Rerun a prior command exactly by passing the alias from a previous result's [rerun: bN] footer (e.g. 'b3'). Mutually exclusive with 'command'.",
+      ),
     _simulatedSedEdit: z
       .object({
         filePath: z.string(),
@@ -323,13 +334,22 @@ For commands that are harder to parse at a glance (piped commands, obscure flags
 // Exposing it in the schema would let the model bypass permission checks and the
 // sandbox by pairing an innocuous command with an arbitrary file write.
 // Also conditionally remove run_in_background when background tasks are disabled.
+// `rerun` is only exposed while rerun aliases are enabled (tengu_velvet_anchor)
 const inputSchema = lazySchema(() =>
   isBackgroundTasksDisabled
-    ? fullInputSchema().omit({
-        run_in_background: true,
-        _simulatedSedEdit: true,
-      })
-    : fullInputSchema().omit({ _simulatedSedEdit: true }),
+    ? isRerunAliasEnabled()
+      ? fullInputSchema().omit({
+          run_in_background: true,
+          _simulatedSedEdit: true,
+        })
+      : fullInputSchema().omit({
+          run_in_background: true,
+          _simulatedSedEdit: true,
+          rerun: true,
+        })
+    : isRerunAliasEnabled()
+      ? fullInputSchema().omit({ _simulatedSedEdit: true })
+      : fullInputSchema().omit({ _simulatedSedEdit: true, rerun: true }),
 )
 type InputSchema = ReturnType<typeof inputSchema>
 
@@ -371,7 +391,7 @@ function getCommandTypeForLogging(
 
   // Check each part of the command to see if any match common background commands
   for (const part of parts) {
-    const baseCommand = part.split(' ')[0] || ''
+    const baseCommand = textBefore(part, ' ')
     if (
       COMMON_BACKGROUND_COMMANDS.includes(
         baseCommand as (typeof COMMON_BACKGROUND_COMMANDS)[number],
@@ -665,6 +685,9 @@ export const BashTool = buildTool({
     return result.behavior === 'allow'
   },
   toAutoClassifierInput(input) {
+    if ('rerun' in input && typeof input.rerun === 'string' && !input.command) {
+      return `rerun ${input.rerun}`
+    }
     return input.command
   },
   async preparePermissionMatcher({ command }) {
@@ -1029,7 +1052,7 @@ export const BashTool = buildTool({
       }
     }
 
-    const commandType = input.command.split(' ')[0]
+    const commandType = textBefore(input.command, ' ')
 
     logEvent('tengu_bash_tool_command_executed', {
       command_type:

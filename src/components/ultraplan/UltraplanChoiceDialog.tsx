@@ -10,6 +10,7 @@ import { useRegisterOverlay } from '../../context/overlayContext.js'
 import { useTerminalSize } from '../../hooks/useTerminalSize.js'
 import { Box, Text, useInput, wrapText } from '../../ink.js'
 import type { MemorySelector } from '../../memdir/memorySelector.js'
+import type { ToolResultDedupState } from '../../services/tools/dedupToolResults.js'
 import { useSetAppState } from '../../state/AppState.js'
 import type { AppState } from '../../state/AppStateStore.js'
 import type { RemoteAgentTaskState } from '../../tasks/RemoteAgentTask/RemoteAgentTask.js'
@@ -45,6 +46,7 @@ type Props = {
   memorySelector?: MemorySelector
   getAppState: () => AppState
   setConversationId: (id: UUID) => void
+  resultDedupState?: ToolResultDedupState
 }
 
 /**
@@ -61,6 +63,7 @@ export function UltraplanChoiceDialog({
   memorySelector,
   getAppState,
   setConversationId,
+  resultDedupState,
 }: Props): React.ReactNode {
   useRegisterOverlay('ultraplan-choice')
   const setAppState = useSetAppState()
@@ -96,6 +99,7 @@ export function UltraplanChoiceDialog({
           getAppState,
           setAppState,
           setConversationId,
+          resultDedupState,
         })
         if (hadTranscript) {
           setMessages(prev => [
