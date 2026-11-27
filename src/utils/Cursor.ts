@@ -453,8 +453,14 @@ export class Cursor {
   }
 
   endOfLine(): Cursor {
-    const { line } = this.getPosition()
+    const { line, column: currentColumn } = this.getPosition()
     const column = this.measuredText.getLineLength(line)
+    // Already at the end of a wrapped line: move to the end of the next one
+    if (currentColumn >= column && line < this.measuredText.lineCount - 1) {
+      const nextColumn = this.measuredText.getLineLength(line + 1)
+      const nextOffset = this.getOffset({ line: line + 1, column: nextColumn })
+      return new Cursor(this.measuredText, nextOffset, 0)
+    }
     const offset = this.getOffset({ line, column })
     return new Cursor(this.measuredText, offset, 0)
   }
