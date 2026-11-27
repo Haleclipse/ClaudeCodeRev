@@ -57,6 +57,7 @@ import { errorMessage } from '../errors.js'
 import { getClaudeTempDir } from '../permissions/filesystem.js'
 import type { PermissionRuleValue } from '../permissions/PermissionRule.js'
 import { ripgrepCommand } from '../ripgrep.js'
+import { getEmbeddedSeccompConfig } from './seccomp.js'
 
 // Local copies to avoid circular dependency
 // (permissions.ts imports SandboxManager, bashPermissions.ts imports permissions.ts)
@@ -377,6 +378,7 @@ export function convertToSandboxRuntimeConfig(
     enableWeakerNetworkIsolation:
       settings.sandbox?.enableWeakerNetworkIsolation,
     ripgrep: ripgrepConfig,
+    seccomp: getEmbeddedSeccompConfig(),
   }
 }
 
@@ -771,6 +773,7 @@ async function initialize(
 
       // Log monitor is automatically enabled for macOS
       await BaseSandboxManager.initialize(runtimeConfig, wrappedCallback)
+      checkDependencies.cache.clear?.()
 
       // Subscribe to settings changes to update sandbox config dynamically
       settingsSubscriptionCleanup = settingsChangeDetector.subscribe(() => {

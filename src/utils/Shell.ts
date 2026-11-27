@@ -33,6 +33,7 @@ import { onCwdChangedForHooks } from './hooks/fileChangedWatcher.js'
 import { getClaudeTempDirName } from './permissions/filesystem.js'
 import { getPlatform } from './platform.js'
 import { SandboxManager } from './sandbox/sandbox-adapter.js'
+import { APPLY_SECCOMP_FD, getApplySeccompFd } from './sandbox/seccomp.js'
 import { invalidateSessionEnvCache } from './sessionEnvironment.js'
 import { createBashShellProvider } from './shell/bashProvider.js'
 import { getCachedPowerShellPath } from './shell/powershellDetection.js'
@@ -280,6 +281,9 @@ export async function exec(
     }
   }
 
+  // Linux native builds pass the embedded apply-seccomp helper to sandboxed
+  // commands as an inherited fd
+  const seccompFd = shouldUseSandbox ? await getApplySeccompFd() : undefined
   const spawnBinary = isSandboxedPowerShell ? '/bin/sh' : binShell
   const shellArgs = isSandboxedPowerShell
     ? ['-c', commandString]
@@ -333,9 +337,7 @@ export async function exec(
         }),
       },
       cwd,
-      stdio: usePipeMode
-        ? ['pipe', 'pipe', 'pipe']
-        : ['pipe', outputHandle?.fd, outputHandle?.fd],
+      stdio: buildStdio(usePipeMode, outputHandle?.fd, seccompFd),
       // Don't pass the signal - we'll handle termination ourselves with tree-kill
       detached: provider.detached,
       // Prevent visible console window on Windows (no-op on other platforms)
@@ -477,4 +479,18 @@ export function setCwd(path: string, relativeTo?: string): void {
       // Ignore logging errors to prevent test failures
     }
   }
+}
+
+function buildStdio(
+  usePipeMode: boolean,
+  outputFd: number | undefined,
+  seccompFd: number | undefined,
+): Array<'pipe' | number | undefined> {
+  const stdio: Array<'pipe' | number | undefined> = usePipeMode
+    ? ['pipe', 'pipe', 'pipe']
+    : ['pipe', outputFd, outputFd]
+  if (seccompFd !== undefined) {
+    stdio[APPLY_SECCOMP_FD] = seccompFd
+  }
+  return stdio
 }
