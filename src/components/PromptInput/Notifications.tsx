@@ -7,6 +7,7 @@ import {
 } from 'src/context/notifications.js'
 import { logEvent } from 'src/services/analytics/index.js'
 import { useAppState } from 'src/state/AppState.js'
+import { getLastApiCompletionTimestamp } from '../../bootstrap/state.js'
 import { useVoiceState } from '../../context/voice.js'
 import type { VerificationStatus } from '../../hooks/useApiKeyVerification.js'
 import { useIdeConnectionStatus } from '../../hooks/useIdeConnectionStatus.js'
@@ -14,6 +15,8 @@ import type { IDESelection } from '../../hooks/useIdeSelection.js'
 import { useMainLoopModel } from '../../hooks/useMainLoopModel.js'
 import { useVoiceEnabled } from '../../hooks/useVoiceEnabled.js'
 import { Box, Text } from '../../ink.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
+import { CACHE_TTL_1HOUR_MS } from '../../services/api/promptCacheBreakDetection.js'
 import { useClaudeAiLimits } from '../../services/claudeAiLimitsHook.js'
 import { calculateTokenWarningState } from '../../services/compact/autoCompact.js'
 import type { MCPServerConnection } from '../../services/mcp/types.js'
@@ -47,6 +50,7 @@ const VoiceIndicator: typeof import('./VoiceIndicator.js').VoiceIndicator =
 /* eslint-enable @typescript-eslint/no-require-imports */
 
 export const FOOTER_TEMPORARY_STATUS_TIMEOUT = 5000
+const CACHE_EXPIRY_HINT_MIN_TOKENS = 50_000
 
 type Props = {
   apiKeyStatus: VerificationStatus
@@ -236,6 +240,29 @@ function NotificationContent({
   onAutoUpdaterResult: (result: AutoUpdaterResult) => void
   onChangeIsUpdating: (isUpdating: boolean) => void
 }): ReactNode {
+  // Pro users: show "~Nk uncached" once a large context has gone longer than
+  // the 1h prompt cache TTL since the last API call. Recomputed every 30s.
+  const [cacheExpiryHint, setCacheExpiryHint] = useState<string | null>(null)
+  useEffect(() => {
+    if (
+      getSubscriptionType() !== 'pro' ||
+      !getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_swift', false)
+    ) {
+      setCacheExpiryHint(prev => (prev === null ? prev : null))
+      return
+    }
+    const update = () => {
+      const next = getCacheExpiryHint(
+        tokenUsage,
+        getLastApiCompletionTimestamp(),
+      )
+      setCacheExpiryHint(prev => (prev === next ? prev : next))
+    }
+    update()
+    const interval = setInterval(update, 30_000)
+    return () => clearInterval(interval)
+  }, [tokenUsage])
+
   // Poll apiKeyHelper inflight state to show slow-helper notice.
   // Gated on configuration — most users never set apiKeyHelper, so the
   // effect is a no-op for them (no interval allocated).
@@ -338,6 +365,13 @@ function NotificationContent({
           </Text>
         </Box>
       )}
+      {cacheExpiryHint && (
+        <Box>
+          <Text dimColor wrap="truncate">
+            {cacheExpiryHint}
+          </Text>
+        </Box>
+      )}
       {!isBriefOnly && (
         <TokenWarning tokenUsage={tokenUsage} model={mainLoopModel} />
       )}
@@ -365,4 +399,15 @@ function NotificationContent({
       <SandboxPromptFooterHint />
     </>
   )
+}
+
+function getCacheExpiryHint(
+  contextTokens: number,
+  lastApiCompletionTimestamp: number | null,
+  now = Date.now(),
+): string | null {
+  if (lastApiCompletionTimestamp === null) return null
+  if (contextTokens < CACHE_EXPIRY_HINT_MIN_TOKENS) return null
+  if (now - lastApiCompletionTimestamp <= CACHE_TTL_1HOUR_MS) return null
+  return `~${Math.round(contextTokens / 1000)}k uncached · /clear to start fresh`
 }
