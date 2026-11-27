@@ -531,17 +531,15 @@ const getGrowthBookClient = memoize(
       // Re-fetch when user ID or org changes (org change = login to different org)
       cacheKeyAttributes: ['id', 'organizationUUID'],
       // Add auth headers if available
-      ...(authHeaders.error
-        ? {}
-        : { apiHostRequestHeaders: authHeaders.headers }),
+      ...(!authHeaders.error && {
+        apiHostRequestHeaders: authHeaders.headers,
+      }),
       // Debug logging for Ants
-      ...(process.env.USER_TYPE === 'ant'
-        ? {
-            log: (msg: string, ctx: Record<string, unknown>) => {
-              logForDebugging(`GrowthBook: ${msg} ${jsonStringify(ctx)}`)
-            },
-          }
-        : {}),
+      ...(process.env.USER_TYPE === 'ant' && {
+        log: (msg: string, ctx: Record<string, unknown>) => {
+          logForDebugging(`GrowthBook: ${msg} ${jsonStringify(ctx)}`)
+        },
+      }),
     })
     client = thisClient
 

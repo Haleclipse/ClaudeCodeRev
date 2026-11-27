@@ -64,7 +64,7 @@ export function ConfirmStep({
     if (toolNames.length === 0) return 'None'
     if (toolNames.length === 1) return toolNames[0] || 'None'
     if (toolNames.length === 2) return toolNames.join(' and ')
-    return `${toolNames.slice(0, -1).join(', ')}, and ${toolNames[toolNames.length - 1]}`
+    return `${toolNames.slice(0, -1).join(', ')}, and ${toolNames.at(-1)}`
   }
 
   // Compute memory display outside JSX

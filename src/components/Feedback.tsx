@@ -34,6 +34,7 @@ import {
   MAX_TRANSCRIPT_READ_BYTES,
 } from '../utils/sessionStorage.js'
 import { jsonStringify } from '../utils/slowOperations.js'
+import { firstLineOf } from '../utils/stringUtils.js'
 import { asSystemPrompt } from '../utils/systemPromptType.js'
 import { ConfigurableShortcutHint } from './ConfigurableShortcutHint.js'
 import { Byline } from './design-system/Byline.js'
@@ -637,7 +638,7 @@ function createFallbackTitle(description: string): string {
   // Create a safe fallback title based on the bug description
 
   // Try to extract a meaningful title from the first line
-  const firstLine = description.split('\n')[0] || ''
+  const firstLine = firstLineOf(description)
 
   // If the first line is very short, use it directly
   if (firstLine.length <= 60 && firstLine.length > 5) {

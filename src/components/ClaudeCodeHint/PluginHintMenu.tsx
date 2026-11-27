@@ -21,7 +21,9 @@ export function PluginHintMenu({
   onResponse,
 }: Props): React.ReactNode {
   const onResponseRef = React.useRef(onResponse)
-  onResponseRef.current = onResponse
+  React.useEffect(() => {
+    onResponseRef.current = onResponse
+  })
 
   React.useEffect(() => {
     const timeoutId = setTimeout(

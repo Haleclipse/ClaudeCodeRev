@@ -75,7 +75,9 @@ export function NativeAutoUpdater({
   // (which would re-trigger the initial-check useEffect below and cause
   // repeated downloads on remount — the upstream trigger for #22413).
   const isUpdatingRef = useRef(isUpdating)
-  isUpdatingRef.current = isUpdating
+  useEffect(() => {
+    isUpdatingRef.current = isUpdating
+  })
 
   const checkForUpdates = React.useCallback(async () => {
     if (isUpdatingRef.current) {

@@ -60,7 +60,9 @@ export function AutoUpdater({
   // a concurrent installGlobalPackage() to run while one is already in
   // progress.
   const isUpdatingRef = useRef(isUpdating)
-  isUpdatingRef.current = isUpdating
+  useEffect(() => {
+    isUpdatingRef.current = isUpdating
+  })
 
   const checkForUpdates = React.useCallback(async () => {
     if (isUpdatingRef.current) {

@@ -391,7 +391,7 @@ export function addBetaLLMRequestAttributes(
       }
 
       // Update last reported hash to the last message in the array
-      const lastMessage = messagesForAPI[messagesForAPI.length - 1]
+      const lastMessage = messagesForAPI.at(-1)
       if (lastMessage) {
         lastReportedMessageHash.set(querySource, hashMessage(lastMessage))
       }

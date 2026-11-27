@@ -45,6 +45,7 @@ import {
 } from './idePathConversion.js'
 import { sleep } from './sleep.js'
 import { jsonParse } from './slowOperations.js'
+import { textBefore } from './stringUtils.js'
 import { getTempDir } from './tempfile.js'
 
 function isProcessRunning(pid: number): boolean {
@@ -1235,7 +1236,7 @@ export function toIDEDisplayName(terminal: string | null): string {
   }
 
   // Extract command name from path/arguments (e.g., "/usr/bin/code --wait" -> "code")
-  const command = terminal.split(' ')[0]
+  const command = textBefore(terminal, ' ')
   const commandName = command ? basename(command).toLowerCase() : null
   if (commandName) {
     const mappedName = EDITOR_DISPLAY_NAMES[commandName]

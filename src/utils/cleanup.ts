@@ -18,6 +18,7 @@ import {
   getSettings_DEPRECATED,
   rawSettingsContainsKey,
 } from './settings/settings.js'
+import { textBefore } from './stringUtils.js'
 import { TOOL_RESULTS_SUBDIR } from './toolResultStorage.js'
 import { cleanupStaleAgentWorktrees } from './worktree.js'
 
@@ -53,9 +54,7 @@ export function addCleanupResults(
 }
 
 export function convertFileNameToDate(filename: string): Date {
-  const isoStr = filename
-    .split('.')[0]!
-    .replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/, 'T$1:$2:$3.$4Z')
+  const isoStr = textBefore(filename, '.').replace(/T(\d{2})-(\d{2})-(\d{2})-(\d{3})Z/, 'T$1:$2:$3.$4Z')
   return new Date(isoStr)
 }
 

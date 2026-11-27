@@ -12,6 +12,7 @@ import { setClipboard } from '../../ink/termio/osc.js'
 import { Box, Link, Text } from '../../ink.js'
 import { OAuthService } from '../../services/oauth/index.js'
 import { saveOAuthTokensIfNeeded } from '../../utils/auth.js'
+import { errorMessage } from '../../utils/errors.js'
 import { logError } from '../../utils/log.js'
 
 interface OAuthFlowStepProps {
@@ -90,7 +91,7 @@ export function OAuthFlowStep({
       logError(err)
       setOAuthStatus({
         state: 'error',
-        message: (err as Error).message,
+        message: errorMessage(err),
         toRetry: { state: 'waiting_for_login', url },
       })
     }
@@ -139,16 +140,16 @@ export function OAuthFlowStep({
       )
       timersRef.current.add(timer1)
     } catch (err) {
-      const errorMessage = (err as Error).message
+      const message = errorMessage(err)
       setOAuthStatus({
         state: 'error',
-        message: errorMessage,
+        message,
         toRetry: { state: 'starting' }, // Allow retry by starting fresh OAuth flow
       })
       logError(err)
       logEvent('tengu_oauth_error', {
         error:
-          errorMessage as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          message as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       })
     }
   }, [oauthService, onSuccess])

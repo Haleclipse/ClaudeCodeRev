@@ -20,7 +20,9 @@ export function LspRecommendationMenu({
 }: Props): React.ReactNode {
   // Use ref to avoid timer reset when onResponse changes
   const onResponseRef = React.useRef(onResponse)
-  onResponseRef.current = onResponse
+  React.useEffect(() => {
+    onResponseRef.current = onResponse
+  })
 
   // 30-second auto-dismiss timer - counts as ignored (no)
   React.useEffect(() => {
