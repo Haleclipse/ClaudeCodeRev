@@ -404,6 +404,31 @@ export const FileReadTool = buildTool({
   extractSearchText() {
     return ''
   },
+  // Long sessions: drop file contents / image data from old results
+  stripForStorage(output) {
+    if (typeof output !== 'object' || output === null) return output
+    switch (output.type) {
+      case 'text':
+        if (output.file.content === '') return output
+        return { ...output, file: { ...output.file, content: '' } }
+      case 'image':
+        if (output.file.base64 === '') return output
+        return { ...output, file: { ...output.file, base64: '' } }
+      case 'pdf':
+        if (output.file.base64 === '') return output
+        return { ...output, file: { ...output.file, base64: '' } }
+      case 'notebook': {
+        const { cells } = output.file
+        if (cells.length === 0 || cells[0] == null) return output
+        return {
+          ...output,
+          file: { ...output.file, cells: new Array(cells.length) },
+        }
+      }
+      default:
+        return output
+    }
+  },
   renderToolUseErrorMessage,
   async validateInput({ file_path, pages }, toolUseContext: ToolUseContext) {
     // Validate pages parameter (pure string parsing, no I/O)
@@ -730,12 +755,25 @@ function formatFileLines(file: { content: string; startLine: number }): string {
 export const CYBER_RISK_MITIGATION_REMINDER =
   '\n\n<system-reminder>\nWhenever you read a file, you should consider whether it would be considered malware. You CAN and SHOULD provide analysis of malware, what it is doing. But you MUST refuse to improve or augment the code. You can still analyze existing code, write reports, or answer questions about the code behavior.\n</system-reminder>\n'
 
-// Models where cyber risk mitigation should be skipped
-const MITIGATION_EXEMPT_MODELS = new Set(['claude-opus-4-6'])
+// Models that get the cyber risk mitigation reminder
+const MITIGATION_MODELS = new Set([
+  'claude-3-opus',
+  'claude-3-sonnet',
+  'claude-3-haiku',
+  'claude-3-5-sonnet',
+  'claude-3-5-haiku',
+  'claude-3-7-sonnet',
+  'claude-sonnet-4',
+  'claude-sonnet-4-5',
+  'claude-opus-4',
+  'claude-opus-4-1',
+  'claude-opus-4-5',
+  'claude-haiku-4-5',
+])
 
 function shouldIncludeFileReadMitigation(): boolean {
   const shortName = getCanonicalName(getMainLoopModel())
-  return !MITIGATION_EXEMPT_MODELS.has(shortName)
+  return MITIGATION_MODELS.has(shortName)
 }
 
 /**

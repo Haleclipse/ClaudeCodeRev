@@ -9,21 +9,17 @@ function getPreReadInstruction(): string {
 }
 
 export function getWriteToolDescription(): string {
-  const appendEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
+  const appendGuidance = getFeatureValue_CACHED_MAY_BE_STALE(
     'tengu_maple_forge_w8k',
     false,
   )
-  const appendInstruction = appendEnabled
-    ? "\n- To add content to the end of an existing file, set mode:'append' and pass only the new content. Do NOT re-send the existing file contents."
+    ? ' For appending to an existing file, prefer shell redirection via Bash (e.g. `echo "..." >> file`) over rewriting the whole file.'
     : ''
-  const scope = appendEnabled
-    ? "Only use this tool to create new files, for complete rewrites, or to append with mode:'append'."
-    : 'Only use this tool to create new files or for complete rewrites.'
   return `Writes a file to the local filesystem.
 
 Usage:
-- This tool will overwrite the existing file if there is one at the provided path.${getPreReadInstruction()}${appendInstruction}
-- Prefer the Edit tool for modifying existing files \u2014 it only sends the diff. ${scope}
+- This tool will overwrite the existing file if there is one at the provided path.${getPreReadInstruction()}
+- Prefer the Edit tool for modifying existing files \u2014 it only sends the diff.${appendGuidance} Only use this tool to create new files or for complete rewrites.
 - NEVER create documentation files (*.md) or README files unless explicitly requested by the User.
 - Only use emojis if the user explicitly requests it. Avoid writing emojis to files unless asked.`
 }

@@ -619,6 +619,12 @@ export type Tool<
    */
   extractSearchText?(out: Output): string
   /**
+   * Trim a stored tool result (toolUseResult) for old messages in long
+   * sessions, e.g. dropping file contents. Return the input unchanged when
+   * there is nothing to trim.
+   */
+  stripForStorage?(output: Output): Output
+  /**
    * Render the tool use message. Note that `input` is partial because we render
    * the message as soon as possible, possibly before tool parameters have fully
    * streamed in.

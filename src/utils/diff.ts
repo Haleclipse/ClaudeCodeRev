@@ -55,7 +55,7 @@ export function countLinesChanged(
 
   if (patch.length === 0 && newFileContent) {
     // For new files, count all lines as additions
-    numAdditions = newFileContent.split(/\r?\n/).length
+    numAdditions = (newFileContent.match(/\n/g)?.length ?? 0) + 1
   } else {
     numAdditions = patch.reduce(
       (acc, hunk) => acc + count(hunk.lines, _ => _.startsWith('+')),
@@ -84,18 +84,24 @@ export function getPatchFromContents({
   newContent,
   ignoreWhitespace = false,
   singleHunk = false,
+  convertTabs = false,
 }: {
   filePath: string
   oldContent: string
   newContent: string
   ignoreWhitespace?: boolean
   singleHunk?: boolean
+  /** Convert leading tabs to spaces before diffing (same pass as escaping) */
+  convertTabs?: boolean
 }): StructuredPatchHunk[] {
+  const prepare = convertTabs
+    ? (content: string) => escapeForDiff(convertLeadingTabsToSpaces(content))
+    : escapeForDiff
   const result = structuredPatch(
     filePath,
     filePath,
-    escapeForDiff(oldContent),
-    escapeForDiff(newContent),
+    prepare(oldContent),
+    prepare(newContent),
     undefined,
     undefined,
     {

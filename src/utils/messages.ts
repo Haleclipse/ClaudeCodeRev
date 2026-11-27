@@ -4390,6 +4390,56 @@ You have exited auto mode. The user may now want to interact more directly. You 
   return []
 }
 
+/**
+ * Trim toolUseResult payloads of messages older than the most recent
+ * `keepRecent` via each tool's stripForStorage, to bound memory in long
+ * sessions. Returns the same array when nothing changed.
+ */
+export function stripOldToolResultsForStorage(
+  messages: Message[],
+  tools: Tools,
+  keepRecent = 200,
+): Message[] {
+  const cutoff = messages.length - keepRecent
+  if (cutoff <= 0) return messages
+  const toolsByUseId = new Map<string, Tool>()
+  let result: Message[] | undefined
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i]!
+    if (
+      message.type === 'assistant' &&
+      Array.isArray(message.message.content)
+    ) {
+      for (const block of message.message.content) {
+        if (block.type === 'tool_use') {
+          const tool = findToolByName(tools, block.name)
+          if (tool?.stripForStorage) toolsByUseId.set(block.id, tool)
+        }
+      }
+      continue
+    }
+    if (
+      i >= cutoff ||
+      message.type !== 'user' ||
+      message.isVirtual ||
+      message.toolUseResult == null ||
+      !Array.isArray(message.message.content)
+    ) {
+      continue
+    }
+    const toolResult = message.message.content.find(
+      block => block.type === 'tool_result',
+    )
+    const tool = toolResult && toolsByUseId.get(toolResult.tool_use_id)
+    if (!tool?.stripForStorage) continue
+    const stripped = tool.stripForStorage(message.toolUseResult)
+    if (stripped === message.toolUseResult) continue
+    if (!result) result = messages.slice()
+    result[i] = { ...message, toolUseResult: stripped }
+  }
+  return result ?? messages
+}
+
 function createToolResultMessage<Output>(
   tool: Tool<AnyObject, Output>,
   toolUseResult: Output,

@@ -274,6 +274,7 @@ import {
   createSystemMessage,
   createCommandInputMessage,
   formatCommandInputTags,
+  stripOldToolResultsForStorage,
 } from '../utils/messages.js'
 import { generateSessionTitle } from '../utils/sessionTitle.js'
 import {
@@ -3848,6 +3849,9 @@ export function REPL({
         onQueryEvent(event)
       }
 
+      setMessages(prev =>
+        stripOldToolResultsForStorage(prev, toolUseContext.options.tools),
+      )
 
       if (feature('BUDDY')) {
         fireCompanionObserver(messagesRef.current, reaction =>

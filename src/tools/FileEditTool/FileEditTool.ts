@@ -1,6 +1,5 @@
 import { dirname, isAbsolute, sep } from 'path'
 import { logEvent } from 'src/services/analytics/index.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { diagnosticTracker } from '../../services/diagnosticTracking.js'
 import { clearDeliveredDiagnosticsForFile } from '../../services/lsp/LSPDiagnosticRegistry.js'
 import { getLspServerManager } from '../../services/lsp/manager.js'
@@ -110,6 +109,12 @@ export const FileEditTool = buildTool({
   },
   get outputSchema() {
     return outputSchema()
+  },
+  // Long sessions: drop the original file contents from old results
+  stripForStorage(output) {
+    if (typeof output !== 'object' || output === null) return output
+    if (output.originalFile === '') return output
+    return { ...output, originalFile: '' }
   },
   toAutoClassifierInput(input) {
     return `${input.file_path}: ${input.new_string}`
@@ -500,7 +505,7 @@ export const FileEditTool = buildTool({
     const lspManager = getLspServerManager()
     if (lspManager) {
       // Clear previously delivered diagnostics so new ones will be shown
-      clearDeliveredDiagnosticsForFile(`file://${absoluteFilePath}`)
+      clearDeliveredDiagnosticsForFile(absoluteFilePath)
       // didChange: Content has been modified
       lspManager
         .changeFile(absoluteFilePath, updatedFile)
@@ -549,10 +554,7 @@ export const FileEditTool = buildTool({
     })
 
     let gitDiff: ToolUseDiff | undefined
-    if (
-      isEnvTruthy(process.env.CLAUDE_CODE_REMOTE) &&
-      getFeatureValue_CACHED_MAY_BE_STALE('tengu_quartz_lantern', false)
-    ) {
+    if (isEnvTruthy(process.env.CLAUDE_CODE_REMOTE)) {
       const startTime = Date.now()
       const diff = await fetchSingleFileGitDiff(absoluteFilePath)
       if (diff) gitDiff = diff
