@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { extraUsage } from 'src/commands/extra-usage/index.js'
 import { Box, Text } from 'src/ink.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { useClaudeAiLimits } from 'src/services/claudeAiLimitsHook.js'
 import { shouldProcessMockLimits } from 'src/services/rateLimitMocking.js' // Used for /mock-limits command
 import {
@@ -9,6 +10,7 @@ import {
   isClaudeAISubscriber,
 } from 'src/utils/auth.js'
 import { hasClaudeAiBillingAccess } from 'src/utils/billing.js'
+import { isEnvTruthy } from 'src/utils/envUtils.js'
 import { MessageResponse } from '../MessageResponse.js'
 
 type UpsellParams = {
@@ -33,15 +35,15 @@ export function getUpsellMessage({
 }: UpsellParams): string | null {
   if (!shouldShowUpsell) return null
 
+  if (shouldAutoOpenRateLimitOptionsMenu) {
+    return 'Opening your options\u2026'
+  }
+
   if (isMax20x) {
     if (isExtraUsageCommandEnabled) {
       return '/extra-usage to finish what you\u2019re working on.'
     }
     return '/login to switch to an API usage-billed account.'
-  }
-
-  if (shouldAutoOpenRateLimitOptionsMenu) {
-    return 'Opening your options\u2026'
   }
 
   if (isTeamOrEnterprise) {
@@ -81,7 +83,8 @@ export function RateLimitMessage({
   const rateLimitTier = getRateLimitTier()
   const isTeamOrEnterprise =
     subscriptionType === 'team' || subscriptionType === 'enterprise'
-  const isMax20x = rateLimitTier === 'default_claude_max_20x'
+  const isMax20x =
+    subscriptionType === 'max' && rateLimitTier === 'default_claude_max_20x'
   // Always show upsell when using /mock-limits command, otherwise show for subscribers
   const shouldShowUpsell = shouldProcessMockLimits() || isClaudeAISubscriber()
 
@@ -97,7 +100,12 @@ export function RateLimitMessage({
     [upgradePaths],
   )
 
-  const canSeeRateLimitOptionsUpsell = shouldShowUpsell && !isMax20x
+  const teamUpgradeEnabled =
+    getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_lantern', false) &&
+    !isTeamOrEnterprise &&
+    !isEnvTruthy(process.env.DISABLE_UPGRADE_COMMAND)
+  const canSeeRateLimitOptionsUpsell =
+    shouldShowUpsell && (!isMax20x || teamUpgradeEnabled)
 
   const [hasOpenedInteractiveMenu, setHasOpenedInteractiveMenu] =
     useState(false)

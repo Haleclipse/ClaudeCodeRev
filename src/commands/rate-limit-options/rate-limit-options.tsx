@@ -19,12 +19,19 @@ import {
   getSubscriptionType,
 } from '../../utils/auth.js'
 import { hasClaudeAiBillingAccess } from '../../utils/billing.js'
+import { openBrowser } from '../../utils/browser.js'
 import { call as extraUsageCall } from '../extra-usage/extra-usage.js'
 import { extraUsage } from '../extra-usage/index.js'
 import upgrade from '../upgrade/index.js'
 import { call as upgradeCall } from '../upgrade/upgrade.js'
 
-type RateLimitOptionsMenuOptionType = 'upgrade' | 'extra-usage' | 'cancel'
+type RateLimitOptionsMenuOptionType =
+  | 'upgrade'
+  | 'team'
+  | 'extra-usage'
+  | 'cancel'
+
+const TEAM_UPGRADE_URL = 'https://claude.ai/create/team'
 
 type RateLimitOptionsMenuProps = {
   onDone: (
@@ -54,6 +61,10 @@ function RateLimitOptionsMenu({
     subscriptionType === 'team' || subscriptionType === 'enterprise'
   const buyFirst = getFeatureValue_CACHED_MAY_BE_STALE(
     'tengu_jade_anvil_4',
+    false,
+  )
+  const teamUpgradeEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
+    'tengu_amber_lantern',
     false,
   )
   // Upgrade paths the server offers (rate-limit response header); when
@@ -119,6 +130,13 @@ function RateLimitOptionsMenu({
       })
     }
 
+    if (teamUpgradeEnabled && !isTeamOrEnterprise && upgrade.isEnabled()) {
+      actionOptions.push({
+        label: 'Upgrade to Team plan',
+        value: 'team',
+      })
+    }
+
     const cancelOption: OptionWithDescription<RateLimitOptionsMenuOptionType> =
       {
         label: 'Stop and wait for limit to reset',
@@ -131,6 +149,7 @@ function RateLimitOptionsMenu({
     return [cancelOption, ...actionOptions]
   }, [
     buyFirst,
+    teamUpgradeEnabled,
     isMax20x,
     isTeamOrEnterprise,
     hasExtraUsageEnabled,
@@ -151,6 +170,15 @@ function RateLimitOptionsMenu({
         if (jsx) {
           setSubCommandJSX(jsx)
         }
+      })
+    } else if (value === 'team') {
+      logEvent('tengu_rate_limit_options_menu_select_team', {})
+      void openBrowser(TEAM_UPGRADE_URL).then(opened => {
+        onDone(
+          opened
+            ? `Opening ${TEAM_UPGRADE_URL} in your browser. Run /login after upgrading to use your new plan.`
+            : `Could not open a browser. Visit ${TEAM_UPGRADE_URL} to upgrade, then run /login.`,
+        )
       })
     } else if (value === 'extra-usage') {
       logEvent('tengu_rate_limit_options_menu_select_extra_usage', {})
