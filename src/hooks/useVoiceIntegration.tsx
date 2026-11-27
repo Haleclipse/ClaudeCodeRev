@@ -35,6 +35,7 @@ const voiceNs: { useVoice: typeof import('./useVoice.js').useVoice } = feature(
       }) => ({
         state: 'idle' as const,
         handleKeyEvent: (_fallbackMs?: number) => {},
+        cancelRecording: () => {},
       }),
     }
 /* eslint-enable @typescript-eslint/no-require-imports */
@@ -99,6 +100,7 @@ type InsertTextHandle = {
   insert: (text: string) => void
   setInputWithCursor: (value: string, cursor: number) => void
   cursorOffset: number
+  submit: (input: string, isSubmittingSlashCommand?: boolean) => void
 }
 
 type UseVoiceIntegrationArgs = {
@@ -125,6 +127,7 @@ type UseVoiceIntegrationResult = {
   // Undo the gap space and reset anchor refs after a failed voice activation.
   resetAnchor: () => void
   handleKeyEvent: (fallbackMs?: number) => void
+  cancelRecording: () => void
   interimRange: InterimRange | null
 }
 
@@ -239,6 +242,9 @@ export function useVoiceIntegration({
   // render loops never hit a cold keychain spawn.
   // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
   const voiceEnabled = feature('VOICE_MODE') ? useVoiceEnabled() : false
+  // Recording mode is fixed to hold here (tap mode is gated off)
+  const tapModeEnabled = false
+  const voiceMode = 'hold'
   const voiceState = feature('VOICE_MODE')
     ? // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
       useVoiceState(s => s.voiceState)
@@ -336,7 +342,7 @@ export function useVoiceIntegration({
       // appending subsequent transcripts after it.
       voicePrefixRef.current = prefix + leadingSpace + text
     },
-    [setInputValueRaw, inputValueRef, insertTextRef],
+    [setInputValueRaw, inputValueRef, insertTextRef, tapModeEnabled, voiceMode],
   )
 
   const voice = voiceNs.useVoice({
@@ -352,6 +358,7 @@ export function useVoiceIntegration({
     },
     enabled: voiceEnabled,
     focusMode: false,
+    mode: voiceMode,
   })
 
   // Compute the character range of interim (not-yet-finalized) transcript
@@ -374,6 +381,7 @@ export function useVoiceIntegration({
     stripTrailing,
     resetAnchor,
     handleKeyEvent: voice.handleKeyEvent,
+    cancelRecording: voice.cancelRecording,
     interimRange,
   }
 }
@@ -404,14 +412,18 @@ export function useVoiceIntegration({
  */
 export function useVoiceKeybindingHandler({
   voiceHandleKeyEvent,
+  voiceCancelRecording,
   stripTrailing,
   resetAnchor,
   isActive,
+  inputValueRef,
 }: {
   voiceHandleKeyEvent: (fallbackMs?: number) => void
+  voiceCancelRecording?: () => void
   stripTrailing: (maxStrip: number, opts?: StripOpts) => number
   resetAnchor: () => void
   isActive: boolean
+  inputValueRef?: React.RefObject<string>
 }): { handleKeyDown: (e: KeyboardEvent) => void } {
   const getVoiceState = useGetVoiceState()
   const setVoiceState = useSetVoiceState()
@@ -423,6 +435,8 @@ export function useVoiceKeybindingHandler({
     ? // biome-ignore lint/correctness/useHookAtTopLevel: feature() is a compile-time constant
       useVoiceState(s => s.voiceState)
     : 'idle'
+  // Hold-to-talk only (tap mode is gated off)
+  const voiceMode = 'hold'
 
   // Find the configured key for voice:pushToTalk from keybinding context.
   // Forward iteration with last-wins (matching the resolver): if a later
@@ -714,9 +728,11 @@ export function useVoiceKeybindingHandler({
 // wires handleKeyDown directly.
 export function VoiceKeybindingHandler(props: {
   voiceHandleKeyEvent: (fallbackMs?: number) => void
+  voiceCancelRecording?: () => void
   stripTrailing: (maxStrip: number, opts?: StripOpts) => number
   resetAnchor: () => void
   isActive: boolean
+  inputValueRef?: React.RefObject<string>
 }): null {
   useVoiceKeybindingHandler(props)
   return null

@@ -305,6 +305,7 @@ type Props = {
     insert: (text: string) => void
     setInputWithCursor: (value: string, cursor: number) => void
     cursorOffset: number
+    submit: (input: string, isSubmittingSlashCommand?: boolean) => void
   } | null>
   voiceInterimRange?: { start: number; end: number } | null
 }
@@ -389,11 +390,17 @@ function PromptInput({
     },
     [onInputChange],
   )
+  const onSubmitRef = React.useRef<
+    | ((inputParam: string, isSubmittingSlashCommand?: boolean) => Promise<void>)
+    | null
+  >(null)
   // Expose an insertText function so callers (e.g. STT) can splice text at the
   // current cursor position instead of replacing the entire input.
   if (insertTextRef) {
     insertTextRef.current = {
       cursorOffset,
+      submit: (inputParam: string, isSubmittingSlashCommand?: boolean) =>
+        void onSubmitRef.current?.(inputParam, isSubmittingSlashCommand),
       insert: (text: string) => {
         const needsSpace =
           cursorOffset === input.length &&
@@ -1502,6 +1509,7 @@ function PromptInput({
       removeNotification,
     ],
   )
+  onSubmitRef.current = onSubmit
 
   const {
     suggestions,

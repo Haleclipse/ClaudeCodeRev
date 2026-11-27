@@ -1858,6 +1858,7 @@ export function REPL({
     insert: (text: string) => void
     setInputWithCursor: (value: string, cursor: number) => void
     cursorOffset: number
+    submit: (input: string, isSubmittingSlashCommand?: boolean) => void
   } | null>(null)
 
   // Wrap setInputValue to co-locate suppression state updates.
@@ -5500,6 +5501,7 @@ export function REPL({
     : {
         stripTrailing: () => 0,
         handleKeyEvent: () => {},
+        cancelRecording: () => {},
         resetAnchor: () => {},
         interimRange: null,
       }
@@ -5978,9 +5980,11 @@ export function REPL({
         {feature('VOICE_MODE') ? (
           <VoiceKeybindingHandler
             voiceHandleKeyEvent={voice.handleKeyEvent}
+            voiceCancelRecording={voice.cancelRecording}
             stripTrailing={voice.stripTrailing}
             resetAnchor={voice.resetAnchor}
             isActive={!toolJSX?.isLocalJSXCommand}
+            inputValueRef={inputValueRef}
           />
         ) : null}
         <CommandKeybindingHandlers
@@ -6210,9 +6214,11 @@ export function REPL({
       {feature('VOICE_MODE') ? (
         <VoiceKeybindingHandler
           voiceHandleKeyEvent={voice.handleKeyEvent}
+          voiceCancelRecording={voice.cancelRecording}
           stripTrailing={voice.stripTrailing}
           resetAnchor={voice.resetAnchor}
           isActive={!toolJSX?.isLocalJSXCommand}
+          inputValueRef={inputValueRef}
         />
       ) : null}
       <CommandKeybindingHandlers

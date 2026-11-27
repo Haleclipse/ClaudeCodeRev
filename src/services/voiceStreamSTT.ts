@@ -29,8 +29,6 @@ import { jsonParse, jsonStringify } from '../utils/slowOperations.js'
 const KEEPALIVE_MSG = '{"type":"KeepAlive"}'
 const CLOSE_STREAM_MSG = '{"type":"CloseStream"}'
 
-import { getFeatureValue_CACHED_MAY_BE_STALE } from './analytics/growthbook.js'
-
 // ─── Constants ───────────────────────────────────────────────────────
 
 const VOICE_STREAM_PATH = '/api/ws/speech_to_text/voice_stream'
@@ -148,21 +146,9 @@ export async function connectVoiceStream(
     endpointing_ms: '300',
     utterance_end_ms: '1000',
     language: options?.language ?? 'en',
+    use_conversation_engine: 'true',
+    stt_provider: 'deepgram-nova3',
   })
-
-  // Route through conversation-engine with Deepgram Nova 3 (bypassing
-  // the server's project_bell_v2_config GrowthBook gate). The server
-  // side is anthropics/anthropic#278327 + #281372; this lets us ramp
-  // clients independently.
-  const isNova3 = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_cobalt_frost',
-    false,
-  )
-  if (isNova3) {
-    params.set('use_conversation_engine', 'true')
-    params.set('stt_provider', 'deepgram-nova3')
-    logForDebugging('[voice_stream] Nova 3 gate enabled (tengu_cobalt_frost)')
-  }
 
   // Append keyterms as query params — the voice_stream proxy forwards
   // these to the STT service which applies appropriate boosting.
@@ -348,10 +334,7 @@ export async function connectVoiceStream(
   })
 
   // Track the last TranscriptText so that when TranscriptEndpoint arrives
-  // we can emit it as the final transcript.  The server sometimes sends
-  // multiple non-cumulative TranscriptText messages without endpoints
-  // between them; the TranscriptText handler auto-finalizes previous
-  // segments when it detects the text has changed non-cumulatively.
+  // we can emit it as the final transcript.
   let lastTranscriptText = ''
 
   ws.on('message', (raw: Buffer | string) => {
@@ -379,35 +362,6 @@ export async function connectVoiceStream(
           cancelNoDataTimer?.()
         }
         if (transcript) {
-          // Detect when the server has moved to a new speech segment.
-          // Progressive refinements extend or shorten the previous text
-          // (e.g., "hello" → "hello world", or "hello wor" → "hello wo").
-          // A new segment starts with completely different text (neither
-          // is a prefix of the other). When detected, emit the previous
-          // text as final so the caller can accumulate it, preventing
-          // the new segment from overwriting and losing the old one.
-          //
-          // Nova 3's interims are cumulative across segments AND can
-          // revise earlier text ("Hello?" → "Hello."). Revision breaks
-          // the prefix check, causing false auto-finalize → the same
-          // text committed once AND re-appearing in the cumulative
-          // interim = duplication. Nova 3 only endpoints on the final
-          // flush, so auto-finalize is never correct for it.
-          if (!isNova3 && lastTranscriptText) {
-            const prev = lastTranscriptText.trimStart()
-            const next = transcript.trimStart()
-            if (
-              prev &&
-              next &&
-              !next.startsWith(prev) &&
-              !prev.startsWith(next)
-            ) {
-              logForDebugging(
-                `[voice_stream] Auto-finalizing previous segment (new segment detected): "${lastTranscriptText}"`,
-              )
-              callbacks.onTranscript(lastTranscriptText, true)
-            }
-          }
           lastTranscriptText = transcript
           // Emit as interim so the caller can show a live preview.
           callbacks.onTranscript(transcript, false)

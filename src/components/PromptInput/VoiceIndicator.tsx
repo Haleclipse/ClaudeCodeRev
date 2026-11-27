@@ -20,6 +20,8 @@ export function VoiceIndicator(props: Props): React.ReactNode {
 }
 
 function VoiceIndicatorImpl({ voiceState }: Props): React.ReactNode {
+  // Not memoized by the React Compiler, matching the official build
+  // eslint-disable-next-line react-hooks/rules-of-hooks
   switch (voiceState) {
     case 'recording':
       return <Text dimColor>listening…</Text>

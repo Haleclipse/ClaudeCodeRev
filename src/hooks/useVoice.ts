@@ -26,6 +26,7 @@ import { getSystemLocaleLanguage } from '../utils/intl.js'
 import { logError } from '../utils/log.js'
 import { getInitialSettings } from '../utils/settings/settings.js'
 import { sleep } from '../utils/sleep.js'
+import { textBefore } from '../utils/stringUtils.js'
 
 // ─── Language normalization ─────────────────────────────────────────────
 
@@ -128,7 +129,7 @@ export function normalizeLanguageForSTT(language: string | undefined): {
   if (SUPPORTED_LANGUAGE_CODES.has(lower)) return { code: lower }
   const fromName = LANGUAGE_NAME_TO_CODE[lower]
   if (fromName) return { code: fromName }
-  const base = lower.split('-')[0]
+  const base = textBefore(lower, '-')
   if (base && SUPPORTED_LANGUAGE_CODES.has(base)) return { code: base }
   return { code: DEFAULT_STT_LANGUAGE, fellBackFrom: language }
 }
@@ -147,11 +148,15 @@ type UseVoiceOptions = {
   onError?: (message: string) => void
   enabled: boolean
   focusMode: boolean
+  /** 'hold' (hold-to-talk) or 'tap' (tap to start, tap to stop + submit) */
+  mode?: 'hold' | 'tap'
 }
 
 type UseVoiceReturn = {
   state: VoiceState
   handleKeyEvent: (fallbackMs?: number) => void
+  /** Stop the current recording and discard it without submitting */
+  cancelRecording: () => void
 }
 
 // Gap (ms) between auto-repeat key events that signals key release.
@@ -201,6 +206,7 @@ export function useVoice({
   onError,
   enabled,
   focusMode,
+  mode = 'hold',
 }: UseVoiceOptions): UseVoiceReturn {
   const [state, setState] = useState<VoiceState>('idle')
   const stateRef = useRef<VoiceState>('idle')
@@ -221,10 +227,14 @@ export function useVoice({
   // True when the current recording session was started by terminal focus
   // (not by a keypress). Focus-driven sessions end on blur, not key release.
   const focusTriggeredRef = useRef(false)
+  // Tap-mode session state; tap mode is gated off in this build.
+  const tapActiveRef = useRef(false)
   // Timer that tears down the session after prolonged silence in focus mode.
   const focusSilenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   )
+  const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const tapStopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   // Set when a focus-mode session is torn down due to silence. Prevents
   // the focus effect from immediately restarting. Cleared on blur so the
   // next focus cycle re-arms recording.
@@ -303,7 +313,16 @@ export function useVoice({
       clearTimeout(focusSilenceTimerRef.current)
       focusSilenceTimerRef.current = null
     }
+    if (tapTimerRef.current) {
+      clearTimeout(tapTimerRef.current)
+      tapTimerRef.current = null
+    }
+    if (tapStopTimerRef.current) {
+      clearTimeout(tapStopTimerRef.current)
+      tapStopTimerRef.current = null
+    }
     silenceTimedOutRef.current = false
+    tapActiveRef.current = false
     voiceModule?.stopRecording()
     if (connectionRef.current) {
       connectionRef.current.close()
@@ -334,6 +353,15 @@ export function useVoice({
     // for sessions WITH speech; focusTriggered enables filtering sessions WITHOUT.
     const focusTriggered = focusTriggeredRef.current
     focusTriggeredRef.current = false
+    tapActiveRef.current = false
+    if (tapTimerRef.current) {
+      clearTimeout(tapTimerRef.current)
+      tapTimerRef.current = null
+    }
+    if (tapStopTimerRef.current) {
+      clearTimeout(tapStopTimerRef.current)
+      tapStopTimerRef.current = null
+    }
     updateState('processing')
     voiceModule?.stopRecording()
     // Capture duration BEFORE the finalize round-trip so that the WebSocket
@@ -568,6 +596,11 @@ export function useVoice({
       finishRecording,
     )
   }
+
+  // Tap-mode timers; no-ops while tap mode is gated off.
+  function armTapTimer(): void {}
+
+  function armTapStopTimer(): void {}
 
   // ── Focus-driven recording ──────────────────────────────────────────
   // In focus mode, start recording when the terminal gains focus and
@@ -939,7 +972,7 @@ export function useVoice({
                   slices.push([])
                   sliceBytes = 0
                 }
-                slices[slices.length - 1]!.push(chunk)
+                slices.at(-1)!.push(chunk)
                 sliceBytes += chunk.length
               }
               logForDebugging(
@@ -1123,7 +1156,7 @@ export function useVoice({
         )
       }
     },
-    [enabled, focusMode, cleanup],
+    [enabled, focusMode, cleanup, mode],
   )
 
   // Cleanup only when disabled or unmounted - NOT on state changes
@@ -1137,8 +1170,16 @@ export function useVoice({
     }
   }, [enabled, cleanup])
 
+  const cancelRecording = useCallback((): void => {
+    if (stateRef.current === 'idle') return
+    logForDebugging('[voice] cancelRecording: discarding without submit')
+    cleanup()
+    updateState('idle')
+  }, [cleanup])
+
   return {
     state,
     handleKeyEvent,
+    cancelRecording,
   }
 }
