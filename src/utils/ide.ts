@@ -26,6 +26,7 @@ import { isJetBrainsPluginInstalledCached } from './jetbrains.js'
 import { logError } from './log.js'
 import { getPlatform } from './platform.js'
 import { execaShell } from './safeExeca.js'
+import { getTempDir } from './tempfile.js'
 import { lt } from './semver.js'
 
 // Lazy: IdeOnboardingDialog.tsx pulls React/ink; only needed in interactive onboarding path
@@ -46,7 +47,6 @@ import {
 import { sleep } from './sleep.js'
 import { jsonParse } from './slowOperations.js'
 import { textBefore } from './stringUtils.js'
-import { getTempDir } from './tempfile.js'
 
 function isProcessRunning(pid: number): boolean {
   try {
