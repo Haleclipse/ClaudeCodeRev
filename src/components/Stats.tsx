@@ -32,7 +32,6 @@ import {
 } from '../utils/stats.js'
 import { resolveThemeSetting } from '../utils/systemTheme.js'
 import { getTheme, themeColorToAnsi } from '../utils/theme.js'
-import { Pane } from './design-system/Pane.js'
 import { Tab, Tabs, useTabHeaderFocus } from './design-system/Tabs.js'
 import { Spinner } from './Spinner.js'
 
@@ -177,19 +176,14 @@ function StatsContent({
     onClose('Stats dialog dismissed', { display: 'system' })
   }, [onClose])
 
-  useKeybinding('confirm:no', handleClose, { context: 'Confirmation' })
+  useKeybinding('confirm:no', handleClose, { context: 'Settings' })
+  const { headerFocused, focusHeader } = useTabHeaderFocus()
 
   function handleKeyDown(e: KeyboardEvent): void {
-    // Handle ctrl+c and ctrl+d for closing
-    if (e.ctrl && (e.key === 'c' || e.key === 'd')) {
+    // Up returns focus to the outer tab header
+    if (e.key === 'up') {
       e.preventDefault()
-      onClose('Stats dialog dismissed', { display: 'system' })
-      return
-    }
-    // Track tab changes
-    if (e.key === 'tab') {
-      e.preventDefault()
-      setActiveTab(prev => (prev === 'Overview' ? 'Models' : 'Overview'))
+      focusHeader()
       return
     }
     // r to cycle date range
@@ -233,40 +227,40 @@ function StatsContent({
   }
 
   return (
-    <Pane color="claude">
-      <Box
-        flexDirection="column"
-        tabIndex={0}
-        autoFocus
-        onKeyDown={handleKeyDown}
-      >
-        <Box flexDirection="row" gap={1} marginBottom={1}>
-          <Tabs title="" color="claude" defaultTab="Overview">
-            <Tab title="Overview">
-              <OverviewTab
-                stats={displayStats}
-                allTimeStats={allTimeStats}
-                dateRange={dateRange}
-                isLoading={isLoadingFiltered}
-              />
-            </Tab>
-            <Tab title="Models">
-              <ModelsTab
-                stats={displayStats}
-                dateRange={dateRange}
-                isLoading={isLoadingFiltered}
-              />
-            </Tab>
-          </Tabs>
-        </Box>
-        <Box paddingLeft={2}>
-          <Text dimColor>
-            Esc to cancel · r to cycle dates · ctrl+s to copy
-            {copyStatus ? ` · ${copyStatus}` : ''}
-          </Text>
-        </Box>
+    <Box flexDirection="column" tabIndex={0} autoFocus onKeyDown={handleKeyDown}>
+      <Box flexDirection="row" gap={1} marginBottom={1}>
+        <Tabs
+          title=""
+          color="claude"
+          selectedTab={activeTab}
+          onTabChange={tab => setActiveTab(tab as 'Overview' | 'Models')}
+          disableNavigation={headerFocused}
+        >
+          <Tab title="Overview">
+            <OverviewTab
+              stats={displayStats}
+              allTimeStats={allTimeStats}
+              dateRange={dateRange}
+              isLoading={isLoadingFiltered}
+            />
+          </Tab>
+          <Tab title="Models">
+            <ModelsTab
+              stats={displayStats}
+              dateRange={dateRange}
+              isLoading={isLoadingFiltered}
+            />
+          </Tab>
+        </Tabs>
       </Box>
-    </Pane>
+      <Box paddingLeft={2}>
+        <Text dimColor>
+          {headerFocused ? '↓ stats' : '↑ tabs'} · r to cycle dates · ctrl+s to
+          copy
+          {copyStatus ? ` · ${copyStatus}` : ''}
+        </Text>
+      </Box>
+    </Box>
   )
 }
 

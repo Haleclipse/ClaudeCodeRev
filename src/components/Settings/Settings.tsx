@@ -128,12 +128,7 @@ export function Settings({
         hidden={tabsHidden}
         // Config has interactive content — start with header unfocused so
         // left/right/tab cycle option values instead of switching tabs.
-        // Stats renders its own nested Tabs (Overview/Models).
-        initialHeaderFocused={
-          defaultTab !== 'Config' &&
-          defaultTab !== 'Gates' &&
-          defaultTab !== 'Stats'
-        }
+        initialHeaderFocused={defaultTab !== 'Config' && defaultTab !== 'Gates'}
         // Inside a Modal, skip the Tabs-level cap so tall tabs (Status's
         // MCP list) flow to their natural height for the Modal's ScrollBox
         // to scroll. Config/Gates still get contentHeight above — they
