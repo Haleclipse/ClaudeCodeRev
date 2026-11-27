@@ -1224,7 +1224,8 @@ async function* queryModel(
   })
 
   queryCheckpoint('query_message_normalization_start')
-  let messagesForAPI = normalizeMessagesForAPI(messages, filteredTools)
+  let inputMessages = messages
+  let messagesForAPI = normalizeMessagesForAPI(inputMessages, filteredTools)
   queryCheckpoint('query_message_normalization_end')
 
   // Model-specific post-processing: strip tool-search-specific fields if the
@@ -1289,7 +1290,7 @@ async function* queryModel(
   // Compute fingerprint from first user message for attribution.
   // Must run BEFORE injecting synthetic messages (e.g. deferred tool names)
   // so the fingerprint reflects the actual user input.
-  const fingerprint = computeFingerprintFromMessages(messagesForAPI)
+  const fingerprint = computeFingerprintFromMessages(inputMessages)
 
   // When the delta attachment is enabled, deferred tools are announced
   // via persisted deferred_tools_delta attachments instead of this
@@ -1399,6 +1400,13 @@ async function* queryModel(
       setCacheEditingHeaderLatched(true)
     }
   }
+
+  // Gated state; holds its initial value in this build.
+  let gatedNullA: unknown = null
+  let gatedNullB: unknown = null
+  let gatedFlag = false
+  let gatedRequestSlot: unknown = null
+  let gatedIndex = -1
 
   // Only latch from agentic queries so a classifier call doesn't flip the
   // main thread's context_management mid-turn.
@@ -1647,13 +1655,24 @@ async function* queryModel(
       )
     }
 
+    gatedRequestSlot = null
+    const gatedExtraParams: Record<string, unknown> | null = null
+    const simulateProxyUsage = isEnvTruthy(
+      process.env.CLAUDE_CODE_SIMULATE_PROXY_USAGE,
+    )
+    if (simulateProxyUsage) {
+      logForDebugging(
+        `[API:client] SIMULATE_PROXY_USAGE: stripping ${betasParams.length} beta headers from request: ${betasParams.join(', ')}`,
+      )
+    }
+
     // Only send temperature when thinking is disabled — the API requires
     // temperature: 1 when thinking is enabled, which is already the default.
     const temperature = !hasThinking
       ? (options.temperatureOverride ?? 1)
       : undefined
 
-    lastRequestBetas = betasParams
+    lastRequestBetas = simulateProxyUsage ? [] : betasParams
 
     return {
       model: normalizeModelStringForAPI(options.model),
@@ -1669,7 +1688,7 @@ async function* queryModel(
       system,
       tools: allTools,
       tool_choice: options.toolChoice,
-      ...(useBetas && { betas: betasParams }),
+      ...(useBetas && !simulateProxyUsage && { betas: betasParams }),
       metadata: getAPIMetadata(),
       max_tokens: maxOutputTokens,
       thinking,
@@ -1679,6 +1698,7 @@ async function* queryModel(
         betasParams.includes(CONTEXT_MANAGEMENT_BETA_HEADER) && {
           context_management: contextManagement,
         }),
+      ...(!simulateProxyUsage && gatedExtraParams ? gatedExtraParams : {}),
       ...extraBodyParams,
       ...(Object.keys(outputConfig).length > 0 && {
         output_config: outputConfig,
@@ -1804,6 +1824,9 @@ async function* queryModel(
         ...(isFastModeEnabled() ? { fastMode: isFastMode } : false),
         signal,
         querySource: options.querySource,
+        onError: _error => {
+          return
+        },
       },
     )
 

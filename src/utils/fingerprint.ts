@@ -1,5 +1,5 @@
 import { createHash } from 'crypto'
-import type { AssistantMessage, UserMessage } from '../types/message.js'
+import type { Message, UserMessage } from '../types/message.js'
 
 /**
  * Hardcoded salt from backend validation.
@@ -14,9 +14,11 @@ export const FINGERPRINT_SALT = '59cf53e54c78'
  * @returns First text content, or empty string if not found
  */
 export function extractFirstMessageText(
-  messages: (UserMessage | AssistantMessage)[],
+  messages: Message[],
 ): string {
-  const firstUserMessage = messages.find(msg => msg.type === 'user')
+  const firstUserMessage = messages.find(
+    (msg): msg is UserMessage => msg.type === 'user' && !msg.isMeta,
+  )
   if (!firstUserMessage) {
     return ''
   }
@@ -69,7 +71,7 @@ export function computeFingerprint(
  * @returns 3-character hex fingerprint
  */
 export function computeFingerprintFromMessages(
-  messages: (UserMessage | AssistantMessage)[],
+  messages: Message[],
 ): string {
   const firstMessageText = extractFirstMessageText(messages)
   return computeFingerprint(firstMessageText, MACRO.VERSION)

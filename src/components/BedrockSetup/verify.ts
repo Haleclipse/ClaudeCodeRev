@@ -1,12 +1,10 @@
 import type { AwsCredentialIdentityProvider } from '@aws-sdk/types'
 import {
+  applyBedrockAuth,
   applyBedrockRegionPrefix,
+  type BedrockAuthConfig,
   type BedrockRegionPrefix,
 } from '../../utils/model/bedrock.js'
-import {
-  applyBedrockAuth,
-  type BedrockAuthConfig,
-} from '../../utils/model/bedrockAuth.js'
 import { ALL_MODEL_CONFIGS, type ModelKey } from '../../utils/model/configs.js'
 import {
   DEFAULT_3P_HAIKU_KEY,

@@ -10,8 +10,9 @@ import {
   refreshAndGetAwsCredentials,
   refreshGcpCredentialsIfNeeded,
 } from 'src/utils/auth.js'
+import { isBgSession } from 'src/utils/concurrentSessions.js'
 import { getUserAgent } from 'src/utils/http.js'
-import { applyBedrockAuth } from 'src/utils/model/bedrockAuth.js'
+import { applyBedrockAuth } from 'src/utils/model/bedrock.js'
 import { getSmallFastModel } from 'src/utils/model/model.js'
 import {
   getAPIProvider,
@@ -104,7 +105,7 @@ export async function getAnthropicClient({
   const clientApp = process.env.CLAUDE_AGENT_SDK_CLIENT_APP
   const customHeaders = getCustomHeaders()
   const defaultHeaders: { [key: string]: string } = {
-    'x-app': 'cli',
+    'x-app': isBgSession() ? 'cli-bg' : 'cli',
     'User-Agent': getUserAgent(),
     'X-Claude-Code-Session-Id': getSessionId(),
     ...customHeaders,

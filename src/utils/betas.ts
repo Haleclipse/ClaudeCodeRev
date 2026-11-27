@@ -239,11 +239,9 @@ export function shouldIncludeFirstPartyOnlyBetas(): boolean {
  * treatment data is firstParty-only.
  */
 export function shouldUseGlobalCacheScope(): boolean {
+  if (!shouldIncludeFirstPartyOnlyBetas()) return false
   const provider = getAPIProvider()
-  return (
-    (provider === 'firstParty' || provider === 'anthropicAws') &&
-    !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS)
-  )
+  return provider === 'firstParty' || provider === 'anthropicAws'
 }
 
 export const getAllModelBetas = memoize((model: string): string[] => {

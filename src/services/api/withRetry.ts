@@ -139,6 +139,11 @@ interface RetryOptions {
    * regardless of which request mode hit the overload.
    */
   initialConsecutive529Errors?: number
+  /**
+   * Called on the first error. Returning 'retry' retries once without
+   * counting the attempt.
+   */
+  onError?: (error: unknown) => 'retry' | void
 }
 
 export class CannotRetryError extends Error {
@@ -186,6 +191,7 @@ export async function* withRetry<T>(
   let consecutive529Errors = options.initialConsecutive529Errors ?? 0
   let lastError: unknown
   let persistentAttempt = 0
+  let onErrorRetried = false
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     if (options.signal?.aborted) {
       throw new APIUserAbortError()
@@ -257,6 +263,12 @@ export async function* withRetry<T>(
         `API error (attempt ${attempt}/${maxRetries + 1}): ${error instanceof APIError ? `${error.status} ${error.message}` : errorMessage(error)}`,
         { level: 'error' },
       )
+
+      if (!onErrorRetried && options.onError?.(error) === 'retry') {
+        onErrorRetried = true
+        attempt--
+        continue
+      }
 
       // Fast mode fallback: on 429/529, either wait and retry (short delays)
       // or fall back to standard speed (long delays) to avoid cache thrashing.
@@ -788,7 +800,10 @@ function shouldRetry(error: APIError): boolean {
 
 export function getDefaultMaxRetries(): number {
   if (process.env.CLAUDE_CODE_MAX_RETRIES) {
-    return parseInt(process.env.CLAUDE_CODE_MAX_RETRIES, 10)
+    const parsed = parseInt(process.env.CLAUDE_CODE_MAX_RETRIES, 10)
+    if (Number.isFinite(parsed) && parsed >= 0) {
+      return parsed
+    }
   }
   return DEFAULT_MAX_RETRIES
 }
