@@ -19,12 +19,6 @@ import {
 import { registerTmuxBackend } from './registry.js'
 import type { CreatePaneResult, PaneBackend, PaneId } from './types.js'
 
-// Track whether the first pane has been used for external swarm session
-let firstPaneUsedForExternal = false
-
-// Cached leader window target (session:window format) to avoid repeated queries
-let cachedLeaderWindowTarget: string | null = null
-
 // Lock mechanism to prevent race conditions when spawning teammates in parallel
 let paneCreationLock: Promise<void> = Promise.resolve()
 
@@ -105,6 +99,12 @@ export class TmuxBackend implements PaneBackend {
   readonly type = 'tmux' as const
   readonly displayName = 'tmux'
   readonly supportsHideShow = true
+
+  // Cached leader window target (window id) to avoid repeated queries
+  private cachedLeaderWindowTarget: string | null = null
+
+  // Track whether the first pane has been used for external swarm session
+  private firstPaneUsedForExternal = false
 
   /**
    * Checks if tmux is installed and available.
@@ -392,15 +392,16 @@ export class TmuxBackend implements PaneBackend {
   }
 
   /**
-   * Gets the leader's window target (session:window format).
+   * Gets the leader's window target (window id). Unlike session:window_index,
+   * the window id stays valid when windows are closed or renumbered.
    * Uses the leader's pane ID to query for its window, ensuring we get the
    * correct window even if the user has switched to a different window.
    * Caches the result since the leader's window won't change.
    */
   private async getCurrentWindowTarget(): Promise<string | null> {
     // Return cached value if available
-    if (cachedLeaderWindowTarget) {
-      return cachedLeaderWindowTarget
+    if (this.cachedLeaderWindowTarget) {
+      return this.cachedLeaderWindowTarget
     }
 
     // Build the command - use -t to target the leader's pane specifically
@@ -409,7 +410,7 @@ export class TmuxBackend implements PaneBackend {
     if (leaderPane) {
       args.push('-t', leaderPane)
     }
-    args.push('-p', '#{session_name}:#{window_index}')
+    args.push('-p', '#{window_id}')
 
     const result = await execFileNoThrow(TMUX_COMMAND, args)
 
@@ -420,8 +421,8 @@ export class TmuxBackend implements PaneBackend {
       return null
     }
 
-    cachedLeaderWindowTarget = result.stdout.trim()
-    return cachedLeaderWindowTarget
+    this.cachedLeaderWindowTarget = result.stdout.trim()
+    return this.cachedLeaderWindowTarget
   }
 
   /**
@@ -595,9 +596,7 @@ export class TmuxBackend implements PaneBackend {
 
       const splitVertically = teammateCount % 2 === 1
       const targetPaneIndex = Math.floor((teammateCount - 1) / 2)
-      const targetPane =
-        teammatePanes[targetPaneIndex] ||
-        teammatePanes[teammatePanes.length - 1]
+      const targetPane = teammatePanes[targetPaneIndex] || teammatePanes.at(-1)
 
       splitResult = await execFileNoThrow(TMUX_COMMAND, [
         'split-window',
@@ -643,13 +642,13 @@ export class TmuxBackend implements PaneBackend {
     if (paneCount === null) {
       throw new Error('Could not determine pane count for swarm window')
     }
-    const isFirstTeammate = !firstPaneUsedForExternal && paneCount === 1
+    const isFirstTeammate = !this.firstPaneUsedForExternal && paneCount === 1
 
     let paneId: string
 
     if (isFirstTeammate) {
       paneId = firstPaneId
-      firstPaneUsedForExternal = true
+      this.firstPaneUsedForExternal = true
       logForDebugging(
         `[TmuxBackend] Using initial pane for first teammate ${teammateName}: ${paneId}`,
       )
@@ -669,7 +668,7 @@ export class TmuxBackend implements PaneBackend {
 
       const splitVertically = teammateCount % 2 === 1
       const targetPaneIndex = Math.floor((teammateCount - 1) / 2)
-      const targetPane = panes[targetPaneIndex] || panes[panes.length - 1]
+      const targetPane = panes[targetPaneIndex] || panes.at(-1)
 
       const splitResult = await runTmuxInSwarm([
         'split-window',
