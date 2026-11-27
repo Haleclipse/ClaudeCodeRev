@@ -1,5 +1,6 @@
 import type { BetaUsage as Usage } from '@anthropic-ai/sdk/resources/beta/messages/messages.mjs'
 import chalk from 'chalk'
+import { mapValues } from 'lodash-es'
 import {
   addToTotalCostState,
   addToTotalLinesChanged,
@@ -97,16 +98,11 @@ export function getStoredSessionCosts(
   // Build model usage with context windows
   let modelUsage: { [modelName: string]: ModelUsage } | undefined
   if (projectConfig.lastModelUsage) {
-    modelUsage = Object.fromEntries(
-      Object.entries(projectConfig.lastModelUsage).map(([model, usage]) => [
-        model,
-        {
-          ...usage,
-          contextWindow: getContextWindowForModel(model, getSdkBetas()),
-          maxOutputTokens: getModelMaxOutputTokens(model).default,
-        },
-      ]),
-    )
+    modelUsage = mapValues(projectConfig.lastModelUsage, (usage, model) => ({
+      ...usage,
+      contextWindow: getContextWindowForModel(model, getSdkBetas()),
+      maxOutputTokens: getModelMaxOutputTokens(model).default,
+    }))
   }
 
   return {
@@ -157,19 +153,14 @@ export function saveCurrentSessionCosts(fpsMetrics?: FpsMetrics): void {
     lastTotalWebSearchRequests: getTotalWebSearchRequests(),
     lastFpsAverage: fpsMetrics?.averageFps,
     lastFpsLow1Pct: fpsMetrics?.low1PctFps,
-    lastModelUsage: Object.fromEntries(
-      Object.entries(getModelUsage()).map(([model, usage]) => [
-        model,
-        {
-          inputTokens: usage.inputTokens,
-          outputTokens: usage.outputTokens,
-          cacheReadInputTokens: usage.cacheReadInputTokens,
-          cacheCreationInputTokens: usage.cacheCreationInputTokens,
-          webSearchRequests: usage.webSearchRequests,
-          costUSD: usage.costUSD,
-        },
-      ]),
-    ),
+    lastModelUsage: mapValues(getModelUsage(), usage => ({
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cacheReadInputTokens: usage.cacheReadInputTokens,
+      cacheCreationInputTokens: usage.cacheCreationInputTokens,
+      webSearchRequests: usage.webSearchRequests,
+      costUSD: usage.costUSD,
+    })),
     lastSessionId: getSessionId(),
   }))
 }
@@ -223,6 +214,52 @@ function formatModelUsage(): string {
     result += `\n` + `${shortName}:`.padStart(21) + usageString
   }
   return result
+}
+
+function getModelFamily(model: string): string {
+  if (model.includes('opus')) return 'opus'
+  if (model.includes('sonnet')) return 'sonnet'
+  if (model.includes('haiku')) return 'haiku'
+  return model
+}
+
+/**
+ * One-line breakdown of session cost by model family plus the prompt cache
+ * hit rate (cache reads over all input tokens), e.g.
+ * "breakdown · opus: 80% · sonnet: 20% · cache hit: 93%".
+ */
+export function formatCostBreakdown(): string | null {
+  const modelUsage = getModelUsage()
+  const entries = Object.entries(modelUsage)
+  if (entries.length === 0) return null
+
+  const costByFamily: Record<string, number> = {}
+  let totalCost = 0
+  let inputTokens = 0
+  let cacheReadTokens = 0
+  let cacheCreationTokens = 0
+  for (const [model, usage] of entries) {
+    const family = getModelFamily(getCanonicalName(model))
+    costByFamily[family] = (costByFamily[family] ?? 0) + usage.costUSD
+    totalCost += usage.costUSD
+    inputTokens += usage.inputTokens
+    cacheReadTokens += usage.cacheReadInputTokens
+    cacheCreationTokens += usage.cacheCreationInputTokens
+  }
+
+  const parts: string[] = []
+  if (totalCost > 0) {
+    for (const [family, cost] of Object.entries(costByFamily).sort(
+      (a, b) => b[1] - a[1],
+    )) {
+      parts.push(`${family}: ${Math.round((cost / totalCost) * 100)}%`)
+    }
+  }
+  const totalInput = inputTokens + cacheReadTokens + cacheCreationTokens
+  if (totalInput > 0) {
+    parts.push(`cache hit: ${Math.round((cacheReadTokens / totalInput) * 100)}%`)
+  }
+  return parts.length > 0 ? `breakdown · ${parts.join(' · ')}` : null
 }
 
 export function formatTotalCost(): string {

@@ -1,4 +1,6 @@
-import { formatTotalCost } from '../../cost-tracker.js'
+import chalk from 'chalk'
+import { formatCostBreakdown, formatTotalCost } from '../../cost-tracker.js'
+import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { currentLimits } from '../../services/claudeAiLimits.js'
 import type { LocalCommandCall } from '../../types/command.js'
 import { isClaudeAISubscriber } from '../../utils/auth.js'
@@ -13,6 +15,13 @@ export const call: LocalCommandCall = async () => {
     } else {
       value =
         'You are currently using your subscription to power your Claude Code usage'
+    }
+
+    if (getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_lark', false)) {
+      const breakdown = formatCostBreakdown()
+      if (breakdown) {
+        value += `\n\n${chalk.dim(breakdown)}`
+      }
     }
 
     if (process.env.USER_TYPE === 'ant') {
