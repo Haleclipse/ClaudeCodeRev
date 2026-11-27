@@ -913,11 +913,12 @@ function renderNodeToOutput(
             !hint ||
             heightDelta === 0 ||
             (hint.delta > 0 && heightDelta === hint.delta)
-          // scrollHint is set above when hint is captured. If safeForFastPath
-          // is false the full path renders a next.screen that doesn't match
-          // the DECSTBM shift — emitting DECSTBM leaves stale rows (seen as
-          // content bleeding through during scroll-up + streaming). Clear it.
-          if (!safeForFastPath) scrollHint = null
+          // scrollHint is set above when hint is captured. If the blit+shift
+          // path below isn't taken (no prevScreen, or !safeForFastPath) the
+          // full path renders a next.screen that doesn't match the DECSTBM
+          // shift — emitting DECSTBM leaves stale rows (seen as content
+          // bleeding through during scroll-up + streaming). Clear it.
+          if (hint && !(prevScreen && safeForFastPath)) scrollHint = null
           if (hint && prevScreen && safeForFastPath) {
             const { top, bottom, delta } = hint
             const w = Math.floor(width)

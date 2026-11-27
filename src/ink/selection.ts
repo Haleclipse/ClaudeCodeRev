@@ -504,7 +504,11 @@ export function shiftSelection(
   const newBelowDebt = Math.max(0, Math.max(vAnchor, vFocus) - maxRow)
   if (newAboveDebt < oldAboveDebt) {
     // scrolledOffAbove pushes newest at the end (closest to on-screen).
-    const drop = oldAboveDebt - newAboveDebt
+    // Never drop more rows than were actually captured.
+    const drop = Math.min(
+      oldAboveDebt - newAboveDebt,
+      s.scrolledOffAbove.length,
+    )
     s.scrolledOffAbove.length -= drop
     s.scrolledOffAboveSW.length = s.scrolledOffAbove.length
   }
