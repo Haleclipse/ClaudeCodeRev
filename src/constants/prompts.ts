@@ -13,7 +13,6 @@ import {
 } from '../tools/AgentTool/constants.js'
 import { FILE_WRITE_TOOL_NAME } from '../tools/FileWriteTool/prompt.js'
 import { FILE_READ_TOOL_NAME } from '../tools/FileReadTool/prompt.js'
-import { isRelativePathsEnabled } from '../utils/relativePaths.js'
 import { FILE_EDIT_TOOL_NAME } from '../tools/FileEditTool/constants.js'
 import { TODO_WRITE_TOOL_NAME } from '../tools/TodoWriteTool/constants.js'
 import { TASK_CREATE_TOOL_NAME } from '../tools/TaskCreateTool/constants.js'
@@ -45,6 +44,7 @@ import {
   isReplModeEnabled,
   REPL_TOOL_NAME,
 } from '../tools/REPLTool/constants.js'
+import { isRelativePathsEnabled } from '../tools/shared/relativePaths.js'
 import { feature } from 'bun:bundle'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from 'src/services/analytics/growthbook.js'
 import { shouldUseGlobalCacheScope } from '../utils/betas.js'

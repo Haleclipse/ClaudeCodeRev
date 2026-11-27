@@ -1,5 +1,5 @@
 // biome-ignore-all assist/source/organizeImports: ANT-ONLY import markers must not be reordered
-import { Box, Text, type TextProps } from '../../ink.js'
+import { Box, Link, Text, type TextProps } from '../../ink.js'
 import { feature } from 'bun:bundle'
 import * as React from 'react'
 import { useState } from 'react'
@@ -36,7 +36,6 @@ import {
   formatSecondsShort,
 } from '../../utils/format.js'
 import { getGlobalConfig } from '../../utils/config.js'
-import Link from '../../ink/components/Link.js'
 import { CtrlOToExpand } from '../CtrlOToExpand.js'
 import { useAppStateStore } from '../../state/AppState.js'
 import { isBackgroundTask, type TaskState } from '../../tasks/types.js'

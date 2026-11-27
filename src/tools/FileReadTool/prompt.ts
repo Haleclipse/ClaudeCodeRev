@@ -1,7 +1,7 @@
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import { isPDFSupported } from '../../utils/pdfUtils.js'
-import { isRelativePathsEnabled } from '../../utils/relativePaths.js'
 import { BASH_TOOL_NAME } from '../BashTool/toolName.js'
+import { isRelativePathsEnabled } from '../shared/relativePaths.js'
 
 /**
  * No-reread prompting (GrowthBook tengu_noreread_q7m_velvet): discourage

@@ -185,11 +185,11 @@ import {
   isUltrathinkEnabled,
 } from '../../utils/thinking.js'
 import { findTokenBudgetPositions } from '../../utils/tokenBudget.js'
+import { isUltraplanEnabled } from '../../utils/ultraplan/config.js'
 import {
   findUltraplanTriggerPositions,
   findUltrareviewTriggerPositions,
 } from '../../utils/ultraplan/keyword.js'
-import { isUltraplanEnabled } from '../../utils/ultraplan/config.js'
 import { AutoModeOptInDialog } from '../AutoModeOptInDialog.js'
 import { BridgeDialog } from '../BridgeDialog.js'
 import { ConfigurableShortcutHint } from '../ConfigurableShortcutHint.js'
