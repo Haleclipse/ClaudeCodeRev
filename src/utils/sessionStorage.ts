@@ -2861,6 +2861,14 @@ export function reAppendSessionMetadata(): void {
   getProject().reAppendSessionMetadata()
 }
 
+const sessionAgentNameChanged = createSignal()
+
+/**
+ * Subscribe to changes of the current session's agent name (saveAgentName).
+ */
+export const subscribeSessionAgentNameChanged =
+  sessionAgentNameChanged.subscribe
+
 export async function saveAgentName(
   sessionId: UUID,
   agentName: string,
@@ -2907,14 +2915,6 @@ export async function saveAgentColor(
 export function saveAgentSetting(agentSetting: string): void {
   getProject().currentSessionAgentSetting = agentSetting
 }
-
-const sessionAgentNameChanged = createSignal()
-
-/**
- * Subscribe to changes of the current session's agent name (saveAgentName).
- */
-export const subscribeSessionAgentNameChanged =
-  sessionAgentNameChanged.subscribe
 
 const sessionTitleChanged = createSignal()
 

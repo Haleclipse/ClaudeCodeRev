@@ -1494,8 +1494,14 @@ export function getToolUseIDs(
  * Reorders messages so that attachments bubble up until they hit either:
  * - A tool call result (user message with tool_result content)
  * - Any assistant message
+ *
+ * With `dropVirtual`, virtual user/assistant messages are also removed (they
+ * still act as stopping points for attachments).
  */
-export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
+export function reorderAttachmentsForAPI(
+  messages: Message[],
+  dropVirtual = false,
+): Message[] {
   // We build `result` backwards (push) and reverse once at the end — O(N).
   // Using unshift inside the loop would be O(N²).
   const result: Message[] = []
@@ -1517,6 +1523,10 @@ export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
         (message.type === 'user' &&
           Array.isArray(message.message.content) &&
           message.message.content[0]?.type === 'tool_result')
+      const isDroppedVirtual =
+        dropVirtual &&
+        (message.type === 'user' || message.type === 'assistant') &&
+        message.isVirtual
 
       if (isStoppingPoint && pendingAttachments.length > 0) {
         // Hit a stopping point — attachments stop here (go after the stopping point).
@@ -1525,9 +1535,9 @@ export function reorderAttachmentsForAPI(messages: Message[]): Message[] {
         for (let j = 0; j < pendingAttachments.length; j++) {
           result.push(pendingAttachments[j]!)
         }
-        result.push(message)
+        if (!isDroppedVirtual) result.push(message)
         pendingAttachments.length = 0
-      } else {
+      } else if (!isDroppedVirtual) {
         // Regular message
         result.push(message)
       }
@@ -2003,6 +2013,20 @@ function relocateToolReferenceSiblings(
   return result
 }
 
+/**
+ * Map from synthetic API error text → block types to strip from the meta user
+ * message that preceded the error.
+ */
+function getErrorToBlockTypes(): Record<string, Set<string>> {
+  return {
+    [getPdfTooLargeErrorMessage()]: new Set(['document']),
+    [getPdfPasswordProtectedErrorMessage()]: new Set(['document']),
+    [getPdfInvalidErrorMessage()]: new Set(['document']),
+    [getImageTooLargeErrorMessage()]: new Set(['image']),
+    [getRequestTooLargeErrorMessage()]: new Set(['document', 'image']),
+  }
+}
+
 export function normalizeMessagesForAPI(
   messages: Message[],
   tools: Tools = [],
@@ -2010,21 +2034,13 @@ export function normalizeMessagesForAPI(
   // Build set of available tool names for filtering unavailable tool references
   const availableToolNames = new Set(tools.map(t => t.name))
 
-  // First, reorder attachments to bubble up until they hit a tool result or assistant message
-  // Then strip virtual messages — they're display-only (e.g. REPL inner tool
-  // calls) and must never reach the API.
-  const reorderedMessages = reorderAttachmentsForAPI(messages).filter(
-    m => !((m.type === 'user' || m.type === 'assistant') && m.isVirtual),
-  )
+  // First, reorder attachments to bubble up until they hit a tool result or
+  // assistant message, dropping virtual messages — they're display-only (e.g.
+  // REPL inner tool calls) and must never reach the API.
+  const reorderedMessages = reorderAttachmentsForAPI(messages, true)
 
-  // Build a map from error text → which block types to strip from the preceding user message.
-  const errorToBlockTypes: Record<string, Set<string>> = {
-    [getPdfTooLargeErrorMessage()]: new Set(['document']),
-    [getPdfPasswordProtectedErrorMessage()]: new Set(['document']),
-    [getPdfInvalidErrorMessage()]: new Set(['document']),
-    [getImageTooLargeErrorMessage()]: new Set(['image']),
-    [getRequestTooLargeErrorMessage()]: new Set(['document', 'image']),
-  }
+  // Map from error text → which block types to strip from the preceding user message.
+  const errorToBlockTypes = getErrorToBlockTypes()
 
   // Walk the reordered messages to build a targeted strip map:
   // userMessageUUID → set of block types to strip from that message.
@@ -2071,243 +2087,233 @@ export function normalizeMessagesForAPI(
   }
 
   const result: (UserMessage | AssistantMessage)[] = []
-  reorderedMessages
-    .filter(
-      (
-        _,
-      ): _ is
-        | UserMessage
-        | AssistantMessage
-        | AttachmentMessage
-        | SystemLocalCommandMessage => {
-        if (
-          _.type === 'progress' ||
-          (_.type === 'system' && !isSystemLocalCommandMessage(_)) ||
-          isSyntheticApiErrorMessage(_)
-        ) {
-          return false
+  for (const message of reorderedMessages) {
+    if (
+      message.type === 'progress' ||
+      (message.type === 'system' && !isSystemLocalCommandMessage(message)) ||
+      isSyntheticApiErrorMessage(message)
+    ) {
+      continue
+    }
+    switch (message.type) {
+      case 'system': {
+        // local_command system messages need to be included as user messages
+        // so the model can reference previous command output in later turns
+        const userMsg = createUserMessage({
+          content: message.content,
+          uuid: message.uuid,
+          timestamp: message.timestamp,
+        })
+        const lastMessage = last(result)
+        if (lastMessage?.type === 'user') {
+          result[result.length - 1] = mergeUserMessages(lastMessage, userMsg)
+          continue
         }
-        return true
-      },
-    )
-    .forEach(message => {
-      switch (message.type) {
-        case 'system': {
-          // local_command system messages need to be included as user messages
-          // so the model can reference previous command output in later turns
-          const userMsg = createUserMessage({
-            content: message.content,
-            uuid: message.uuid,
-            timestamp: message.timestamp,
-          })
-          const lastMessage = last(result)
-          if (lastMessage?.type === 'user') {
-            result[result.length - 1] = mergeUserMessages(lastMessage, userMsg)
-            return
-          }
-          result.push(userMsg)
-          return
-        }
-        case 'user': {
-          // Merge consecutive user messages because Bedrock doesn't support
-          // multiple user messages in a row; 1P API does and merges them
-          // into a single user turn
+        result.push(userMsg)
+        continue
+      }
+      case 'user': {
+        // Merge consecutive user messages because Bedrock doesn't support
+        // multiple user messages in a row; 1P API does and merges them
+        // into a single user turn
 
-          // When tool search is NOT enabled, strip all tool_reference blocks from
-          // tool_result content, as these are only valid with the tool search beta.
-          // When tool search IS enabled, strip only tool_reference blocks for
-          // tools that no longer exist (e.g., MCP server was disconnected).
-          let normalizedMessage = message
-          if (!isToolSearchEnabledOptimistic()) {
-            normalizedMessage = stripToolReferenceBlocksFromUserMessage(message)
-          } else {
-            normalizedMessage = stripUnavailableToolReferencesFromUserMessage(
-              message,
-              availableToolNames,
+        // When tool search is NOT enabled, strip all tool_reference blocks from
+        // tool_result content, as these are only valid with the tool search beta.
+        // When tool search IS enabled, strip only tool_reference blocks for
+        // tools that no longer exist (e.g., MCP server was disconnected).
+        let normalizedMessage = message
+        if (!isToolSearchEnabledOptimistic()) {
+          normalizedMessage = stripToolReferenceBlocksFromUserMessage(message)
+        } else {
+          normalizedMessage = stripUnavailableToolReferencesFromUserMessage(
+            message,
+            availableToolNames,
+          )
+        }
+
+        // Strip document/image blocks from the specific meta user message that
+        // preceded a PDF/image/request-too-large error, to prevent re-sending
+        // the problematic content on every subsequent API call.
+        const typesToStrip = stripTargets.get(normalizedMessage.uuid)
+        if (typesToStrip && normalizedMessage.isMeta) {
+          const content = normalizedMessage.message.content
+          if (Array.isArray(content)) {
+            const filtered = content.filter(
+              block => !typesToStrip.has(block.type),
             )
-          }
-
-          // Strip document/image blocks from the specific meta user message that
-          // preceded a PDF/image/request-too-large error, to prevent re-sending
-          // the problematic content on every subsequent API call.
-          const typesToStrip = stripTargets.get(normalizedMessage.uuid)
-          if (typesToStrip && normalizedMessage.isMeta) {
-            const content = normalizedMessage.message.content
-            if (Array.isArray(content)) {
-              const filtered = content.filter(
-                block => !typesToStrip.has(block.type),
-              )
-              if (filtered.length === 0) {
-                // All content blocks were stripped; skip this message entirely
-                return
-              }
-              if (filtered.length < content.length) {
-                normalizedMessage = {
-                  ...normalizedMessage,
-                  message: {
-                    ...normalizedMessage.message,
-                    content: filtered,
-                  },
-                }
-              }
+            if (filtered.length === 0) {
+              // All content blocks were stripped; skip this message entirely
+              continue
             }
-          }
-
-          // Server renders tool_reference expansion as <functions>...</functions>
-          // (same tags as the system prompt's tool block). When this is at the
-          // prompt tail, capybara models sample the stop sequence at ~10% (A/B:
-          // 21/200 vs 0/200 on v3-prod). A sibling text block inserts a clean
-          // "\n\nHuman: ..." turn boundary. Injected here (API-prep) rather than
-          // stored in the message so it never renders in the REPL, and is
-          // auto-skipped when strip* above removes all tool_reference content.
-          // Must be a sibling, NOT inside tool_result.content — mixing text with
-          // tool_reference inside the block is a server ValueError.
-          // Idempotent: query.ts calls this per-tool-result; the output flows
-          // back through here via claude.ts on the next API request. The first
-          // pass's sibling gets a \n[id:xxx] suffix from appendMessageTag below,
-          // so startsWith matches both bare and tagged forms.
-          //
-          // Gated OFF when tengu_toolref_defer_j8m is active — that gate
-          // enables relocateToolReferenceSiblings in post-processing below,
-          // which moves existing siblings to a later non-ref message instead
-          // of adding one here. This injection is itself one of the patterns
-          // that gets relocated, so skipping it saves a scan. When gate is
-          // off, this is the fallback (same as pre-#21049 main).
-          if (
-            !checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-              'tengu_toolref_defer_j8m',
-            )
-          ) {
-            const contentAfterStrip = normalizedMessage.message.content
-            if (
-              Array.isArray(contentAfterStrip) &&
-              !contentAfterStrip.some(
-                b =>
-                  b.type === 'text' &&
-                  b.text.startsWith(TOOL_REFERENCE_TURN_BOUNDARY),
-              ) &&
-              contentHasToolReference(contentAfterStrip)
-            ) {
+            if (filtered.length < content.length) {
               normalizedMessage = {
                 ...normalizedMessage,
                 message: {
                   ...normalizedMessage.message,
-                  content: [
-                    ...contentAfterStrip,
-                    { type: 'text', text: TOOL_REFERENCE_TURN_BOUNDARY },
-                  ],
+                  content: filtered,
                 },
               }
             }
           }
-
-          // If the last message is also a user message, merge them
-          const lastMessage = last(result)
-          if (lastMessage?.type === 'user') {
-            result[result.length - 1] = mergeUserMessages(
-              lastMessage,
-              normalizedMessage,
-            )
-            return
-          }
-
-          // Otherwise, add the message normally
-          result.push(normalizedMessage)
-          return
         }
-        case 'assistant': {
-          // Normalize tool inputs for API (strip fields like plan from ExitPlanModeV2)
-          // When tool search is NOT enabled, we must strip tool_search-specific fields
-          // like 'caller' from tool_use blocks, as these are only valid with the
-          // tool search beta header
-          const toolSearchEnabled = isToolSearchEnabledOptimistic()
-          const normalizedMessage: AssistantMessage = {
-            ...message,
-            message: {
-              ...message.message,
-              content: message.message.content.map(block => {
-                if (block.type === 'tool_use') {
-                  const tool = tools.find(t => toolMatchesName(t, block.name))
-                  const normalizedInput = tool
-                    ? normalizeToolInputForAPI(
-                        tool,
-                        block.input as Record<string, unknown>,
-                      )
-                    : block.input
-                  const canonicalName = tool?.name ?? block.name
 
-                  // When tool search is enabled, preserve all fields including 'caller'
-                  if (toolSearchEnabled) {
-                    return {
-                      ...block,
-                      name: canonicalName,
-                      input: normalizedInput,
-                    }
-                  }
+        // Server renders tool_reference expansion as <functions>...</functions>
+        // (same tags as the system prompt's tool block). When this is at the
+        // prompt tail, capybara models sample the stop sequence at ~10% (A/B:
+        // 21/200 vs 0/200 on v3-prod). A sibling text block inserts a clean
+        // "\n\nHuman: ..." turn boundary. Injected here (API-prep) rather than
+        // stored in the message so it never renders in the REPL, and is
+        // auto-skipped when strip* above removes all tool_reference content.
+        // Must be a sibling, NOT inside tool_result.content — mixing text with
+        // tool_reference inside the block is a server ValueError.
+        // Idempotent: query.ts calls this per-tool-result; the output flows
+        // back through here via claude.ts on the next API request. The first
+        // pass's sibling gets a \n[id:xxx] suffix from appendMessageTag below,
+        // so startsWith matches both bare and tagged forms.
+        //
+        // Gated OFF when tengu_toolref_defer_j8m is active — that gate
+        // enables relocateToolReferenceSiblings in post-processing below,
+        // which moves existing siblings to a later non-ref message instead
+        // of adding one here. This injection is itself one of the patterns
+        // that gets relocated, so skipping it saves a scan. When gate is
+        // off, this is the fallback (same as pre-#21049 main).
+        if (
+          !checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
+            'tengu_toolref_defer_j8m',
+          )
+        ) {
+          const contentAfterStrip = normalizedMessage.message.content
+          if (
+            Array.isArray(contentAfterStrip) &&
+            !contentAfterStrip.some(
+              b =>
+                b.type === 'text' &&
+                b.text.startsWith(TOOL_REFERENCE_TURN_BOUNDARY),
+            ) &&
+            contentHasToolReference(contentAfterStrip)
+          ) {
+            normalizedMessage = {
+              ...normalizedMessage,
+              message: {
+                ...normalizedMessage.message,
+                content: [
+                  ...contentAfterStrip,
+                  { type: 'text', text: TOOL_REFERENCE_TURN_BOUNDARY },
+                ],
+              },
+            }
+          }
+        }
 
-                  // When tool search is NOT enabled, explicitly construct tool_use
-                  // block with only standard API fields to avoid sending fields like
-                  // 'caller' that may be stored in sessions from tool search runs
+        // If the last message is also a user message, merge them
+        const lastMessage = last(result)
+        if (lastMessage?.type === 'user') {
+          result[result.length - 1] = mergeUserMessages(
+            lastMessage,
+            normalizedMessage,
+          )
+          continue
+        }
+
+        // Otherwise, add the message normally
+        result.push(normalizedMessage)
+        continue
+      }
+      case 'assistant': {
+        // Normalize tool inputs for API (strip fields like plan from ExitPlanModeV2)
+        // When tool search is NOT enabled, we must strip tool_search-specific fields
+        // like 'caller' from tool_use blocks, as these are only valid with the
+        // tool search beta header
+        const toolSearchEnabled = isToolSearchEnabledOptimistic()
+        const normalizedMessage: AssistantMessage = {
+          ...message,
+          message: {
+            ...message.message,
+            content: message.message.content.map(block => {
+              if (block.type === 'tool_use') {
+                const tool = tools.find(t => toolMatchesName(t, block.name))
+                const normalizedInput = tool
+                  ? normalizeToolInputForAPI(
+                      tool,
+                      block.input as Record<string, unknown>,
+                    )
+                  : block.input
+                const canonicalName = tool?.name ?? block.name
+
+                // When tool search is enabled, preserve all fields including 'caller'
+                if (toolSearchEnabled) {
                   return {
-                    type: 'tool_use' as const,
-                    id: block.id,
+                    ...block,
                     name: canonicalName,
                     input: normalizedInput,
                   }
                 }
-                return block
-              }),
-            },
+
+                // When tool search is NOT enabled, explicitly construct tool_use
+                // block with only standard API fields to avoid sending fields like
+                // 'caller' that may be stored in sessions from tool search runs
+                return {
+                  type: 'tool_use' as const,
+                  id: block.id,
+                  name: canonicalName,
+                  input: normalizedInput,
+                }
+              }
+              return block
+            }),
+          },
+        }
+        let merged = false
+
+        // Find a previous assistant message with the same message ID and merge.
+        // Walk backwards, skipping tool results and different-ID assistants,
+        // since concurrent agents (teammates) can interleave streaming content
+        // blocks from multiple API responses with different message IDs.
+        for (let i = result.length - 1; i >= 0; i--) {
+          const msg = result[i]!
+
+          if (msg.type !== 'assistant' && !isToolResultMessage(msg)) {
+            break
           }
 
-          // Find a previous assistant message with the same message ID and merge.
-          // Walk backwards, skipping tool results and different-ID assistants,
-          // since concurrent agents (teammates) can interleave streaming content
-          // blocks from multiple API responses with different message IDs.
-          for (let i = result.length - 1; i >= 0; i--) {
-            const msg = result[i]!
-
-            if (msg.type !== 'assistant' && !isToolResultMessage(msg)) {
+          if (msg.type === 'assistant') {
+            if (msg.message.id === normalizedMessage.message.id) {
+              result[i] = mergeAssistantMessages(msg, normalizedMessage)
+              merged = true
               break
             }
-
-            if (msg.type === 'assistant') {
-              if (msg.message.id === normalizedMessage.message.id) {
-                result[i] = mergeAssistantMessages(msg, normalizedMessage)
-                return
-              }
-              continue
-            }
+            continue
           }
-
-          result.push(normalizedMessage)
-          return
         }
-        case 'attachment': {
-          const rawAttachmentMessage = normalizeAttachmentForAPI(
-            message.attachment,
-          )
-          const attachmentMessage = checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
-            'tengu_chair_sermon',
-          )
-            ? rawAttachmentMessage.map(ensureSystemReminderWrap)
-            : rawAttachmentMessage
 
-          // If the last message is also a user message, merge them
-          const lastMessage = last(result)
-          if (lastMessage?.type === 'user') {
-            result[result.length - 1] = attachmentMessage.reduce(
-              (p, c) => mergeUserMessagesAndToolResults(p, c),
-              lastMessage,
-            )
-            return
-          }
-
-          result.push(...attachmentMessage)
-          return
-        }
+        if (!merged) result.push(normalizedMessage)
+        continue
       }
-    })
+      case 'attachment': {
+        const rawAttachmentMessage = normalizeAttachmentForAPI(
+          message.attachment,
+        )
+        const attachmentMessage = checkStatsigFeatureGate_CACHED_MAY_BE_STALE(
+          'tengu_chair_sermon',
+        )
+          ? rawAttachmentMessage.map(ensureSystemReminderWrap)
+          : rawAttachmentMessage
+
+        // If the last message is also a user message, merge them
+        const lastMessage = last(result)
+        if (lastMessage?.type === 'user') {
+          result[result.length - 1] = attachmentMessage.reduce(
+            (p, c) => mergeUserMessagesAndToolResults(p, c),
+            lastMessage,
+          )
+          continue
+        }
+
+        result.push(...attachmentMessage)
+        continue
+      }
+    }
+  }
 
   // Relocate text siblings off tool_reference messages — prevents the
   // anomalous two-consecutive-human-turns pattern that teaches the model

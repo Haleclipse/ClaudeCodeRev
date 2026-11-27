@@ -2780,6 +2780,11 @@ async function run(): Promise<CommanderCommand> {
       )
       profileCheckpoint('action_after_input_prompt')
 
+      // Activate proactive mode BEFORE getTools() so SleepTool.isEnabled()
+      // (which returns isProactiveActive()) passes and Sleep is included.
+      // The later REPL-path maybeActivateProactive() calls are idempotent.
+      maybeActivateProactive(options)
+
       let tools = getTools(toolPermissionContext)
 
       // Apply coordinator mode tool filtering for headless path
@@ -4345,6 +4350,7 @@ async function run(): Promise<CommanderCommand> {
             mainThreadAgentDefinition = loaded.restoredAgentDef
           }
 
+          maybeActivateProactive(options)
           maybeActivateBrief(options)
 
           logEvent('tengu_continue', {
@@ -5157,6 +5163,7 @@ async function run(): Promise<CommanderCommand> {
               }
             : undefined)
         if (resumeData) {
+          maybeActivateProactive(options)
           maybeActivateBrief(options)
 
           await launchRepl(
@@ -5198,6 +5205,7 @@ async function run(): Promise<CommanderCommand> {
           hooksPromise && hookMessages.length === 0 ? hooksPromise : undefined
 
         profileCheckpoint('action_after_hooks')
+        maybeActivateProactive(options)
         maybeActivateBrief(options)
         // Persist the current mode for fresh sessions so future resumes know what mode was used
         if (feature('COORDINATOR_MODE')) {
@@ -6607,6 +6615,20 @@ async function logTenguInit({
     })
   } catch (error) {
     logError(error)
+  }
+}
+
+function maybeActivateProactive(options: unknown): void {
+  if (
+    (feature('PROACTIVE') || feature('KAIROS')) &&
+    ((options as { proactive?: boolean }).proactive ||
+      isEnvTruthy(process.env.CLAUDE_CODE_PROACTIVE))
+  ) {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const proactiveModule = require('./proactive/index.js')
+    if (!proactiveModule.isProactiveActive()) {
+      proactiveModule.activateProactive('command')
+    }
   }
 }
 

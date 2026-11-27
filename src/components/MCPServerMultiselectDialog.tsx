@@ -2,6 +2,7 @@ import partition from 'lodash-es/partition.js'
 import React, { useCallback } from 'react'
 import { logEvent } from 'src/services/analytics/index.js'
 import { Box, Text } from '../ink.js'
+import { uniq } from '../utils/array.js'
 import {
   getSettings_DEPRECATED,
   updateSettingsForSource,
@@ -39,9 +40,7 @@ export function MCPServerMultiselectDialog({
 
     // Update settings with approved servers
     if (approvedServers.length > 0) {
-      const newEnabledServers = [
-        ...new Set([...enabledServers, ...approvedServers]),
-      ]
+      const newEnabledServers = uniq([...enabledServers, ...approvedServers])
       updateSettingsForSource('localSettings', {
         enabledMcpjsonServers: newEnabledServers,
       })
@@ -49,9 +48,7 @@ export function MCPServerMultiselectDialog({
 
     // Update settings with rejected servers
     if (rejectedServers.length > 0) {
-      const newDisabledServers = [
-        ...new Set([...disabledServers, ...rejectedServers]),
-      ]
+      const newDisabledServers = uniq([...disabledServers, ...rejectedServers])
       updateSettingsForSource('localSettings', {
         disabledMcpjsonServers: newDisabledServers,
       })
@@ -65,9 +62,7 @@ export function MCPServerMultiselectDialog({
     const currentSettings = getSettings_DEPRECATED() || {}
     const disabledServers = currentSettings.disabledMcpjsonServers || []
 
-    const newDisabledServers = [
-      ...new Set([...disabledServers, ...serverNames]),
-    ]
+    const newDisabledServers = uniq([...disabledServers, ...serverNames])
 
     updateSettingsForSource('localSettings', {
       disabledMcpjsonServers: newDisabledServers,
