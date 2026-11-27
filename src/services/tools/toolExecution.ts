@@ -1383,7 +1383,9 @@ async function checkPermissionsAndCallTool(
         fileExtension = getFileExtensionForAnalytics(
           String(processedInput.file_path),
         )
-        filePathLen = String(processedInput.file_path).length
+        filePathLen = String(
+          (callInput as Record<string, unknown>).file_path,
+        ).length
       } else if (
         tool.name === NOTEBOOK_EDIT_TOOL_NAME &&
         'notebook_path' in processedInput

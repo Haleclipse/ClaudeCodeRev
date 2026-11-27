@@ -314,9 +314,9 @@ export function CompanionFloatingBubble(): React.ReactNode {
   const [, time] = useAnimationFrame(
     reaction && isTerminalFocused ? TICK_MS : null,
   )
-  const tick = Math.floor(time / TICK_MS)
+  const currentTick = Math.floor(time / TICK_MS)
   const [{ startTick, forReaction }, setStartTick] = useState({
-    startTick: tick,
+    startTick: currentTick,
     forReaction: reaction,
   })
 
@@ -325,9 +325,9 @@ export function CompanionFloatingBubble(): React.ReactNode {
   // Storing the reaction the start tick belongs to alongside it means the
   // fade computation never sees a start tick from a previous reaction.
   if (reaction !== forReaction) {
-    setStartTick({ startTick: tick, forReaction: reaction })
+    setStartTick({ startTick: currentTick, forReaction: reaction })
   }
-  const age = tick - startTick
+  const age = currentTick - startTick
 
   if (!feature('BUDDY') || !reaction) return null
   const companion = getCompanion()

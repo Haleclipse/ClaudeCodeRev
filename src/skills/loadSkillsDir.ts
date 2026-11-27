@@ -77,6 +77,22 @@ export type LoadedFrom =
   | 'mcp'
 
 /**
+ * Whether disableSkillShellExecution applies to a command: skills, legacy
+ * commands and plugin commands, except those from managed (policy) settings.
+ */
+function isShellPolicyRestrictedSource(
+  loadedFrom: LoadedFrom,
+  source: PromptCommand['source'],
+): boolean {
+  if (source === 'policySettings') return false
+  return (
+    loadedFrom === 'skills' ||
+    loadedFrom === 'commands_DEPRECATED' ||
+    loadedFrom === 'plugin'
+  )
+}
+
+/**
  * Returns a claude config directory path for a given source.
  */
 export function getSkillsPath(
@@ -266,22 +282,6 @@ export function parseSkillFrontmatterFields(
     effort,
     shell: parseShellFrontmatter(frontmatter.shell, resolvedName),
   }
-}
-
-/**
- * Whether disableSkillShellExecution applies to a command: skills, legacy
- * commands and plugin commands, except those from managed (policy) settings.
- */
-function isShellPolicyRestrictedSource(
-  loadedFrom: LoadedFrom,
-  source: PromptCommand['source'],
-): boolean {
-  if (source === 'policySettings') return false
-  return (
-    loadedFrom === 'skills' ||
-    loadedFrom === 'commands_DEPRECATED' ||
-    loadedFrom === 'plugin'
-  )
 }
 
 /**

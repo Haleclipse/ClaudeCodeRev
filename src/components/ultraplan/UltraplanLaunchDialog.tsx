@@ -38,11 +38,11 @@ export function UltraplanLaunchDialog({ onChoice }: Props): React.ReactNode {
   // runs the variant this copy describes.
   const [promptIdentifier] = useState(() => getUltraplanPromptIdentifier())
   const copy = getUltraplanPromptCopy(promptIdentifier)
-  const isBridgeEnabled = useAppState(s => s.replBridgeEnabled)
+  const replBridgeEnabled = useAppState(s => s.replBridgeEnabled)
   const setAppState = useSetAppState()
 
   function handleChoice(choice: UltraplanLaunchChoice): void {
-    const disconnectedBridge = choice === 'run' && isBridgeEnabled
+    const disconnectedBridge = choice === 'run' && replBridgeEnabled
     if (disconnectedBridge) {
       setAppState(prev => {
         if (!prev.replBridgeEnabled) return prev
@@ -73,7 +73,7 @@ export function UltraplanLaunchDialog({ onChoice }: Props): React.ReactNode {
       <Box flexDirection="column" gap={1}>
         <Box flexDirection="column">
           <Text dimColor>{copy.dialogBody}</Text>
-          {isBridgeEnabled && (
+          {replBridgeEnabled && (
             <Text dimColor>
               This will disable Remote Control for this session.
             </Text>
@@ -85,13 +85,13 @@ export function UltraplanLaunchDialog({ onChoice }: Props): React.ReactNode {
             </Text>
           )}
         </Box>
-        {!isBridgeEnabled && <Text dimColor>{copy.dialogPipeline}</Text>}
+        {!replBridgeEnabled && <Text dimColor>{copy.dialogPipeline}</Text>}
         <Select
           options={[
             {
               label: 'Run ultraplan',
               value: 'run' as const,
-              description: isBridgeEnabled
+              description: replBridgeEnabled
                 ? 'Disable remote control and launch in Claude Code on the web'
                 : 'launch in Claude Code on the web',
             },
