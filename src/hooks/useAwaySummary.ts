@@ -4,9 +4,13 @@ import {
   getTerminalFocusState,
   subscribeTerminalFocus,
 } from '../ink/terminal-focus-state.js'
+// Side-effect import; no visible usage in this build.
+import '../services/sessionState/record.js'
 import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { generateAwaySummary } from '../services/awaySummary.js'
 import type { Message } from '../types/message.js'
+// Side-effect import; no visible usage in this build.
+import '../utils/concurrentSessions.js'
 import { createAwaySummaryMessage } from '../utils/messages.js'
 
 const BLUR_DELAY_MS = 5 * 60_000
