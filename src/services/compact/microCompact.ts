@@ -264,7 +264,7 @@ export async function microcompactMessages(
   // tool results now, before the request, to shrink what gets rewritten.
   // Cached MC (cache-editing) is skipped when this fires: editing assumes a
   // warm cache, and we just established it's cold.
-  const timeBasedResult = maybeTimeBasedMicrocompact(messages, querySource)
+  const timeBasedResult = maybeGapTimeBasedMicrocompact(messages, querySource)
   if (timeBasedResult) {
     return timeBasedResult
   }
@@ -443,14 +443,32 @@ export function evaluateTimeBasedTrigger(
   return { gapMinutes, config }
 }
 
+type TimeBasedMCTrigger = {
+  gapMinutes: number
+  config: TimeBasedMCConfig
+  trigger: 'gap' | 'cache_miss'
+}
+
+function maybeGapTimeBasedMicrocompact(
+  messages: Message[],
+  querySource: QuerySource | undefined,
+): (MicrocompactResult & { tokensSaved: number }) | null {
+  const gap = evaluateTimeBasedTrigger(messages, querySource)
+  if (!gap) {
+    return null
+  }
+  return maybeTimeBasedMicrocompact(messages, querySource, {
+    gapMinutes: gap.gapMinutes,
+    config: gap.config,
+    trigger: 'gap',
+  })
+}
+
 function maybeTimeBasedMicrocompact(
   messages: Message[],
   querySource: QuerySource | undefined,
-): MicrocompactResult | null {
-  const trigger = evaluateTimeBasedTrigger(messages, querySource)
-  if (!trigger) {
-    return null
-  }
+  trigger: TimeBasedMCTrigger,
+): (MicrocompactResult & { tokensSaved: number }) | null {
   const { gapMinutes, config } = trigger
 
   const compactableIds = collectCompactableToolIds(messages)
@@ -502,10 +520,12 @@ function maybeTimeBasedMicrocompact(
     toolsKept: keepSet.size,
     keepRecent: config.keepRecent,
     tokensSaved,
+    trigger:
+      trigger.trigger as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   })
 
   logForDebugging(
-    `[TIME-BASED MC] gap ${Math.round(gapMinutes)}min > ${config.gapThresholdMinutes}min, cleared ${clearSet.size} tool results (~${tokensSaved} tokens), kept last ${keepSet.size}`,
+    `[TIME-BASED MC] ${trigger.trigger === 'cache_miss' ? 'cache_miss trigger' : `gap ${Math.round(gapMinutes)}min > ${config.gapThresholdMinutes}min`}, cleared ${clearSet.size} tool results (~${tokensSaved} tokens), kept last ${keepSet.size}`,
   )
 
   suppressCompactWarning()
@@ -526,5 +546,5 @@ function maybeTimeBasedMicrocompact(
     notifyCacheDeletion(querySource)
   }
 
-  return { messages: result }
+  return { messages: result, tokensSaved }
 }

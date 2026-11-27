@@ -18,10 +18,7 @@ import { processSessionStartHooks } from '../../utils/sessionStart.js'
 import { getTranscriptPath } from '../../utils/sessionStorage.js'
 import { tokenCountFromLastAPIResponse } from '../../utils/tokens.js'
 import { extractDiscoveredToolNames } from '../../utils/toolSearch.js'
-import {
-  getDynamicConfig_BLOCKS_ON_INIT,
-  getFeatureValue_CACHED_MAY_BE_STALE,
-} from '../analytics/growthbook.js'
+import { getDynamicConfig_BLOCKS_ON_INIT } from '../analytics/growthbook.js'
 import { logEvent } from '../analytics/index.js'
 import {
   isSessionMemoryEmpty,
@@ -398,37 +395,9 @@ export function calculateMessagesToKeepIndex(
 
 /**
  * Check if we should use session memory for compaction
- * Uses cached gate values to avoid blocking on Statsig initialization
  */
 export function shouldUseSessionMemoryCompaction(): boolean {
-  // Allow env var override for eval runs and testing
-  if (isEnvTruthy(process.env.ENABLE_CLAUDE_CODE_SM_COMPACT)) {
-    return true
-  }
-  if (isEnvTruthy(process.env.DISABLE_CLAUDE_CODE_SM_COMPACT)) {
-    return false
-  }
-
-  const sessionMemoryFlag = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_session_memory',
-    false,
-  )
-  const smCompactFlag = getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_sm_compact',
-    false,
-  )
-  const shouldUse = sessionMemoryFlag && smCompactFlag
-
-  // Log flag states for debugging (ant-only to avoid noise in external logs)
-  if (process.env.USER_TYPE === 'ant') {
-    logEvent('tengu_sm_compact_flag_check', {
-      tengu_session_memory: sessionMemoryFlag,
-      tengu_sm_compact: smCompactFlag,
-      should_use: shouldUse,
-    })
-  }
-
-  return shouldUse
+  return isEnvTruthy(process.env.ENABLE_CLAUDE_CODE_SM_COMPACT)
 }
 
 /**

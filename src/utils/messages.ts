@@ -4240,15 +4240,6 @@ You have exited auto mode. The user may now want to interact more directly. You 
           isMeta: true,
         }),
       ]
-    case 'compaction_reminder': {
-      return wrapMessagesInSystemReminder([
-        createUserMessage({
-          content:
-            'Auto-compact is enabled. When the context window is nearly full, older messages will be automatically summarized so you can continue working seamlessly. There is no need to stop or rush \u2014 you have unlimited context through automatic compaction.',
-          isMeta: true,
-        }),
-      ])
-    }
     case 'context_efficiency': {
       if (feature('HISTORY_SNIP')) {
         const { SNIP_NUDGE_TEXT } =
@@ -4376,6 +4367,7 @@ You have exited auto mode. The user may now want to interact more directly. You 
     'todo',
     'task_progress', // removed in PR #19337
     'ultramemory', // removed in PR #23596
+    'compaction_reminder',
   ]
   if (LEGACY_ATTACHMENT_TYPES.includes((attachment as { type: string }).type)) {
     return []

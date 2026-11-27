@@ -7,7 +7,6 @@ const sessionTranscriptModule = feature('KAIROS')
   ? (require('../sessionTranscript/sessionTranscript.js') as typeof import('../sessionTranscript/sessionTranscript.js'))
   : null
 
-import { APIUserAbortError } from '@anthropic-ai/sdk'
 import { markPostCompaction } from 'src/bootstrap/state.js'
 import { getInvokedSkillsForAgent } from '../../bootstrap/state.js'
 import type { QuerySource } from '../../constants/querySource.js'
@@ -78,7 +77,6 @@ import {
   getTranscriptPath,
   reAppendSessionMetadata,
 } from '../../utils/sessionStorage.js'
-import { sleep } from '../../utils/sleep.js'
 import { jsonStringify } from '../../utils/slowOperations.js'
 /* eslint-enable @typescript-eslint/no-require-imports */
 import { asSystemPrompt } from '../../utils/systemPromptType.js'
@@ -107,7 +105,6 @@ import {
   startsWithApiErrorPrefix,
 } from '../api/errors.js'
 import { notifyCompaction } from '../api/promptCacheBreakDetection.js'
-import { getRetryDelay } from '../api/withRetry.js'
 import { logPermissionContextForAnts } from '../internalLogging.js'
 import {
   roughTokenCountEstimation,
@@ -129,7 +126,6 @@ export const POST_COMPACT_MAX_TOKENS_PER_FILE = 5_000
 // part. Budget sized to hold ~5 skills at the per-skill cap.
 export const POST_COMPACT_MAX_TOKENS_PER_SKILL = 5_000
 export const POST_COMPACT_SKILLS_TOKEN_BUDGET = 25_000
-const MAX_COMPACT_STREAMING_RETRIES = 2
 
 /**
  * Strip image blocks from user messages before sending for compaction.
@@ -1278,152 +1274,126 @@ async function streamCompactSummary({
     }
 
     // Regular streaming path (fallback when cache sharing fails or is disabled)
-    const retryEnabled = getFeatureValue_CACHED_MAY_BE_STALE(
-      'tengu_compact_streaming_retry',
-      false,
+    let hasStartedStreaming = false
+    let response: AssistantMessage | undefined
+    context.setResponseLength?.(() => 0)
+
+    // Check if tool search is enabled using the main loop's tools list.
+    // context.options.tools includes MCP tools merged via useMergedTools.
+    const useToolSearch = await isToolSearchEnabled(
+      context.options.mainLoopModel,
+      context.options.tools,
+      async () => appState.toolPermissionContext,
+      context.options.agentDefinitions.activeAgents,
+      'compact',
     )
-    const maxAttempts = retryEnabled ? MAX_COMPACT_STREAMING_RETRIES : 1
 
-    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-      // Reset state for retry
-      let hasStartedStreaming = false
-      let response: AssistantMessage | undefined
-      context.setResponseLength?.(() => 0)
+    // When tool search is enabled, include ToolSearchTool and MCP tools. They get
+    // defer_loading: true and don't count against context - the API filters them out
+    // of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
+    // and api/public_api/messages/handler.py:324).
+    // Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
+    // get the permission-filtered set from useMergedTools — same source used for
+    // isToolSearchEnabled above and normalizeMessagesForAPI below.
+    // Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
+    const tools: Tool[] = useToolSearch
+      ? uniqBy(
+          [
+            FileReadTool,
+            ToolSearchTool,
+            ...context.options.tools.filter(t => t.isMcp),
+          ],
+          'name',
+        )
+      : [FileReadTool]
 
-      // Check if tool search is enabled using the main loop's tools list.
-      // context.options.tools includes MCP tools merged via useMergedTools.
-      const useToolSearch = await isToolSearchEnabled(
-        context.options.mainLoopModel,
-        context.options.tools,
-        async () => appState.toolPermissionContext,
-        context.options.agentDefinitions.activeAgents,
-        'compact',
-      )
-
-      // When tool search is enabled, include ToolSearchTool and MCP tools. They get
-      // defer_loading: true and don't count against context - the API filters them out
-      // of system_prompt_tools before token counting (see api/token_count_api/counting.py:188
-      // and api/public_api/messages/handler.py:324).
-      // Filter MCP tools from context.options.tools (not appState.mcp.tools) so we
-      // get the permission-filtered set from useMergedTools — same source used for
-      // isToolSearchEnabled above and normalizeMessagesForAPI below.
-      // Deduplicate by name to avoid API errors when MCP tools share names with built-in tools.
-      const tools: Tool[] = useToolSearch
-        ? uniqBy(
-            [
-              FileReadTool,
-              ToolSearchTool,
-              ...context.options.tools.filter(t => t.isMcp),
-            ],
-            'name',
-          )
-        : [FileReadTool]
-
-      const messagesToSend = [
-        ...getMessagesAfterCompactBoundary(messages),
-        summaryRequest,
-      ]
-      const streamingGen = queryModelWithStreaming({
-        messages: normalizeMessagesForAPI(
-          stripImagesFromMessages(
-            stripReinjectedAttachments(
-              stripNonEssential
-                ? stripNonEssentialAttachments(messagesToSend)
-                : messagesToSend,
-            ),
+    const messagesToSend = [
+      ...getMessagesAfterCompactBoundary(messages),
+      summaryRequest,
+    ]
+    const streamingGen = queryModelWithStreaming({
+      messages: normalizeMessagesForAPI(
+        stripImagesFromMessages(
+          stripReinjectedAttachments(
+            stripNonEssential
+              ? stripNonEssentialAttachments(messagesToSend)
+              : messagesToSend,
           ),
-          context.options.tools,
         ),
-        systemPrompt: asSystemPrompt([
-          'You are a helpful AI assistant tasked with summarizing conversations.',
-        ]),
-        thinkingConfig: { type: 'disabled' as const },
-        tools,
-        signal: context.abortController.signal,
-        options: {
-          async getToolPermissionContext() {
-            const appState = context.getAppState()
-            return appState.toolPermissionContext
-          },
-          model: context.options.mainLoopModel,
-          toolChoice: undefined,
-          isNonInteractiveSession: context.options.isNonInteractiveSession,
-          hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
-          maxOutputTokensOverride: Math.min(
-            COMPACT_MAX_OUTPUT_TOKENS,
-            getMaxOutputTokensForModel(context.options.mainLoopModel),
-          ),
-          querySource: 'compact',
-          agents: context.options.agentDefinitions.activeAgents,
-          mcpTools: [],
-          effortValue: appState.effortValue,
+        context.options.tools,
+      ),
+      systemPrompt: asSystemPrompt([
+        'You are a helpful AI assistant tasked with summarizing conversations.',
+      ]),
+      thinkingConfig: { type: 'disabled' as const },
+      tools,
+      signal: context.abortController.signal,
+      options: {
+        async getToolPermissionContext() {
+          const appState = context.getAppState()
+          return appState.toolPermissionContext
         },
-      })
-      const streamIter = streamingGen[Symbol.asyncIterator]()
-      let next = await streamIter.next()
+        model: context.options.mainLoopModel,
+        toolChoice: undefined,
+        isNonInteractiveSession: context.options.isNonInteractiveSession,
+        hasAppendSystemPrompt: !!context.options.appendSystemPrompt,
+        maxOutputTokensOverride: Math.min(
+          COMPACT_MAX_OUTPUT_TOKENS,
+          getMaxOutputTokensForModel(context.options.mainLoopModel),
+        ),
+        querySource: 'compact',
+        agents: context.options.agentDefinitions.activeAgents,
+        mcpTools: [],
+        effortValue: appState.effortValue,
+      },
+    })
+    const streamIter = streamingGen[Symbol.asyncIterator]()
+    let next = await streamIter.next()
 
-      while (!next.done) {
-        const event = next.value
+    while (!next.done) {
+      const event = next.value
 
-        if (
-          !hasStartedStreaming &&
-          event.type === 'stream_event' &&
-          event.event.type === 'content_block_start' &&
-          event.event.content_block.type === 'text'
-        ) {
-          hasStartedStreaming = true
-          context.setStreamMode?.('responding')
-        }
-
-        if (
-          event.type === 'stream_event' &&
-          event.event.type === 'content_block_delta' &&
-          event.event.delta.type === 'text_delta'
-        ) {
-          const charactersStreamed = event.event.delta.text.length
-          context.setResponseLength?.(length => length + charactersStreamed)
-        }
-
-        if (event.type === 'assistant') {
-          response = event
-        }
-
-        next = await streamIter.next()
+      if (
+        !hasStartedStreaming &&
+        event.type === 'stream_event' &&
+        event.event.type === 'content_block_start' &&
+        event.event.content_block.type === 'text'
+      ) {
+        hasStartedStreaming = true
+        context.setStreamMode?.('responding')
       }
 
-      if (response) {
-        return response
+      if (
+        event.type === 'stream_event' &&
+        event.event.type === 'content_block_delta' &&
+        event.event.delta.type === 'text_delta'
+      ) {
+        const charactersStreamed = event.event.delta.text.length
+        context.setResponseLength?.(length => length + charactersStreamed)
       }
 
-      if (attempt < maxAttempts) {
-        logEvent('tengu_compact_streaming_retry', {
-          attempt,
-          preCompactTokenCount,
-          hasStartedStreaming,
-        })
-        await sleep(getRetryDelay(attempt), context.abortController.signal, {
-          abortError: () => new APIUserAbortError(),
-        })
-        continue
+      if (event.type === 'assistant') {
+        response = event
       }
 
-      logForDebugging(
-        `Compact streaming failed after ${attempt} attempts. hasStartedStreaming=${hasStartedStreaming}`,
-        { level: 'error' },
-      )
-      logEvent('tengu_compact_failed', {
-        reason:
-          'no_streaming_response' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-        preCompactTokenCount,
-        hasStartedStreaming,
-        retryEnabled,
-        attempts: attempt,
-        promptCacheSharingEnabled,
-      })
-      throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
+      next = await streamIter.next()
     }
 
-    // This should never be reached due to the throw above, but TypeScript needs it
+    if (response) {
+      return response
+    }
+
+    logForDebugging(
+      `Compact streaming failed. hasStartedStreaming=${hasStartedStreaming}`,
+      { level: 'error' },
+    )
+    logEvent('tengu_compact_failed', {
+      reason:
+        'no_streaming_response' as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+      preCompactTokenCount,
+      hasStartedStreaming,
+      promptCacheSharingEnabled,
+    })
     throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
   } finally {
     clearInterval(activityInterval)

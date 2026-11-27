@@ -75,10 +75,13 @@ const SEND_USER_FILE_TOOL_NAME: string | null = feature('KAIROS')
   : null
 /* eslint-enable @typescript-eslint/no-require-imports */
 
+// Attachment types that are dropped entirely when resuming a session
+const DROPPED_LEGACY_ATTACHMENT_TYPES = new Set(['compaction_reminder'])
+
 /**
  * Transforms legacy attachment types to current types for backward compatibility
  */
-function migrateLegacyAttachmentTypes(message: Message): Message {
+function migrateLegacyAttachmentTypes(message: Message): Message | null {
   if (message.type !== 'attachment') {
     return message
   }
@@ -87,6 +90,10 @@ function migrateLegacyAttachmentTypes(message: Message): Message {
     type: string
     [key: string]: unknown
   } // Handle legacy types not in current type system
+
+  if (DROPPED_LEGACY_ATTACHMENT_TYPES.has(attachment.type)) {
+    return null
+  }
 
   // Transform legacy attachment types
   if (attachment.type === 'new_file') {
@@ -173,9 +180,9 @@ export function deserializeMessagesWithInterruptDetection(
 ): DeserializeResult {
   try {
     // Transform legacy attachment types before processing
-    const migratedMessages = serializedMessages.map(
-      migrateLegacyAttachmentTypes,
-    )
+    const migratedMessages = serializedMessages
+      .map(migrateLegacyAttachmentTypes)
+      .filter((m): m is Message => m !== null)
 
     // Strip invalid permissionMode values from deserialized user messages.
     // The field is unvalidated JSON from disk and may contain modes from a different build.

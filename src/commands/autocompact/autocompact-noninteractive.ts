@@ -31,7 +31,9 @@ function describeAutoCompactWindow(
       ? ' (from CLAUDE_CODE_AUTO_COMPACT_WINDOW)'
       : source === 'settings'
         ? ' (from settings)'
-        : ' (model default)'
+        : source === 'experiment'
+          ? ' (from default)'
+          : ' (model default)'
   const cappedNote =
     configured > window ? ` · capped to ${formatTokens(window)} by model` : ''
   const lines = [
@@ -85,7 +87,8 @@ export function applyAutoCompactWindow(
   // what we just wrote to userSettings
   const effectiveSetting = getInitialSettings().autoCompactWindow
   const { window, source } = resolveAutoCompactWindow(model, effectiveSetting)
-  const overridden = source === 'env' || effectiveSetting !== tokens
+  const overridden =
+    source === 'env' || source === 'experiment' || effectiveSetting !== tokens
   if (isReset) {
     return overridden
       ? `Auto-compact window reset in settings, but a higher-priority override is active (${formatTokens(window)} tokens)`

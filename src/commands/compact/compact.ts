@@ -133,7 +133,10 @@ export const call: LocalCommandCall = async (args, context) => {
       throw new Error(ERROR_MESSAGE_INCOMPLETE_RESPONSE)
     } else {
       logError(error)
-      throw new Error(`Error during compaction: ${error}`)
+      throw new Error(
+        `Error during compaction: ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      )
     }
   }
 }

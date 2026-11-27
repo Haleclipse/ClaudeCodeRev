@@ -13,6 +13,7 @@ import { logForDebugging } from '../../utils/debug.js'
 import { isEnvTruthy } from '../../utils/envUtils.js'
 import { validateBoundedIntEnvVar } from '../../utils/envValidation.js'
 import { hasExactErrorMessage } from '../../utils/errors.js'
+import { formatTokens } from '../../utils/format.js'
 import type { CacheSafeParams } from '../../utils/forkedAgent.js'
 import { logError } from '../../utils/log.js'
 import { tokenCountWithEstimation } from '../../utils/tokens.js'
@@ -64,12 +65,17 @@ export function parseAutoCompactWindow(input: string): number | undefined {
   return Math.round(tokens)
 }
 
-export type AutoCompactWindowSource = 'env' | 'settings' | 'model'
+export type AutoCompactWindowSource =
+  | 'env'
+  | 'settings'
+  | 'experiment'
+  | 'model'
 
 /**
  * Resolves the window auto-compact works against.
  * Precedence: CLAUDE_CODE_AUTO_COMPACT_WINDOW > settings (autoCompactWindow,
- * via AppState) > the model's context window. A configured value is always
+ * via AppState) > experiment (tengu_amber_redwood, only while auto-compact is
+ * enabled) > the model's context window. A configured value is always
  * capped at the model's context window; `configured` keeps the uncapped value
  * so callers can tell the user it was clamped.
  */
@@ -99,6 +105,19 @@ export function resolveAutoCompactWindow(
       window: Math.min(modelWindow, autoCompactWindow),
       configured: autoCompactWindow,
       source: 'settings',
+    }
+  }
+  const experimentWindow = isAutoCompactEnabled()
+    ? getFeatureValue_CACHED_MAY_BE_STALE('tengu_amber_redwood', '')
+    : ''
+  if (experimentWindow) {
+    const configured = parseAutoCompactWindow(experimentWindow)
+    if (configured !== undefined) {
+      return {
+        window: Math.min(modelWindow, configured),
+        configured,
+        source: 'experiment',
+      }
     }
   }
   return { window: modelWindow, configured: modelWindow, source: 'model' }
@@ -423,6 +442,7 @@ export async function autoCompactIfNeeded(
     false,
   )
   if (sessionMemoryResult) {
+    notifyExperimentAutoCompactWindow(toolUseContext, model, autoCompactWindow)
     // Reset lastSummarizedMessageId since session memory compaction prunes messages
     // and the old message UUID will no longer exist after the REPL replaces messages
     setLastSummarizedMessageId(undefined)
@@ -460,6 +480,8 @@ export async function autoCompactIfNeeded(
       stripNonEssential,
     )
 
+    notifyExperimentAutoCompactWindow(toolUseContext, model, autoCompactWindow)
+
     // Reset lastSummarizedMessageId since legacy compaction replaces all messages
     // and the old message UUID will no longer exist in the new messages array
     setLastSummarizedMessageId(undefined)
@@ -489,4 +511,21 @@ export async function autoCompactIfNeeded(
     }
     return { wasCompacted: false, consecutiveFailures: nextFailures }
   }
+}
+
+function notifyExperimentAutoCompactWindow(
+  toolUseContext: ToolUseContext,
+  model: string,
+  autoCompactWindow: number | undefined,
+): void {
+  const { source, configured } = resolveAutoCompactWindow(
+    model,
+    autoCompactWindow,
+  )
+  if (source !== 'experiment') return
+  toolUseContext.addNotification?.({
+    key: 'autocompact-experiment-hint',
+    text: `compacted at ${formatTokens(configured)} · override with CLAUDE_CODE_AUTO_COMPACT_WINDOW=1000000`,
+    priority: 'medium',
+  })
 }

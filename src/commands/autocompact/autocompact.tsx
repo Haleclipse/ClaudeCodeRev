@@ -50,9 +50,11 @@ function AutoCompactDialog({ onDone, context }: Props): React.ReactNode {
       ? 'from CLAUDE_CODE_AUTO_COMPACT_WINDOW'
       : source === 'settings'
         ? 'from settings'
-        : 'model default'
+        : source === 'experiment'
+          ? 'from default'
+          : 'model default'
   const initialValue =
-    source === 'model'
+    source === 'model' || source === 'experiment'
       ? MODEL_DEFAULT
       : Math.min(
           MAX_WINDOW,
