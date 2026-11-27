@@ -79,6 +79,7 @@ import {
 import {
   loadRemoteManagedSettings,
   refreshRemoteManagedSettings,
+  validateRequiredRemoteManagedSettings,
 } from './services/remoteManagedSettings/index.js'
 import type { ToolInputJSONSchema } from './Tool.js'
 import {
@@ -1316,7 +1317,17 @@ async function run(): Promise<CommanderCommand> {
     // Fails open - if fetch fails, continues without remote settings
     // Settings are applied via hot-reload when they arrive
     // Must happen after init() to ensure config reading is allowed
-    void loadRemoteManagedSettings()
+    if (getSettingsForSource('policySettings')?.forceRemoteSettingsRefresh) {
+      const remoteSettings = await validateRequiredRemoteManagedSettings(
+        loadRemoteManagedSettings,
+      )
+      if (!remoteSettings.valid) {
+        process.stderr.write(remoteSettings.message + '\n')
+        process.exit(1)
+      }
+    } else {
+      void loadRemoteManagedSettings()
+    }
     void loadPolicyLimits()
 
     profileCheckpoint('preAction_after_remote_settings')
@@ -3340,7 +3351,18 @@ async function run(): Promise<CommanderCommand> {
         if (onboardingShown) {
           // Refresh auth-dependent services now that the user has logged in during onboarding.
           // Keep in sync with the post-login logic in src/commands/login.tsx
-          void refreshRemoteManagedSettings()
+          if (
+            getSettingsForSource('policySettings')?.forceRemoteSettingsRefresh
+          ) {
+            const remoteSettings = await validateRequiredRemoteManagedSettings(
+              refreshRemoteManagedSettings,
+            )
+            if (!remoteSettings.valid) {
+              return await exitWithError(root, remoteSettings.message)
+            }
+          } else {
+            void refreshRemoteManagedSettings()
+          }
           void refreshPolicyLimits()
           // Clear user data cache BEFORE GrowthBook refresh so it picks up fresh credentials
           resetUserCache()

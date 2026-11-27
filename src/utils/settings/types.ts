@@ -639,6 +639,12 @@ export const SettingsSchema = lazySchema(() =>
           'Organization UUID to require for OAuth login. Accepts a single UUID string or an array of UUIDs (any one is permitted). ' +
             'When set in managed settings, login fails if the authenticated account does not belong to a listed organization.',
         ),
+      forceRemoteSettingsRefresh: z
+        .boolean()
+        .optional()
+        .describe(
+          'When set in managed settings, the CLI blocks startup until remote managed settings are freshly fetched, and exits if the fetch fails',
+        ),
       otelHeadersHelper: z
         .string()
         .optional()
@@ -876,6 +882,20 @@ export const SettingsSchema = lazySchema(() =>
               ),
           }
         : {}),
+      proactive: z
+        .object({
+          autoEnable: z
+            .boolean()
+            .nullable()
+            .optional()
+            .describe(
+              'When true, autonomous background operation is activated automatically at launch (if entitled). ' +
+                'When false or null, the user must opt in via the /proactive command or --proactive flag. ' +
+                'Existing entitlement gates (GrowthBook flag, ZDR, managed-settings) still apply.',
+            ),
+        })
+        .optional()
+        .describe('Autonomous background operation configuration'),
       ...(feature('VOICE_MODE')
         ? {
             voiceEnabled: z
@@ -884,6 +904,27 @@ export const SettingsSchema = lazySchema(() =>
               .describe('Enable voice mode (hold-to-talk dictation)'),
           }
         : {}),
+      voice: z
+        .object({
+          enabled: z.boolean().optional(),
+          mode: z
+            .enum(['hold', 'tap'])
+            .optional()
+            .describe(
+              "'hold' (default): hold to talk. 'tap': tap to start, tap to stop+submit.",
+            ),
+          autoSubmit: z
+            .boolean()
+            .optional()
+            .describe(
+              'Submit the prompt when hold-to-talk is released (hold mode only)',
+            ),
+        })
+        .optional()
+        .describe(
+          '@internal Voice handsfree settings; behavior gated at read sites by feature(VOICE_HANDSFREE). ' +
+            'Hidden from public SDK types until external launch; see TODO on voiceEnabled above.',
+        ),
       ...(feature('KAIROS')
         ? {
             assistant: z
