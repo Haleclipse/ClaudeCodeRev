@@ -423,28 +423,6 @@ export function cloneContentReplacementState(
 }
 
 /**
- * Resolve the per-message aggregate budget limit. GrowthBook override
- * (tengu_hawthorn_window) wins when present and a finite positive number;
- * otherwise falls back to the hardcoded constant. Defensive typeof/finite
- * check: GrowthBook's cache returns `cached !== undefined ? cached : default`,
- * so a flag served as null/string/NaN leaks through.
- */
-export function getPerMessageBudgetLimit(): number {
-  const override = getFeatureValue_CACHED_MAY_BE_STALE<number | null>(
-    'tengu_hawthorn_window',
-    null,
-  )
-  if (
-    typeof override === 'number' &&
-    Number.isFinite(override) &&
-    override > 0
-  ) {
-    return override
-  }
-  return MAX_TOOL_RESULTS_PER_MESSAGE_CHARS
-}
-
-/**
  * Provision replacement state for a new conversation thread.
  *
  * Encapsulates the feature-flag gate + reconstruct-vs-fresh choice:
@@ -751,7 +729,7 @@ async function buildReplacement(
  * Enforce the per-message budget on aggregate tool result size.
  *
  * For each user message whose tool_result blocks together exceed the
- * per-message limit (see getPerMessageBudgetLimit), the largest FRESH
+ * per-message limit (MAX_TOOL_RESULTS_PER_MESSAGE_CHARS), the largest FRESH
  * (never-before-seen) results in THAT message are persisted to disk and
  * replaced with previews.
  * Messages are evaluated independently — a 150K result in one message and
@@ -794,7 +772,7 @@ export async function enforceToolResultBudget(
   // Resolve once per call. A mid-session flag change only affects FRESH
   // messages (prior decisions are frozen via seenIds/replacements), so
   // prompt cache for already-seen content is preserved regardless.
-  const limit = getPerMessageBudgetLimit()
+  const limit = MAX_TOOL_RESULTS_PER_MESSAGE_CHARS
 
   // Walk each API-level message group independently. For previously-processed messages
   // (all IDs in seenIds) this just re-applies cached replacements. For the

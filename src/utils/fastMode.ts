@@ -16,7 +16,6 @@ import {
   handleOAuth401Error,
   hasProfileScope,
 } from './auth.js'
-import { isInBundledMode } from './bundledMode.js'
 import { getGlobalConfig, saveGlobalConfig } from './config.js'
 import { logForDebugging } from './debug.js'
 import { isEnvTruthy } from './envUtils.js'
@@ -37,6 +36,10 @@ import { createSignal } from './signal.js'
 
 export function isFastModeEnabled(): boolean {
   return !isEnvTruthy(process.env.CLAUDE_CODE_DISABLE_FAST_MODE)
+}
+
+function isFastModeOrgCheckSkipped(): boolean {
+  return isEnvTruthy(process.env.CLAUDE_CODE_SKIP_FAST_MODE_ORG_CHECK)
 }
 
 export function isFastModeAvailable(): boolean {
@@ -84,15 +87,6 @@ export function getFastModeUnavailableReason(): string | null {
     return statigReason
   }
 
-  // Previously, fast mode required the native binary (bun build). This is no
-  // longer necessary, but we keep this option behind a flag just in case.
-  if (
-    !isInBundledMode() &&
-    getFeatureValue_CACHED_MAY_BE_STALE('tengu_marble_sandcastle', false)
-  ) {
-    return 'Fast mode requires the native binary · Install from: https://claude.com/product/claude-code'
-  }
-
   // Not available in the SDK unless explicitly opted in via --settings.
   // Assistant daemon mode is exempt — it's first-party orchestration, and
   // kairosActive is set before this check runs (main.tsx:~1626 vs ~3249).
@@ -117,7 +111,7 @@ export function getFastModeUnavailableReason(): string | null {
     return reason
   }
 
-  if (orgStatus.status === 'disabled') {
+  if (orgStatus.status === 'disabled' && !isFastModeOrgCheckSkipped()) {
     if (
       orgStatus.reason === 'network_error' ||
       orgStatus.reason === 'unknown'
@@ -397,6 +391,10 @@ export function resolveFastModeStatusFromCache(): void {
   if (orgStatus.status !== 'pending') {
     return
   }
+  if (isFastModeOrgCheckSkipped()) {
+    orgStatus = { status: 'enabled' }
+    return
+  }
   const isAnt = process.env.USER_TYPE === 'ant'
   const cachedEnabled = getGlobalConfig().penguinModeOrgEnabled === true
   orgStatus =
@@ -412,6 +410,11 @@ export async function prefetchFastModeStatus(): Promise<void> {
   }
 
   if (!isFastModeEnabled()) {
+    return
+  }
+
+  if (isFastModeOrgCheckSkipped()) {
+    orgStatus = { status: 'enabled' }
     return
   }
 

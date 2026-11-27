@@ -6,7 +6,6 @@ import {
   IMAGE_MAX_WIDTH,
   IMAGE_TARGET_RAW_SIZE,
 } from '../constants/apiLimits.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../services/analytics/growthbook.js'
 import { getImageProcessor } from '../tools/FileReadTool/imageProcessor.js'
 import { logForDebugging } from './debug.js'
 import { execFileNoThrowWithCwd } from './execFileNoThrow.js'
@@ -19,10 +18,8 @@ import {
 import { logError } from './log.js'
 import { execaShell } from './safeExeca.js'
 
-// Native NSPasteboard reader. GrowthBook gate tengu_collage_kaleidoscope is
-// a kill switch (default on). Falls through to osascript when off.
-// The gate string is inlined at each callsite INSIDE the feature() condition
-// — module-scope helpers are NOT tree-shaken (see docs/feature-gating.md).
+// Native NSPasteboard reader. Falls through to osascript when the native
+// module is unavailable.
 
 type SupportedPlatform = 'darwin' | 'linux' | 'win32'
 
@@ -97,10 +94,7 @@ export async function hasImageInClipboard(): Promise<boolean> {
   if (process.platform !== 'darwin') {
     return false
   }
-  if (
-    feature('NATIVE_CLIPBOARD_IMAGE') &&
-    getFeatureValue_CACHED_MAY_BE_STALE('tengu_collage_kaleidoscope', true)
-  ) {
+  if (feature('NATIVE_CLIPBOARD_IMAGE')) {
     // Native NSPasteboard check (~0.03ms warm). Fall through to osascript
     // when the module/export is missing. Catch a throw too: it would surface
     // as an unhandled rejection in useClipboardImageHint's setTimeout.
@@ -128,11 +122,7 @@ export async function getImageFromClipboard(): Promise<ImageWithDimensions | nul
   // path below. Throws if the native module is unavailable, in which case
   // the catch block falls through to osascript. A `null` return from the
   // native call is authoritative (clipboard has no image).
-  if (
-    feature('NATIVE_CLIPBOARD_IMAGE') &&
-    process.platform === 'darwin' &&
-    getFeatureValue_CACHED_MAY_BE_STALE('tengu_collage_kaleidoscope', true)
-  ) {
+  if (feature('NATIVE_CLIPBOARD_IMAGE') && process.platform === 'darwin') {
     try {
       const { getNativeModule } = await import('image-processor-napi')
       const readClipboard = getNativeModule()?.readClipboardImage

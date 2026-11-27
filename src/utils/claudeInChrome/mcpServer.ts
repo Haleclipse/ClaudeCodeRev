@@ -8,7 +8,6 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { format } from 'util'
 import { shutdownDatadog } from '../../services/analytics/datadog.js'
 import { shutdown1PEventLogging } from '../../services/analytics/firstPartyEventLogger.js'
-import { getFeatureValue_CACHED_MAY_BE_STALE } from '../../services/analytics/growthbook.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
   logEvent,
@@ -44,19 +43,9 @@ function isPermissionMode(raw: string): raw is PermissionMode {
 }
 
 /**
- * Resolves the Chrome bridge URL based on environment and feature flag.
- * Bridge is used when the feature flag is enabled; ant users always get
- * bridge. API key / 3P users fall back to native messaging.
+ * Resolves the Chrome bridge URL based on environment.
  */
-function getChromeBridgeUrl(): string | undefined {
-  const bridgeEnabled =
-    process.env.USER_TYPE === 'ant' ||
-    getFeatureValue_CACHED_MAY_BE_STALE('tengu_copper_bridge', false)
-
-  if (!bridgeEnabled) {
-    return undefined
-  }
-
+function getChromeBridgeUrl(): string {
   if (
     isEnvTruthy(process.env.USE_LOCAL_OAUTH) ||
     isEnvTruthy(process.env.LOCAL_BRIDGE)
@@ -87,7 +76,7 @@ export function createChromeContext(
 ): ClaudeForChromeContext {
   const logger = new DebugLogger()
   const chromeBridgeUrl = getChromeBridgeUrl()
-  logger.info(`Bridge URL: ${chromeBridgeUrl ?? 'none (using native socket)'}`)
+  logger.info(`Bridge URL: ${chromeBridgeUrl}`)
   const rawPermissionMode =
     env?.CLAUDE_CHROME_PERMISSION_MODE ??
     process.env.CLAUDE_CHROME_PERMISSION_MODE
@@ -136,18 +125,16 @@ export function createChromeContext(
     getPersistedDeviceId: () => {
       return getGlobalConfig().chromeExtension?.pairedDeviceId
     },
-    ...(chromeBridgeUrl && {
-      bridgeConfig: {
-        url: chromeBridgeUrl,
-        getUserId: async () => {
-          return getGlobalConfig().oauthAccount?.accountUuid
-        },
-        getOAuthToken: async () => {
-          return getClaudeAIOAuthTokens()?.accessToken ?? ''
-        },
-        ...(isLocalBridge() && { devUserId: 'dev_user_local' }),
+    bridgeConfig: {
+      url: chromeBridgeUrl,
+      getUserId: async () => {
+        return getGlobalConfig().oauthAccount?.accountUuid
       },
-    }),
+      getOAuthToken: async () => {
+        return getClaudeAIOAuthTokens()?.accessToken ?? ''
+      },
+      ...(isLocalBridge() && { devUserId: 'dev_user_local' }),
+    },
     ...(initialPermissionMode && { initialPermissionMode }),
     // Wire inference for the browser_task tool — the chrome-mcp server runs
     // a lightning-mode agent loop in Node and calls the extension's

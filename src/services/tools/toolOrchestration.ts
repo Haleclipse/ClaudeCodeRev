@@ -6,9 +6,8 @@ import { all } from '../../utils/generators.js'
 import { type MessageUpdateLazy, runToolUse } from './toolExecution.js'
 
 function getMaxToolUseConcurrency(): number {
-  return (
-    parseInt(process.env.CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY || '', 10) || 10
-  )
+  const parsed = parseInt(process.env.CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY || '', 10)
+  return parsed > 0 ? parsed : 10
 }
 
 export type MessageUpdate = {
@@ -106,8 +105,8 @@ function partitionToolCalls(
           }
         })()
       : false
-    if (isConcurrencySafe && acc[acc.length - 1]?.isConcurrencySafe) {
-      acc[acc.length - 1]!.blocks.push(toolUse)
+    if (isConcurrencySafe && acc.at(-1)?.isConcurrencySafe) {
+      acc.at(-1)!.blocks.push(toolUse)
     } else {
       acc.push({ isConcurrencySafe, blocks: [toolUse] })
     }

@@ -204,44 +204,22 @@ export function getToolSearchMode(): ToolSearchMode {
 const DEFAULT_UNSUPPORTED_MODEL_PATTERNS = ['haiku']
 
 /**
- * Get the list of model patterns that do NOT support tool_reference.
- * Can be configured via GrowthBook for live updates without code changes.
- */
-function getUnsupportedToolReferencePatterns(): string[] {
-  try {
-    // Try to get from GrowthBook for live configuration
-    const patterns = getFeatureValue_CACHED_MAY_BE_STALE<string[] | null>(
-      'tengu_tool_search_unsupported_models',
-      null,
-    )
-    if (patterns && Array.isArray(patterns) && patterns.length > 0) {
-      return patterns
-    }
-  } catch {
-    // GrowthBook not ready, use defaults
-  }
-  return DEFAULT_UNSUPPORTED_MODEL_PATTERNS
-}
-
-/**
  * Check if a model supports tool_reference blocks (required for tool search).
  *
  * This uses a negative test: models are assumed to support tool_reference
  * UNLESS they match a pattern in the unsupported list. This ensures new
  * models work by default without code changes.
  *
- * Currently, Haiku models do NOT support tool_reference. This can be
- * updated via GrowthBook feature 'tengu_tool_search_unsupported_models'.
+ * Currently, Haiku models do NOT support tool_reference.
  *
  * @param model The model name to check
  * @returns true if the model supports tool_reference, false otherwise
  */
 export function modelSupportsToolReference(model: string): boolean {
   const normalizedModel = model.toLowerCase()
-  const unsupportedPatterns = getUnsupportedToolReferencePatterns()
 
   // Check if model matches any unsupported pattern
-  for (const pattern of unsupportedPatterns) {
+  for (const pattern of DEFAULT_UNSUPPORTED_MODEL_PATTERNS) {
     if (normalizedModel.includes(pattern.toLowerCase())) {
       return false
     }

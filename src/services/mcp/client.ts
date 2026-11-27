@@ -223,10 +223,8 @@ const MAX_MCP_DESCRIPTION_LENGTH = 2048
  * Uses MCP_TOOL_TIMEOUT environment variable if set, otherwise defaults to ~27.8 hours.
  */
 function getMcpToolTimeoutMs(): number {
-  return (
-    parseInt(process.env.MCP_TOOL_TIMEOUT || '', 10) ||
-    DEFAULT_MCP_TOOL_TIMEOUT_MS
-  )
+  const parsed = parseInt(process.env.MCP_TOOL_TIMEOUT || '', 10)
+  return parsed > 0 ? parsed : DEFAULT_MCP_TOOL_TIMEOUT_MS
 }
 
 import { isClaudeInChromeMCPServer } from '../../utils/claudeInChrome/common.js'
@@ -453,7 +451,8 @@ const IMAGE_MIME_TYPES = new Set([
 ])
 
 function getConnectionTimeoutMs(): number {
-  return parseInt(process.env.MCP_TIMEOUT || '', 10) || 30000
+  const parsed = parseInt(process.env.MCP_TIMEOUT || '', 10)
+  return parsed > 0 ? parsed : 30000
 }
 
 /**
@@ -549,14 +548,13 @@ export function wrapFetchWithTimeout(baseFetch: FetchLike): FetchLike {
 }
 
 export function getMcpServerConnectionBatchSize(): number {
-  return parseInt(process.env.MCP_SERVER_CONNECTION_BATCH_SIZE || '', 10) || 3
+  const parsed = parseInt(process.env.MCP_SERVER_CONNECTION_BATCH_SIZE || '', 10)
+  return parsed > 0 ? parsed : 3
 }
 
 function getRemoteMcpServerConnectionBatchSize(): number {
-  return (
-    parseInt(process.env.MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE || '', 10) ||
-    20
-  )
+  const parsed = parseInt(process.env.MCP_REMOTE_SERVER_CONNECTION_BATCH_SIZE || '', 10)
+  return parsed > 0 ? parsed : 20
 }
 
 function isLocalMcpServer(config: ScopedMcpServerConfig): boolean {
