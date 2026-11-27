@@ -21,7 +21,6 @@ import { logForDebugging } from '../utils/debug.js'
 import { errorMessage } from '../utils/errors.js'
 import { logError } from '../utils/log.js'
 import { enqueuePendingNotification } from '../utils/messageQueueManager.js'
-import { ALL_MODEL_CONFIGS } from '../utils/model/configs.js'
 import { deleteRemoteAgentMetadata } from '../utils/sessionStorage.js'
 import { updateTaskState } from '../utils/task/framework.js'
 import { archiveRemoteSession, teleportToRemote } from '../utils/teleport.js'
@@ -46,18 +45,6 @@ function getUltraplanTimeoutMs(): number {
 
 export const CCR_TERMS_URL =
   'https://code.claude.com/docs/en/claude-code-on-the-web'
-
-// CCR runs against the first-party API — use the canonical ID, not the
-// provider-specific string getModelStrings() would return (which may be a
-// Bedrock ARN or Vertex ID on the local CLI). Read at call time, not module
-// load: the GrowthBook cache is empty at import and `/config` Gates can flip
-// it between invocations.
-function getUltraplanModel(): string {
-  return getFeatureValue_CACHED_MAY_BE_STALE(
-    'tengu_ultraplan_model',
-    ALL_MODEL_CONFIGS.opus46.firstParty,
-  )
-}
 
 // The prompt variants are wrapped in <system-reminder> so the CCR browser
 // hides scaffolding (CLI_BLOCK_TAGS dropped by stripSystemNotifications)
@@ -124,7 +111,7 @@ const LIGHTWEIGHT_PLAN_COPY: UltraplanPromptCopy = {
     "Interactive planning on the web where you can edit and leave targeted comments on Claude's plan.",
   dialogPipeline: 'Plan → Edit → Execute',
   usageBlurb: [
-    'Remote plan mode with our most powerful model (Opus).',
+    'Remote plan mode with rich web editing experience.',
     'Runs in Claude Code on the web. When the plan is ready,',
     'you can execute it in the web session or send it back here.',
     'You can continue to work while the plan is generated remotely.',
@@ -144,8 +131,8 @@ const ULTRAPLAN_PROMPT_COPY: Record<
       "Interactive planning on the web where you can edit and leave targeted comments on Claude's plan.",
     dialogPipeline: 'Scope → Critique → Edit → Execute',
     usageBlurb: [
-      'Advanced multi-agent plan mode with our most powerful model',
-      '(Opus). Runs in Claude Code on the web. When the plan is ready,',
+      'Advanced multi-agent plan mode.',
+      'Runs in Claude Code on the web. When the plan is ready,',
       'you can execute it in the web session or send it back here.',
       'You can continue to work while the plan is generated remotely.',
     ],
@@ -472,8 +459,6 @@ async function launchDetached(opts: {
   // occurs after teleportToRemote succeeds (avoids 30min orphan).
   let sessionId: string | undefined
   try {
-    const model = getUltraplanModel()
-
     const eligibility = await checkRemoteAgentEligibility()
     if (!eligibility.eligible) {
       logEvent('tengu_ultraplan_create_failed', {
@@ -497,10 +482,10 @@ async function launchDetached(opts: {
       opts.promptIdentifier ?? getUltraplanPromptIdentifier()
     const prompt = buildUltraplanPrompt(blurb, seedPlan, promptIdentifier)
     let bundleFailMsg: string | undefined
+    let createFailMsg: string | undefined
     const session = await teleportToRemote({
       initialMessage: prompt,
       description: blurb || 'Refine local plan',
-      model,
       permissionMode: 'plan',
       ultraplan: true,
       signal,
@@ -508,15 +493,21 @@ async function launchDetached(opts: {
       onBundleFail: msg => {
         bundleFailMsg = msg
       },
+      onCreateFail: msg => {
+        createFailMsg = msg
+      },
     })
     if (!session) {
+      const failMsg = bundleFailMsg ?? createFailMsg
       logEvent('tengu_ultraplan_create_failed', {
         reason: (bundleFailMsg
           ? 'bundle_fail'
-          : 'teleport_null') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          : createFailMsg
+            ? 'create_api_fail'
+            : 'teleport_null') as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       })
       enqueuePendingNotification({
-        value: `ultraplan: session creation failed${bundleFailMsg ? ` — ${bundleFailMsg}` : ''}. See --debug for details.`,
+        value: `ultraplan: session creation failed${failMsg ? ` — ${failMsg}` : ''}. See --debug for details.`,
         mode: 'task-notification',
       })
       return
@@ -532,8 +523,6 @@ async function launchDetached(opts: {
     onSessionReady?.(buildSessionReadyMessage(url))
     logEvent('tengu_ultraplan_launched', {
       has_seed_plan: Boolean(seedPlan),
-      model:
-        model as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
       prompt_identifier:
         promptIdentifier as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
     })

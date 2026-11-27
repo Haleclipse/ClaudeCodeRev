@@ -230,6 +230,9 @@ function UltraplanSessionDetail({
                     ? 'Answer in Claude Code on the web'
                     : 'Open in Claude Code on the web',
               value: 'open' as const,
+              ...(phase === 'plan_ready' && {
+                description: 'Approve, edit, or comment on the plan',
+              }),
             },
             ...(onKill && running
               ? [

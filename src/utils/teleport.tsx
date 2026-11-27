@@ -993,6 +993,11 @@ export async function teleportToRemote(options: {
    */
   onBundleFail?: (message: string) => void
   /**
+   * Called with "<status> <statusText>: <body>" when the create-session
+   * request returns a non-success status.
+   */
+  onCreateFail?: (message: string) => void
+  /**
    * When true, disables the git-bundle fallback entirely. Use for flows like
    * autofix where CCR must push to GitHub — a bundle can't do that.
    */
@@ -1449,7 +1454,11 @@ export async function teleportToRemote(options: {
     )
 
     // Make API call
-    const response = await axios.post(url, requestBody, { headers, signal })
+    const response = await axios.post(url, requestBody, {
+      headers,
+      signal,
+      validateStatus: status => status < 500,
+    })
     const isSuccess = response.status === 200 || response.status === 201
 
     if (!isSuccess) {
@@ -1457,6 +1466,9 @@ export async function teleportToRemote(options: {
         new Error(
           `API request failed with status ${response.status}: ${response.statusText}\n\nResponse data: ${jsonStringify(response.data, null, 2)}`,
         ),
+      )
+      options.onCreateFail?.(
+        `${response.status} ${response.statusText}: ${jsonStringify(response.data)}`,
       )
       return null
     }
