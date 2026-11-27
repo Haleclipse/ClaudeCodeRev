@@ -20,6 +20,7 @@ import {
 } from '../context.js'
 import { isEnvTruthy } from '../envUtils.js'
 import { getModelStrings, resolveOverriddenModel } from './modelStrings.js'
+import type { ModelKey } from './configs.js'
 import { formatModelPricing, getOpus46CostTier } from '../modelCost.js'
 import { getSettings_DEPRECATED } from '../settings/settings.js'
 import type { PermissionMode } from '../permissions/PermissionMode.js'
@@ -101,6 +102,10 @@ export function getBestModel(): ModelName {
   return getDefaultOpusModel()
 }
 
+export const DEFAULT_3P_OPUS_KEY: ModelKey = 'opus46'
+export const DEFAULT_3P_SONNET_KEY: ModelKey = 'sonnet45'
+export const DEFAULT_3P_HAIKU_KEY: ModelKey = 'haiku45'
+
 // @[MODEL LAUNCH]: Update the default Opus model (3P providers may lag so keep defaults unchanged).
 export function getDefaultOpusModel(): ModelName {
   if (process.env.ANTHROPIC_DEFAULT_OPUS_MODEL) {
@@ -111,7 +116,7 @@ export function getDefaultOpusModel(): ModelName {
   // these will diverge again at the next model launch.
   const provider = getAPIProvider()
   if (provider !== 'firstParty' && provider !== 'anthropicAws') {
-    return getModelStrings().opus46
+    return getModelStrings()[DEFAULT_3P_OPUS_KEY]
   }
   return getModelStrings().opus46
 }
@@ -124,7 +129,7 @@ export function getDefaultSonnetModel(): ModelName {
   // Default to Sonnet 4.5 for 3P since they may not have 4.6 yet
   const provider = getAPIProvider()
   if (provider !== 'firstParty' && provider !== 'anthropicAws') {
-    return getModelStrings().sonnet45
+    return getModelStrings()[DEFAULT_3P_SONNET_KEY]
   }
   return getModelStrings().sonnet46
 }
@@ -136,7 +141,7 @@ export function getDefaultHaikuModel(): ModelName {
   }
 
   // Haiku 4.5 is available on all platforms (first-party, Foundry, Bedrock, Vertex)
-  return getModelStrings().haiku45
+  return getModelStrings()[DEFAULT_3P_HAIKU_KEY]
 }
 
 /**

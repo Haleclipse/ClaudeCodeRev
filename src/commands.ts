@@ -42,6 +42,7 @@ import powerup from './commands/powerup/index.js'
 import releaseNotes from './commands/release-notes/index.js'
 import rename from './commands/rename/index.js'
 import resume from './commands/resume/index.js'
+import setupBedrock from './commands/setup-bedrock/index.js'
 import review, { ultrareview } from './commands/review.js'
 import session from './commands/session/index.js'
 import share from './commands/share/index.js'
@@ -298,6 +299,7 @@ const COMMANDS = memoize((): Command[] => [
   reloadPlugins,
   rename,
   resume,
+  setupBedrock,
   session,
   skills,
   stats,
