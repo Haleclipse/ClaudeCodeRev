@@ -36,6 +36,7 @@ import {
   ToolListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js'
 import omit from 'lodash-es/omit.js'
+import omitBy from 'lodash-es/omitBy.js'
 import reject from 'lodash-es/reject.js'
 import {
   type AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
@@ -862,8 +863,7 @@ export function useManageMCPConnections(
       // Clear claude.ai MCP cache so we fetch fresh configs with current auth
       // state. This is important when authVersion changes (e.g., after login/
       // logout). Kick off the fetch now so it overlaps with loadAllPlugins()
-      // inside getClaudeCodeMcpConfigs; it's awaited only at the dedup step.
-      // Phase 2 below awaits the same promise — no second network call.
+      // inside getClaudeCodeMcpConfigs; Phase 2 below awaits it.
       let claudeaiPromise: Promise<Record<string, ScopedMcpServerConfig>>
       if (isStrictMcpConfig || doesEnterpriseMcpConfigExist()) {
         claudeaiPromise = Promise.resolve({})
@@ -873,12 +873,12 @@ export function useManageMCPConnections(
       }
 
       // Phase 1: Load Claude Code configs. Plugin MCP servers that duplicate a
-      // --mcp-config entry or a claude.ai connector are suppressed here so they
-      // don't connect alongside the connector in Phase 2.
+      // --mcp-config entry are suppressed here. They are not deduped against
+      // claude.ai connectors.
       const { servers: claudeCodeConfigs, errors: mcpErrors } =
         isStrictMcpConfig
           ? { servers: {}, errors: [] }
-          : await getClaudeCodeMcpConfigs(dynamicMcpConfig, claudeaiPromise)
+          : await getClaudeCodeMcpConfigs(dynamicMcpConfig)
       if (cancelled) return
 
       // Add MCP errors to plugin errors for UI visibility (deduplicated)
@@ -888,8 +888,8 @@ export function useManageMCPConnections(
 
       // Start connecting to Claude Code servers (don't wait - runs concurrently with Phase 2)
       // Filter out disabled servers to avoid unnecessary connection attempts
-      const enabledConfigs = Object.fromEntries(
-        Object.entries(configs).filter(([name]) => !isMcpServerDisabled(name)),
+      const enabledConfigs = omitBy(configs, (_, name) =>
+        isMcpServerDisabled(name),
       )
       getMcpToolsCommandsAndResources(
         onConnectionAttempt,
@@ -946,10 +946,8 @@ export function useManageMCPConnections(
           })
 
           // Now start connecting (only enabled servers)
-          const enabledClaudeaiConfigs = Object.fromEntries(
-            Object.entries(claudeaiConfigs).filter(
-              ([name]) => !isMcpServerDisabled(name),
-            ),
+          const enabledClaudeaiConfigs = omitBy(claudeaiConfigs, (_, name) =>
+            isMcpServerDisabled(name),
           )
           getMcpToolsCommandsAndResources(
             onConnectionAttempt,
@@ -996,15 +994,14 @@ export function useManageMCPConnections(
       }
       logEvent('tengu_mcp_servers', {
         ...counts,
-        ...(process.env.USER_TYPE === 'ant' && stdioCommands.length > 0
-          ? {
-              stdio_commands: stdioCommands
-                .sort()
-                .join(
-                  ',',
-                ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
-            }
-          : {}),
+        ...(process.env.USER_TYPE === 'ant' &&
+          stdioCommands.length > 0 && {
+            stdio_commands: stdioCommands
+              .sort()
+              .join(
+                ',',
+              ) as AnalyticsMetadata_I_VERIFIED_THIS_IS_NOT_CODE_OR_FILEPATHS,
+          }),
       })
     }
 
