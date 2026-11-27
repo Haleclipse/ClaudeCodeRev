@@ -2,11 +2,11 @@
   "generatedBy": "scripts/gen-stubs.ts",
   "version": "2.1.91",
   "summary": {
-    "sourceFiles": 1917,
-    "stubFiles": 167,
-    "gatedTargets": 123,
+    "sourceFiles": 1918,
+    "stubFiles": 168,
+    "gatedTargets": 124,
     "gatedTargetsSource": 42,
-    "gatedTargetsStub": 81,
+    "gatedTargetsStub": 82,
     "gatedTargetsMissing": 0,
     "runtimeLazyTargets": 1,
     "missingExports": 1
@@ -57,7 +57,7 @@
       ],
       "env": [],
       "sites": [
-        "src/main.tsx:4090",
+        "src/main.tsx:4092",
         "src/utils/config.ts:41"
       ]
     },
@@ -273,6 +273,21 @@
       "env": [],
       "sites": [
         "src/commands.ts:108"
+      ]
+    },
+    {
+      "target": "src/commands/team-onboarding/index.ts",
+      "status": "stub",
+      "gateKind": "build",
+      "gates": [
+        "feature('TEAM_ONBOARDING')"
+      ],
+      "flags": [
+        "TEAM_ONBOARDING"
+      ],
+      "env": [],
+      "sites": [
+        "src/teamOnboarding.ts:8"
       ]
     },
     {
@@ -768,7 +783,7 @@
         "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61",
         "src/components/PromptInput/usePromptInputPlaceholder.ts:13",
         "src/constants/prompts.ts:72",
-        "src/main.tsx:6592",
+        "src/main.tsx:6597",
         "src/screens/REPL.tsx:416",
         "src/services/compact/prompt.ts:8",
         "src/tools/AgentTool/AgentTool.tsx:137",
@@ -1278,9 +1293,9 @@
         "src/constants/prompts.ts:82",
         "src/hooks/useGlobalKeybindings.tsx:107",
         "src/hooks/useGlobalKeybindings.tsx:180",
-        "src/main.tsx:2595",
-        "src/main.tsx:3206",
-        "src/main.tsx:3225"
+        "src/main.tsx:2596",
+        "src/main.tsx:3207",
+        "src/main.tsx:3226"
       ]
     },
     {
@@ -1299,7 +1314,7 @@
       "sites": [
         "src/components/Messages.tsx:107",
         "src/constants/prompts.ts:77",
-        "src/main.tsx:2593",
+        "src/main.tsx:2594",
         "src/tools/ToolSearchTool/prompt.ts:12",
         "src/utils/attachments.ts:206",
         "src/utils/conversationRecovery.ts:62",
@@ -1866,7 +1881,7 @@
       "env": [],
       "sites": [
         "src/components/permissions/ExitPlanModePermissionRequest/ExitPlanModePermissionRequest.tsx:93",
-        "src/main.tsx:401",
+        "src/main.tsx:402",
         "src/services/api/claude.ts:107",
         "src/tools/ExitPlanModeTool/ExitPlanModeV2Tool.ts:53",
         "src/utils/attachments.ts:106",
@@ -2051,7 +2066,7 @@
       ],
       "referencedFrom": [
         "src/dialogLaunchers.tsx:10",
-        "src/main.tsx:4503 (dynamic)"
+        "src/main.tsx:4505 (dynamic)"
       ]
     },
     {
@@ -2085,15 +2100,15 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6307 (dynamic)",
-        "src/main.tsx:6323 (dynamic)",
-        "src/main.tsx:6347 (dynamic)",
-        "src/main.tsx:6366 (dynamic)",
-        "src/main.tsx:6383 (dynamic)",
-        "src/main.tsx:6393 (dynamic)",
-        "src/main.tsx:6421 (dynamic)",
-        "src/main.tsx:6431 (dynamic)",
-        "src/main.tsx:6445 (dynamic)"
+        "src/main.tsx:6312 (dynamic)",
+        "src/main.tsx:6328 (dynamic)",
+        "src/main.tsx:6352 (dynamic)",
+        "src/main.tsx:6371 (dynamic)",
+        "src/main.tsx:6388 (dynamic)",
+        "src/main.tsx:6398 (dynamic)",
+        "src/main.tsx:6426 (dynamic)",
+        "src/main.tsx:6436 (dynamic)",
+        "src/main.tsx:6450 (dynamic)"
       ]
     },
     {
@@ -2109,7 +2124,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6270 (dynamic)"
+        "src/main.tsx:6275 (dynamic)"
       ]
     },
     {
@@ -2130,7 +2145,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:6246 (dynamic)"
+        "src/main.tsx:6251 (dynamic)"
       ]
     },
     {
@@ -2434,6 +2449,18 @@
       ]
     },
     {
+      "path": "src/commands/team-onboarding/index.ts",
+      "kind": "gated-inert",
+      "exports": [
+        "TEAM_ONBOARDING_DISCOVERY_COPY",
+        "resolveTeamOnboardingDiscoveryArm"
+      ],
+      "referencedFrom": [
+        "src/teamOnboarding.ts:8 (dynamic)",
+        "src/teamOnboarding.ts:8 (require)"
+      ]
+    },
+    {
       "path": "src/commands/teleport/index.ts",
       "kind": "inferred",
       "exports": [
@@ -2535,7 +2562,7 @@
       "exports": [],
       "referencedFrom": [
         "src/dialogLaunchers.tsx:39 (dynamic)",
-        "src/main.tsx:3319 (dynamic)"
+        "src/main.tsx:3321 (dynamic)"
       ]
     },
     {
@@ -2947,7 +2974,7 @@
         "src/components/PromptInput/PromptInputFooterLeftSide.tsx:61 (require)",
         "src/components/PromptInput/usePromptInputPlaceholder.ts:13 (require)",
         "src/constants/prompts.ts:72 (require)",
-        "src/main.tsx:6592 (require)",
+        "src/main.tsx:6597 (require)",
         "src/screens/REPL.tsx:416 (require)",
         "src/services/compact/prompt.ts:8 (dynamic)",
         "src/services/compact/prompt.ts:8 (require)",
@@ -2980,7 +3007,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5636 (dynamic)"
+        "src/main.tsx:5641 (dynamic)"
       ]
     },
     {
@@ -2988,7 +3015,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5793 (dynamic)"
+        "src/main.tsx:5798 (dynamic)"
       ]
     },
     {
@@ -2996,7 +3023,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5642 (dynamic)"
+        "src/main.tsx:5647 (dynamic)"
       ]
     },
     {
@@ -3004,8 +3031,8 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5765 (dynamic)",
-        "src/main.tsx:924 (dynamic)"
+        "src/main.tsx:5770 (dynamic)",
+        "src/main.tsx:925 (dynamic)"
       ]
     },
     {
@@ -3013,7 +3040,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5634 (dynamic)"
+        "src/main.tsx:5639 (dynamic)"
       ]
     },
     {
@@ -3021,7 +3048,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5639 (dynamic)"
+        "src/main.tsx:5644 (dynamic)"
       ]
     },
     {
@@ -3029,7 +3056,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5640 (dynamic)"
+        "src/main.tsx:5645 (dynamic)"
       ]
     },
     {
@@ -3037,7 +3064,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:5635 (dynamic)"
+        "src/main.tsx:5640 (dynamic)"
       ]
     },
     {
@@ -3360,7 +3387,7 @@
       ],
       "referencedFrom": [
         "src/hooks/useSSHSession.ts:23",
-        "src/main.tsx:4417 (dynamic)",
+        "src/main.tsx:4419 (dynamic)",
         "src/screens/REPL.tsx:149"
       ]
     },
@@ -3814,7 +3841,7 @@
         "src/hooks/useSkillImprovementSurvey.ts:9",
         "src/hooks/useSwarmInitialization.ts:13",
         "src/hooks/useTurnDiffs.ts:5",
-        "src/main.tsx:215",
+        "src/main.tsx:216",
         "src/query.ts:31",
         "src/query/stopHooks.ts:10",
         "src/remote/remotePermissionBridge.ts:4",
@@ -3851,6 +3878,7 @@
         "src/tasks/InProcessTeammateTask/types.ts:4",
         "src/tasks/LocalAgentTask/LocalAgentTask.tsx:23",
         "src/tasks/LocalMainSessionTask.ts:23",
+        "src/teamOnboarding.ts:2",
         "src/tools/AgentTool/AgentTool.tsx:4",
         "src/tools/AgentTool/UI.tsx:24",
         "src/tools/AgentTool/agentToolUtils.ts:39",
@@ -4061,7 +4089,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:4936 (dynamic)"
+        "src/main.tsx:4938 (dynamic)"
       ]
     },
     {
@@ -4069,7 +4097,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:717 (dynamic)"
+        "src/main.tsx:718 (dynamic)"
       ]
     },
     {
@@ -4111,7 +4139,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:3963 (dynamic)"
+        "src/main.tsx:3965 (dynamic)"
       ]
     },
     {
@@ -4135,7 +4163,7 @@
       "kind": "inferred",
       "exports": [],
       "referencedFrom": [
-        "src/main.tsx:4243 (dynamic)"
+        "src/main.tsx:4245 (dynamic)"
       ]
     },
     {

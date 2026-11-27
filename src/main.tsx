@@ -203,6 +203,7 @@ import {
   VALID_UPDATE_SCOPES,
 } from './services/plugins/pluginCliCommands.js'
 import { initBundledSkills } from './skills/bundled/index.js'
+import { getTeamOnboardingDiscoveryMessages } from './teamOnboarding.js'
 import type { AgentColorName } from './tools/AgentTool/agentColorManager.js'
 import {
   getActiveAgentsFromList,
@@ -3247,6 +3248,7 @@ async function run(): Promise<CommanderCommand> {
       let root!: Root
       let getFpsMetrics!: () => FpsMetrics | undefined
       let stats!: StatsStore
+      let onboardingShown = false
 
       // Show setup screens after commands are loaded
       if (!isNonInteractiveSession) {
@@ -3273,7 +3275,7 @@ async function run(): Promise<CommanderCommand> {
 
         logForDebugging('[STARTUP] Running showSetupScreens()...')
         const setupScreensStart = Date.now()
-        const onboardingShown = await showSetupScreens(
+        onboardingShown = await showSetupScreens(
           root,
           permissionMode,
           allowDangerouslySkipPermissions,
@@ -5224,10 +5226,13 @@ async function run(): Promise<CommanderCommand> {
             )
           }
         }
-        const initialMessages = deepLinkBanner
-          ? [deepLinkBanner, ...hookMessages]
-          : hookMessages.length > 0
-            ? hookMessages
+        const startupMessages = [
+          ...(deepLinkBanner ? [deepLinkBanner] : []),
+          ...getTeamOnboardingDiscoveryMessages({ onboardingShown }),
+        ]
+        const initialMessages =
+          startupMessages.length > 0 || hookMessages.length > 0
+            ? [...startupMessages, ...hookMessages]
             : undefined
 
         await launchRepl(

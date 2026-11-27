@@ -89,6 +89,7 @@ const FEATURE_FLAGS: Record<string, boolean> = {
   VERIFICATION_AGENT: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
   NEW_INIT: true,
   HARD_FAIL: false, // official 2.1.88: bundle token-distance search (version-diff/flag-search.mjs)
+  TEAM_ONBOARDING: false, // official 2.1.90: flag name invented; the gate leaves `= null` for the team-onboarding module (opened in 2.1.94)
 
   // === Platform-specific (detected at build time) ===
   IS_LIBC_GLIBC: process.platform === 'linux',
